@@ -80,6 +80,8 @@ public class KernelDeploymentParsingProcessor implements DeploymentUnitProcessor
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         DeploymentUnit unit = phaseContext.getDeploymentUnit();
+        if (unit.hasAttachment(Attachments.OSGI_MANIFEST))
+            return;
         final VirtualFile deploymentRoot = unit.getAttachment(Attachments.DEPLOYMENT_ROOT).getRoot();
         parseDescriptors(unit, deploymentRoot);
         final List<ResourceRoot> resourceRoots = unit.getAttachmentList(Attachments.RESOURCE_ROOTS);
