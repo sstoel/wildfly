@@ -412,7 +412,7 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
 
         infoBuilder.install();
 
-	final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
+        final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
         final UndertowDeploymentService service = new UndertowDeploymentService(injectionContainer, !isWebappBundle);
         final ServiceBuilder<UndertowDeploymentService> builder = serviceTarget.addService(deploymentServiceName, service)
                 .addAliases(legacyDeploymentServiceName)
@@ -449,9 +449,9 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
                 jaccBuilder.requires(deploymentServiceName);
                 jaccBuilder.setInitialMode(Mode.PASSIVE).install();
             }
-	}
+        }
 
-	// OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
+        // OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
         if (isWebappBundle) {
             UndertowDeploymentService.ContextActivatorImpl activator = new UndertowDeploymentService.ContextActivatorImpl(builder.install());
             deploymentUnit.putAttachment(ContextActivator.ATTACHMENT_KEY, activator);
