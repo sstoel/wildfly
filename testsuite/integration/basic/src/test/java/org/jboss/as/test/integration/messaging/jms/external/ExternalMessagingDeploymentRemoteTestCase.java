@@ -31,6 +31,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
+import java.net.SocketPermission;
 import java.net.URL;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +45,7 @@ import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.common.HttpRequest;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
+import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
 import org.jboss.dmr.ModelNode;
@@ -81,6 +83,7 @@ public class ExternalMessagingDeploymentRemoteTestCase {
 
         @Override
         public void doSetup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
+            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
             JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
             ops.createJmsQueue(QUEUE_NAME, "/queue/" + QUEUE_NAME);
             ops.createJmsTopic(TOPIC_NAME, "/topic/" + TOPIC_NAME);
@@ -186,6 +189,8 @@ public class ExternalMessagingDeploymentRemoteTestCase {
         return create(WebArchive.class, "ClientMessagingDeploymentTestCase.war")
                 .addClass(MessagingServlet.class)
                 .addClasses(QueueMDB.class, TopicMDB.class)
+                .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
+                        new SocketPermission("localhost", "resolve")), "permissions.xml")
                 .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
     }
 

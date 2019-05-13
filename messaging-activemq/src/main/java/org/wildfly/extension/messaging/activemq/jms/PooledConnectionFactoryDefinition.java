@@ -23,6 +23,7 @@
 package org.wildfly.extension.messaging.activemq.jms;
 
 import static java.lang.System.arraycopy;
+import static org.wildfly.extension.messaging.activemq.AbstractTransportDefinition.CONNECTOR_CAPABILITY_NAME;
 import static org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttribute.getDefinitions;
 
 import java.util.Arrays;
@@ -32,6 +33,8 @@ import java.util.Map;
 
 import org.jboss.as.controller.AbstractAttributeDefinitionBuilder;
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.AttributeMarshaller;
+import org.jboss.as.controller.AttributeParser;
 import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.PrimitiveListAttributeDefinition;
 import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
@@ -39,8 +42,13 @@ import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleListAttributeDefinition;
 import org.jboss.as.controller.SimpleMapAttributeDefinition;
+import org.jboss.as.controller.SimpleResourceDefinition;
+import org.jboss.as.controller.StringListAttributeDefinition;
+import org.jboss.as.controller.capability.DynamicNameMappers;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.wildfly.extension.messaging.activemq.AbstractTransportDefinition;
 import org.wildfly.extension.messaging.activemq.CommonAttributes;
 import org.wildfly.extension.messaging.activemq.MessagingExtension;
 import org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttributes.Common;
@@ -52,7 +60,10 @@ import org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttributes.
  * @author <a href="http://jmesnil.net">Jeff Mesnil</a> (c) 2012 Red Hat Inc.
  */
 public class PooledConnectionFactoryDefinition extends PersistentResourceDefinition {
-
+    static final String CAPABILITY_NAME = "org.wildfly.messaging.activemq.server.pooled-connection-factory";
+    static final RuntimeCapability<Void> CAPABILITY = RuntimeCapability.Builder.of(CAPABILITY_NAME, true, PooledConnectionFactoryService.class)
+            .setDynamicNameMapper(DynamicNameMappers.PARENT)
+            .build();
     // the generation of the Pooled CF attributes is a bit ugly but it is with purpose:
     // * factorize the attributes which are common between the regular CF and the pooled CF
     // * keep in a single place the subtle differences (e.g. different default values for reconnect-attempts between
@@ -70,7 +81,17 @@ public class PooledConnectionFactoryDefinition extends PersistentResourceDefinit
             if (definition == Common.RECONNECT_ATTEMPTS) {
                 AttributeDefinition copy = copy(Pooled.RECONNECT_ATTEMPTS, AttributeAccess.Flag.RESTART_ALL_SERVICES);
                 newAttr = ConnectionFactoryAttribute.create(copy, Pooled.RECONNECT_ATTEMPTS_PROP_NAME, true);
-            } else {
+            } else if (definition == Common.CONNECTORS) {
+                StringListAttributeDefinition copy = new StringListAttributeDefinition.Builder(Common.CONNECTORS)
+                        .setAlternatives(CommonAttributes.DISCOVERY_GROUP)
+                        .setRequired(true)
+                        .setAttributeParser(AttributeParser.STRING_LIST)
+                        .setAttributeMarshaller(AttributeMarshaller.STRING_LIST)
+                        .setCapabilityReference(new AbstractTransportDefinition.TransportCapabilityReferenceRecorder(CAPABILITY_NAME, CONNECTOR_CAPABILITY_NAME, false))
+                        .setRestartAllServices()
+                        .build();
+                newAttr = ConnectionFactoryAttribute.create(copy, attr.getPropertyName(), attr.isResourceAdapterProperty(), attr.getConfigType());
+            }else {
                 AttributeDefinition copy = copy(definition, AttributeAccess.Flag.RESTART_ALL_SERVICES);
                 newAttr = ConnectionFactoryAttribute.create(copy, attr.getPropertyName(), attr.isResourceAdapterProperty(), attr.getConfigType());
             }
@@ -111,9 +132,14 @@ public class PooledConnectionFactoryDefinition extends PersistentResourceDefinit
     public static final PooledConnectionFactoryDefinition DEPLOYMENT_INSTANCE = new PooledConnectionFactoryDefinition(true);
 
     public PooledConnectionFactoryDefinition(final boolean deployed) {
-        super(MessagingExtension.POOLED_CONNECTION_FACTORY_PATH, MessagingExtension.getResourceDescriptionResolver(CommonAttributes.POOLED_CONNECTION_FACTORY),
-                PooledConnectionFactoryAdd.INSTANCE,
-                PooledConnectionFactoryRemove.INSTANCE);
+        this(new SimpleResourceDefinition.Parameters(MessagingExtension.POOLED_CONNECTION_FACTORY_PATH, MessagingExtension.getResourceDescriptionResolver(CommonAttributes.POOLED_CONNECTION_FACTORY))
+                .setAddHandler(PooledConnectionFactoryAdd.INSTANCE)
+                .setRemoveHandler(PooledConnectionFactoryRemove.INSTANCE)
+                .setCapabilities(CAPABILITY), deployed);
+    }
+
+    protected PooledConnectionFactoryDefinition(SimpleResourceDefinition.Parameters parameters, final boolean deployed) {
+        super(parameters);
         this.deployed = deployed;
     }
 
@@ -124,7 +150,7 @@ public class PooledConnectionFactoryDefinition extends PersistentResourceDefinit
 
     @Override
     public void registerAttributes(ManagementResourceRegistration registry) {
-        AttributeDefinition[] definitions = getDefinitions(ATTRIBUTES);
+        Collection<AttributeDefinition> definitions = getAttributes();
         ReloadRequiredWriteAttributeHandler reloadRequiredWriteAttributeHandler = new ReloadRequiredWriteAttributeHandler(definitions);
         for (AttributeDefinition attr : definitions) {
             if (!attr.getFlags().contains(AttributeAccess.Flag.STORAGE_RUNTIME)) {

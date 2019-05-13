@@ -57,6 +57,7 @@ import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.controller.security.CredentialReference;
@@ -147,6 +148,7 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
         // expression in the model can be resolved to a correct value.
         @SuppressWarnings("unused")
         final boolean statsEnabled = STATISTICS_ENABLED.resolveModelAttribute(context, model).asBoolean();
+        final CapabilityServiceSupport support = context.getCapabilityServiceSupport();
 
         final ServiceTarget serviceTarget = context.getServiceTarget();
 
@@ -178,16 +180,17 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
                 .addDependency(ConnectorServices.MANAGEMENT_REPOSITORY_SERVICE, ManagementRepository.class,
                         dataSourceService.getManagementRepositoryInjector())
                 .addDependency(ConnectorServices.JDBC_DRIVER_REGISTRY_SERVICE, DriverRegistry.class,
-                        dataSourceService.getDriverRegistryInjector())
-                .addDependency(ConnectorServices.IDLE_REMOVER_SERVICE)
-                .addDependency(ConnectorServices.CONNECTION_VALIDATOR_SERVICE)
-                .addDependency(ConnectorServices.IRONJACAMAR_MDR, MetadataRepository.class, dataSourceService.getMdrInjector())
-                .addDependency(NamingService.SERVICE_NAME);
+                        dataSourceService.getDriverRegistryInjector());
+         dataSourceServiceBuilder.requires(ConnectorServices.IDLE_REMOVER_SERVICE);
+         dataSourceServiceBuilder.requires(ConnectorServices.CONNECTION_VALIDATOR_SERVICE);
+         dataSourceServiceBuilder.addDependency(ConnectorServices.IRONJACAMAR_MDR, MetadataRepository.class, dataSourceService.getMdrInjector());
+         dataSourceServiceBuilder.requires(support.getCapabilityServiceName(NamingService.CAPABILITY_NAME));
+
         if (jta) {
-            dataSourceServiceBuilder.addDependency(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE, TransactionIntegration.class, dataSourceService.getTransactionIntegrationInjector())
-                    .addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class, dataSourceService.getCcmInjector())
-                    .addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append(DEFAULT_NAME))
-                    .addDependency(ConnectorServices.RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, dataSourceService.getRaRepositoryInjector());
+            dataSourceServiceBuilder.addDependency(support.getCapabilityServiceName(ConnectorServices.TRANSACTION_INTEGRATION_CAPABILITY_NAME), TransactionIntegration.class, dataSourceService.getTransactionIntegrationInjector());
+            dataSourceServiceBuilder.addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class, dataSourceService.getCcmInjector());
+            dataSourceServiceBuilder.requires(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append(DEFAULT_NAME));
+            dataSourceServiceBuilder.addDependency(ConnectorServices.RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, dataSourceService.getRaRepositoryInjector());
 
         } else {
             dataSourceServiceBuilder.addDependency(ConnectorServices.NON_JTA_DS_RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, dataSourceService.getRaRepositoryInjector())
@@ -308,7 +311,7 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
             if (dsSecurityConfig != null) {
                 final String securityDomainName = dsSecurityConfig.getSecurityDomain();
                 if (!elytronEnabled && securityDomainName != null) {
-                    builder.addDependency(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
+                    builder.requires(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
                 }
             }
             // add dependency on security domain service if applicable for recovery config
@@ -317,7 +320,7 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
                 if (credential != null) {
                     final String securityDomainName = credential.getSecurityDomain();
                     if (!RECOVERY_ELYTRON_ENABLED.resolveModelAttribute(context, model).asBoolean() && securityDomainName != null) {
-                        builder.addDependency(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
+                        builder.requires(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
                     }
                 }
             }
@@ -360,7 +363,7 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
             if (dsSecurityConfig != null) {
                 final String securityDomainName = dsSecurityConfig.getSecurityDomain();
                 if (!elytronEnabled && securityDomainName != null) {
-                    builder.addDependency(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
+                    builder.requires(SecurityDomainService.SERVICE_NAME.append(securityDomainName));
                 }
             }
             for (ServiceName name : serviceNames) {
@@ -386,12 +389,12 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
             if (!ServiceController.State.UP.equals(dataSourceController.getState())) {
                 final boolean statsEnabled = STATISTICS_ENABLED.resolveModelAttribute(context, model).asBoolean();
                 DataSourceStatisticsService statsService = new DataSourceStatisticsService(datasourceRegistration, statsEnabled);
-                serviceTarget.addService(dataSourceServiceName.append(Constants.STATISTICS), statsService)
-                        .addAliases(dataSourceServiceNameAlias)
-                        .addDependency(dataSourceServiceName)
-                        .addDependency(CommonDeploymentService.getServiceName( ContextNames.bindInfoFor(jndiName)), CommonDeployment.class, statsService.getCommonDeploymentInjector())
-                        .setInitialMode(ServiceController.Mode.PASSIVE)
-                        .install();
+                final ServiceBuilder statsServiceSB = serviceTarget.addService(dataSourceServiceName.append(Constants.STATISTICS), statsService);
+                statsServiceSB.addAliases(dataSourceServiceNameAlias);
+                statsServiceSB.requires(dataSourceServiceName);
+                statsServiceSB.addDependency(CommonDeploymentService.getServiceName( ContextNames.bindInfoFor(jndiName)), CommonDeployment.class, statsService.getCommonDeploymentInjector());
+                statsServiceSB.setInitialMode(ServiceController.Mode.PASSIVE);
+                statsServiceSB.install();
                 dataSourceController.setMode(ServiceController.Mode.ACTIVE);
             } else {
                 throw new OperationFailedException(ConnectorLogger.ROOT_LOGGER.serviceAlreadyStarted("Data-source", dsName));
@@ -415,6 +418,7 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
                 .addService(bindInfo.getBinderServiceName(), binderService)
                 .addDependency(referenceFactoryServiceName, ManagedReferenceFactory.class, binderService.getManagedObjectInjector())
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binderService.getNamingStoreInjector()).addListener(new LifecycleListener() {
+                    private volatile boolean bound;
                     public void handleEvent(final ServiceController<? extends Object> controller, final LifecycleEvent event) {
                         switch (event) {
                             case UP: {
@@ -423,13 +427,16 @@ public abstract class AbstractDataSourceAdd extends AbstractAddStepHandler {
                                 } else {
                                     SUBSYSTEM_DATASOURCES_LOGGER.boundNonJTADataSource(jndiName);
                                 }
+                                bound = true;
                                 break;
                             }
                             case DOWN: {
-                                if (jta) {
-                                    SUBSYSTEM_DATASOURCES_LOGGER.unboundDataSource(jndiName);
-                                } else {
-                                    SUBSYSTEM_DATASOURCES_LOGGER.unBoundNonJTADataSource(jndiName);
+                                if (bound) {
+                                    if (jta) {
+                                        SUBSYSTEM_DATASOURCES_LOGGER.unboundDataSource(jndiName);
+                                    } else {
+                                        SUBSYSTEM_DATASOURCES_LOGGER.unBoundNonJTADataSource(jndiName);
+                                    }
                                 }
                                 break;
                             }

@@ -28,6 +28,7 @@ import javax.persistence.spi.PersistenceUnitInfo;
 
 import org.hibernate.cfg.AvailableSettings;
 import org.jboss.as.jpa.hibernate5.management.HibernateManagementAdaptor;
+import org.jboss.as.jpa.hibernate5.service.WildFlyCustomJtaPlatform;
 import org.jipijapa.cache.spi.Classification;
 import org.jipijapa.event.impl.internal.Notification;
 import org.jipijapa.plugin.spi.EntityManagerFactoryBuilder;
@@ -49,10 +50,12 @@ public class HibernatePersistenceProviderAdaptor implements PersistenceProviderA
     private volatile Platform platform;
     private static final String SHARED_CACHE_MODE = "javax.persistence.sharedCache.mode";
     private static final String NONE = SharedCacheMode.NONE.name();
+    private static final String UNSPECIFIED = SharedCacheMode.UNSPECIFIED.name();
     private static final String HIBERNATE_EXTENDED_BEANMANAGER = "org.hibernate.jpa.event.spi.jpa.ExtendedBeanManager";
 
     @Override
     public void injectJtaManager(JtaManager jtaManager) {
+        WildFlyCustomJtaPlatform.setTransactionSynchronizationRegistry(jtaManager.getSynchronizationRegistry());
     }
 
     @Override
@@ -103,7 +106,9 @@ public class HibernatePersistenceProviderAdaptor implements PersistenceProviderA
         // check if 2lc is explicitly disabled which takes precedence over other settings
         boolean sharedCacheDisabled = SharedCacheMode.NONE.equals(pu.getSharedCacheMode())
                 ||
-                NONE.equals(sharedCacheMode);
+                NONE.equals(sharedCacheMode) ||
+                SharedCacheMode.UNSPECIFIED.equals(pu.getSharedCacheMode()) ||
+                UNSPECIFIED.equals(sharedCacheMode);
         if (!sharedCacheDisabled &&
                 (null == properties.getProperty(AvailableSettings.USE_SECOND_LEVEL_CACHE) ||
                         Boolean.parseBoolean(properties.getProperty(AvailableSettings.USE_SECOND_LEVEL_CACHE))))
@@ -116,6 +121,7 @@ public class HibernatePersistenceProviderAdaptor implements PersistenceProviderA
                     SHARED_CACHE_MODE,
                     sharedCacheMode,
                     pu.getSharedCacheMode().toString());
+            pu.setSharedCacheMode(SharedCacheMode.NONE);  // ensure that Hibernate doesn't try to use the 2lc for UNSPECIFIED
         }
     }
 

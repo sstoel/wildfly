@@ -37,12 +37,14 @@ import org.jboss.as.clustering.controller.UnaryRequirementCapability;
 import org.jboss.as.clustering.controller.validation.EnumValidator;
 import org.jboss.as.clustering.controller.validation.ModuleIdentifierValidatorBuilder;
 import org.jboss.as.clustering.infinispan.subsystem.InfinispanExtension;
+import org.jboss.as.clustering.infinispan.subsystem.InfinispanModel;
 import org.jboss.as.clustering.infinispan.subsystem.ThreadPoolResourceDefinition;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.registry.AttributeAccess;
+import org.jboss.as.controller.transform.description.AttributeConverter.DefaultValueAttributeConverter;
 import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
@@ -95,7 +97,7 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
                 return builder.setValidator(new ModuleIdentifierValidatorBuilder().configure(builder).build());
             }
         },
-        PROTOCOL_VERSION("protocol-version", ModelType.STRING, new ModelNode(ProtocolVersion.DEFAULT_PROTOCOL_VERSION.toString())) {
+        PROTOCOL_VERSION("protocol-version", ModelType.STRING, new ModelNode(ProtocolVersion.PROTOCOL_VERSION_29.toString())) {
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setValidator(new EnumValidator<>(ProtocolVersion.class));
@@ -130,13 +132,24 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
     }
 
     public static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        ConnectionPoolResourceDefinition.buildTransformation(version, parent);
-        SecurityResourceDefinition.buildTransformation(version, parent);
-        NoNearCacheResourceDefinition.buildTransformation(version, parent);
-        InvalidationNearCacheResourceDefinition.buildTransformation(version, parent);
-        RemoteClusterResourceDefinition.buildTransformation(version, parent);
+        if (InfinispanModel.VERSION_7_0_0.requiresTransformation(version)) {
+            parent.rejectChildResource(RemoteCacheContainerResourceDefinition.WILDCARD_PATH);
+        } else {
+            ResourceTransformationDescriptionBuilder builder = parent.addChildResource(RemoteCacheContainerResourceDefinition.WILDCARD_PATH);
 
-        ThreadPoolResourceDefinition.CLIENT.buildTransformation(version, parent);
+            if (InfinispanModel.VERSION_9_0_0.requiresTransformation(version)) {
+                builder.getAttributeBuilder().setValueConverter(new DefaultValueAttributeConverter(Attribute.PROTOCOL_VERSION.getDefinition()), Attribute.PROTOCOL_VERSION.getDefinition());
+            }
+
+            ConnectionPoolResourceDefinition.buildTransformation(version, builder);
+            SecurityResourceDefinition.buildTransformation(version, builder);
+            RemoteTransactionResourceDefinition.buildTransformation(version, builder);
+            NoNearCacheResourceDefinition.buildTransformation(version, builder);
+            InvalidationNearCacheResourceDefinition.buildTransformation(version, builder);
+            RemoteClusterResourceDefinition.buildTransformation(version, builder);
+
+            ThreadPoolResourceDefinition.CLIENT.buildTransformation(version, builder);
+        }
     }
 
     public RemoteCacheContainerResourceDefinition() {
@@ -150,10 +163,8 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
         ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver())
                 .addAttributes(Attribute.class)
                 .addCapabilities(Capability.class)
-                .addRequiredChildren(ConnectionPoolResourceDefinition.PATH)
-                .addRequiredChildren(ThreadPoolResourceDefinition.CLIENT.getPathElement())
+                .addRequiredChildren(ConnectionPoolResourceDefinition.PATH, ThreadPoolResourceDefinition.CLIENT.getPathElement(), SecurityResourceDefinition.PATH, RemoteTransactionResourceDefinition.PATH)
                 .addRequiredSingletonChildren(NoNearCacheResourceDefinition.PATH)
-                .addRequiredChildren(SecurityResourceDefinition.PATH)
                 ;
         ResourceServiceConfiguratorFactory serviceConfiguratorFactory = RemoteCacheContainerConfigurationServiceConfigurator::new;
         ResourceServiceHandler handler = new RemoteCacheContainerServiceHandler(serviceConfiguratorFactory);
@@ -162,6 +173,7 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
         new ConnectionPoolResourceDefinition().register(registration);
         new RemoteClusterResourceDefinition(serviceConfiguratorFactory).register(registration);
         new SecurityResourceDefinition().register(registration);
+        new RemoteTransactionResourceDefinition().register(registration);
 
         new InvalidationNearCacheResourceDefinition().register(registration);
         new NoNearCacheResourceDefinition().register(registration);

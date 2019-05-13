@@ -56,6 +56,8 @@ import static org.wildfly.extension.messaging.activemq.CommonAttributes.SHARED_S
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.SHARED_STORE_SLAVE;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.SLAVE;
 
+import io.netty.util.internal.logging.InternalLoggerFactory;
+import io.netty.util.internal.logging.JdkLoggerFactory;
 import org.jboss.as.controller.Extension;
 import org.jboss.as.controller.ExtensionContext;
 import org.jboss.as.controller.ModelVersion;
@@ -84,11 +86,27 @@ import org.wildfly.extension.messaging.activemq.jms.bridge.JMSBridgeDefinition;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.EXTERNAL_JMS_QUEUE;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.EXTERNAL_JMS_TOPIC;
 
+import org.wildfly.extension.messaging.activemq.jms.ExternalPooledConnectionFactoryDefinition;
+
 /**
  * Domain extension that integrates Apache ActiveMQ 6.
  *
  * <dl>
- * <dt><strong>Current</strong> - WildFly 14</dt>
+ * <dt><strong>Current</strong> - WildFly 16</dt>
+ *   <dd>
+ *     <ul>
+ *       <li>XML namespace: urn:jboss:domain:messaging-activemq:6.0
+ *       <li>Management model: 6.0.0
+ *     </ul>
+ *   </dd>
+ *  <dt>WildFly 15</dt>
+ *   <dd>
+ *     <ul>
+ *       <li>XML namespace: urn:jboss:domain:messaging-activemq:5.0
+ *       <li>Management model: 5.0.0
+ *     </ul>
+ *   </dd>
+ *  <dt>WildFly 14</dt>
  *   <dd>
  *     <ul>
  *       <li>XML namespace: urn:jboss:domain:messaging-activemq:4.0
@@ -171,14 +189,15 @@ public class MessagingExtension implements Extension {
 
     static final String RESOURCE_NAME = MessagingExtension.class.getPackage().getName() + ".LocalDescriptions";
 
+    protected static final ModelVersion VERSION_6_0_0 = ModelVersion.create(6, 0, 0);
     protected static final ModelVersion VERSION_5_0_0 = ModelVersion.create(5, 0, 0);
     protected static final ModelVersion VERSION_4_0_0 = ModelVersion.create(4, 0, 0);
     protected static final ModelVersion VERSION_3_0_0 = ModelVersion.create(3, 0, 0);
     protected static final ModelVersion VERSION_2_0_0 = ModelVersion.create(2, 0, 0);
     protected static final ModelVersion VERSION_1_0_0 = ModelVersion.create(1, 0, 0);
-    private static final ModelVersion CURRENT_MODEL_VERSION = VERSION_5_0_0;
+    private static final ModelVersion CURRENT_MODEL_VERSION = VERSION_6_0_0;
 
-    private static final MessagingSubsystemParser_5_0 CURRENT_PARSER = new MessagingSubsystemParser_5_0();
+    private static final MessagingSubsystemParser_6_0 CURRENT_PARSER = new MessagingSubsystemParser_6_0();
 
 
     public static ResourceDescriptionResolver getResourceDescriptionResolver(final String... keyPrefix) {
@@ -198,6 +217,8 @@ public class MessagingExtension implements Extension {
 
     @Override
     public void initialize(ExtensionContext context) {
+        // Initialize the Netty logger factory
+        InternalLoggerFactory.setDefaultFactory(JdkLoggerFactory.INSTANCE);
         final SubsystemRegistration subsystemRegistration = context.registerSubsystem(SUBSYSTEM_NAME, CURRENT_MODEL_VERSION);
         subsystemRegistration.registerXMLElementWriter(CURRENT_PARSER);
 
@@ -214,9 +235,9 @@ public class MessagingExtension implements Extension {
         subsystem.registerSubModel(RemoteTransportDefinition.createConnectorDefinition(registerRuntimeOnly));
         subsystem.registerSubModel(new HTTPConnectorDefinition(registerRuntimeOnly));
         subsystem.registerSubModel(new ExternalConnectionFactoryDefinition(registerRuntimeOnly));
-        subsystem.registerSubModel(PooledConnectionFactoryDefinition.INSTANCE);
-        subsystem.registerSubModel(ExternalJMSQueueDefinition.INSTANCE);
-        subsystem.registerSubModel(ExternalJMSTopicDefinition.INSTANCE);
+        subsystem.registerSubModel(ExternalPooledConnectionFactoryDefinition.INSTANCE);
+        subsystem.registerSubModel(new ExternalJMSQueueDefinition(registerRuntimeOnly));
+        subsystem.registerSubModel(new ExternalJMSTopicDefinition(registerRuntimeOnly));
 
         // ActiveMQ Servers
         final ManagementResourceRegistration server = subsystem.registerSubModel(new ServerDefinition(registerRuntimeOnly));
@@ -236,6 +257,10 @@ public class MessagingExtension implements Extension {
         if (registerRuntimeOnly) {
             final ManagementResourceRegistration deployment = subsystemRegistration.registerDeploymentModel(new SimpleResourceDefinition(
                     new Parameters(SUBSYSTEM_PATH, getResourceDescriptionResolver("deployed")).setFeature(false)));
+            deployment.registerSubModel(new ExternalConnectionFactoryDefinition(registerRuntimeOnly));
+            deployment.registerSubModel(ExternalPooledConnectionFactoryDefinition.DEPLOYMENT_INSTANCE);
+            deployment.registerSubModel(new ExternalJMSQueueDefinition(registerRuntimeOnly));
+            deployment.registerSubModel(new ExternalJMSTopicDefinition(registerRuntimeOnly));
             final ManagementResourceRegistration deployedServer = deployment.registerSubModel(new SimpleResourceDefinition(
                     new Parameters(SERVER_PATH, getResourceDescriptionResolver(SERVER)).setFeature(false)));
             deployedServer.registerSubModel(new JMSQueueDefinition(true, registerRuntimeOnly));
@@ -252,6 +277,7 @@ public class MessagingExtension implements Extension {
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_2_0.NAMESPACE, MessagingSubsystemParser_2_0::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_3_0.NAMESPACE, MessagingSubsystemParser_3_0::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_4_0.NAMESPACE, MessagingSubsystemParser_4_0::new);
-        context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_5_0.NAMESPACE, CURRENT_PARSER);
+        context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_5_0.NAMESPACE, MessagingSubsystemParser_5_0::new);
+        context.setSubsystemXmlMapping(SUBSYSTEM_NAME, MessagingSubsystemParser_6_0.NAMESPACE, CURRENT_PARSER);
     }
 }

@@ -24,23 +24,47 @@ package org.wildfly.extension.messaging.activemq;
 
 import static org.apache.activemq.artemis.api.core.client.ActiveMQClient.SCHEDULED_THREAD_POOL_SIZE_PROPERTY_KEY;
 import static org.apache.activemq.artemis.api.core.client.ActiveMQClient.THREAD_POOL_MAX_SIZE_PROPERTY_KEY;
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
+import static org.wildfly.extension.messaging.activemq.CommonAttributes.BROADCAST_GROUP;
+import static org.wildfly.extension.messaging.activemq.CommonAttributes.DISCOVERY_GROUP;
+import static org.wildfly.extension.messaging.activemq.CommonAttributes.JGROUPS_CLUSTER;
+import static org.wildfly.extension.messaging.activemq.MessagingSubsystemRootResourceDefinition.CONFIGURATION_CAPABILITY;
 import static org.wildfly.extension.messaging.activemq.MessagingSubsystemRootResourceDefinition.GLOBAL_CLIENT_SCHEDULED_THREAD_POOL_MAX_SIZE;
 import static org.wildfly.extension.messaging.activemq.MessagingSubsystemRootResourceDefinition.GLOBAL_CLIENT_THREAD_POOL_MAX_SIZE;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import org.apache.activemq.artemis.api.core.BroadcastGroupConfiguration;
+import org.apache.activemq.artemis.api.core.DiscoveryGroupConfiguration;
+import org.apache.activemq.artemis.api.core.TransportConfiguration;
 
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.OperationStepHandler;
+import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.registry.Resource;
+import org.jboss.as.network.OutboundSocketBinding;
+import org.jboss.as.network.SocketBinding;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.Service;
+import org.jboss.msc.service.ServiceBuilder;
+import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
+import org.wildfly.clustering.spi.ClusteringDefaultRequirement;
+import org.wildfly.clustering.spi.ClusteringRequirement;
 import org.wildfly.extension.messaging.activemq.deployment.DefaultJMSConnectionFactoryBindingProcessor;
 import org.wildfly.extension.messaging.activemq.deployment.DefaultJMSConnectionFactoryResourceReferenceProcessor;
 import org.wildfly.extension.messaging.activemq.deployment.JMSConnectionFactoryDefinitionAnnotationProcessor;
@@ -60,6 +84,8 @@ import org.wildfly.extension.messaging.activemq.logging.MessagingLogger;
  */
 class MessagingSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
+    private static final ServiceName JBOSS_MESSAGING_ACTIVEMQ = ServiceName.JBOSS.append(MessagingExtension.SUBSYSTEM_NAME);
+
     public static final MessagingSubsystemAdd INSTANCE = new MessagingSubsystemAdd();
 
     private MessagingSubsystemAdd() {
@@ -68,6 +94,10 @@ class MessagingSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
     @Override
     protected void performBoottime(final OperationContext context, ModelNode operation, final ModelNode model) throws OperationFailedException {
+
+        // Cache support for capability service name lookups by our services
+        MessagingServices.capabilityServiceSupport = context.getCapabilityServiceSupport();
+
         context.addStep(new AbstractDeploymentChainStep() {
             @Override
             protected void execute(DeploymentProcessorTarget processorTarget) {
@@ -77,7 +107,11 @@ class MessagingSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_RESOURCE_DEF_ANNOTATION_JMS_CONNECTION_FACTORY, new JMSConnectionFactoryDefinitionAnnotationProcessor());
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_MESSAGING_XML_RESOURCES, new MessagingXmlParsingDeploymentUnitProcessor());
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES, Phase.DEPENDENCIES_JMS, new MessagingDependencyProcessor());
-                processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_JMS_CDI_EXTENSIONS, new CDIDeploymentProcessor());
+
+                if (MessagingServices.capabilityServiceSupport.hasCapability(WELD_CAPABILITY_NAME)) {
+                    processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_JMS_CDI_EXTENSIONS, new CDIDeploymentProcessor());
+                }
+
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_RESOURCE_DEF_XML_JMS_CONNECTION_FACTORY, new JMSConnectionFactoryDefinitionDescriptorProcessor());
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_RESOURCE_DEF_XML_JMS_DESTINATION, new JMSDestinationDefinitionDescriptorProcessor());
                 processorTarget.addDeploymentProcessor(MessagingExtension.SUBSYSTEM_NAME, Phase.INSTALL, Phase.INSTALL_DEFAULT_BINDINGS_JMS_CONNECTION_FACTORY, new DefaultJMSConnectionFactoryBindingProcessor());
@@ -87,8 +121,8 @@ class MessagingSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
         ModelNode threadPoolMaxSize = operation.get(GLOBAL_CLIENT_THREAD_POOL_MAX_SIZE.getName());
         ModelNode scheduledThreadPoolMaxSize = operation.get(GLOBAL_CLIENT_SCHEDULED_THREAD_POOL_MAX_SIZE.getName());
-        final Integer threadPoolMaxSizeValue;
-        final Integer scheduledThreadPoolMaxSizeValue;
+        Integer threadPoolMaxSizeValue;
+        Integer scheduledThreadPoolMaxSizeValue;
 
         // if the attributes are defined, their value is used (and the system properties are ignored)
         Properties sysprops = System.getProperties();
@@ -111,12 +145,108 @@ class MessagingSubsystemAdd extends AbstractBoottimeAddStepHandler {
             scheduledThreadPoolMaxSizeValue = null;
         }
 
-        if (threadPoolMaxSizeValue != null && scheduledThreadPoolMaxSizeValue != null) {
+        if (threadPoolMaxSizeValue != null || scheduledThreadPoolMaxSizeValue != null) {
+            ActiveMQClient.initializeGlobalThreadPoolProperties();
+            if(threadPoolMaxSizeValue == null) {
+                threadPoolMaxSizeValue = ActiveMQClient.getGlobalThreadPoolSize();
+            }
+            if(scheduledThreadPoolMaxSizeValue == null) {
+                scheduledThreadPoolMaxSizeValue = ActiveMQClient.getGlobalScheduledThreadPoolSize();
+            }
             MessagingLogger.ROOT_LOGGER.debugf("Setting global client thread pool size to: regular=%s, scheduled=%s", threadPoolMaxSizeValue, scheduledThreadPoolMaxSizeValue);
             ActiveMQClient.setGlobalThreadPoolProperties(threadPoolMaxSizeValue, scheduledThreadPoolMaxSizeValue);
         }
         context.getServiceTarget().addService(MessagingServices.ACTIVEMQ_CLIENT_THREAD_POOL, new ThreadPoolService())
                 .install();
+        context.addStep(new OperationStepHandler() {
+            @Override
+            public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
+                final ServiceTarget serviceTarget = context.getServiceTarget();
+                final ServiceBuilder serviceBuilder = serviceTarget.addService(CONFIGURATION_CAPABILITY.getCapabilityServiceName());
+                // Transform the configuration based on the recursive model
+                final ModelNode model = Resource.Tools.readModel(context.readResource(PathAddress.EMPTY_ADDRESS));
+                // Process connectors
+                final Set<String> connectorsSocketBindings = new HashSet<String>();
+                final Map<String, TransportConfiguration> connectors = TransportConfigOperationHandlers.processConnectors(context, "localhost", model, connectorsSocketBindings);
+
+                Map<String, ServiceName> outboundSocketBindings = new HashMap<>();
+                Map<String, Boolean> outbounds = TransportConfigOperationHandlers.listOutBoundSocketBinding(context, connectorsSocketBindings);
+                Map<String, ServiceName> socketBindings = new HashMap<>();
+                for (final String connectorSocketBinding : connectorsSocketBindings) {
+                    // find whether the connectorSocketBinding references a SocketBinding or an OutboundSocketBinding
+                    if (outbounds.get(connectorSocketBinding)) {
+                        final ServiceName outboundSocketName = OutboundSocketBinding.OUTBOUND_SOCKET_BINDING_BASE_SERVICE_NAME.append(connectorSocketBinding);
+                        outboundSocketBindings.put(connectorSocketBinding, outboundSocketName);
+                    } else {
+                        // check if the socket binding has not already been added by the acceptors
+                        if (!socketBindings.containsKey(connectorSocketBinding)) {
+                            socketBindings.put(connectorSocketBinding, SocketBinding.JBOSS_BINDING_NAME.append(connectorSocketBinding));
+                        }
+                    }
+                }
+                final List<BroadcastGroupConfiguration> broadcastGroupConfigurations =new ArrayList<>();
+                //this requires connectors
+                BroadcastGroupAdd.addBroadcastGroupConfigs(context, broadcastGroupConfigurations, connectors.keySet(), model);
+                final Map<String, DiscoveryGroupConfiguration> discoveryGroupConfigurations = DiscoveryGroupAdd.addDiscoveryGroupConfigs(context, model);
+                final Map<String, String> clusterNames = new HashMap<>();
+                final Map<String, ServiceName> commandDispatcherFactories = new HashMap<>();
+                final Set<ServiceName> commandDispatcherFactoryServices = new HashSet<>();
+                final Map<String, ServiceName> groupBindings = new HashMap<>();
+                final Set<ServiceName> groupBindingServices = new HashSet<>();
+                for (final BroadcastGroupConfiguration config : broadcastGroupConfigurations) {
+                    final String name = config.getName();
+                    final String key = "broadcast" + name;
+                    ModelNode broadcastGroupModel = model.get(BROADCAST_GROUP, name);
+
+                    if (broadcastGroupModel.hasDefined(JGROUPS_CLUSTER.getName())) {
+                        ModelNode channel = BroadcastGroupDefinition.JGROUPS_CHANNEL.resolveModelAttribute(context, broadcastGroupModel);
+                        ServiceName commandDispatcherFactoryServiceName = channel.isDefined() ? ClusteringRequirement.COMMAND_DISPATCHER_FACTORY.getServiceName(context, channel.asString()) : ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getServiceName(context);
+                        String clusterName = JGROUPS_CLUSTER.resolveModelAttribute(context, broadcastGroupModel).asString();
+                        if (!commandDispatcherFactoryServices.contains(commandDispatcherFactoryServiceName)) {
+                            commandDispatcherFactoryServices.add(commandDispatcherFactoryServiceName);
+                        }
+                        commandDispatcherFactories.put(key, commandDispatcherFactoryServiceName);
+                        clusterNames.put(key, clusterName);
+                    } else {
+                        final ServiceName groupBindingServiceName = GroupBindingService.getBroadcastBaseServiceName(JBOSS_MESSAGING_ACTIVEMQ).append(name);
+                        if (!groupBindingServices.contains(groupBindingServiceName)) {
+                            groupBindingServices.add(groupBindingServiceName);
+                        }
+                        groupBindings.put(key, groupBindingServiceName);
+                    }
+                }
+                for (final DiscoveryGroupConfiguration config : discoveryGroupConfigurations.values()) {
+                    final String name = config.getName();
+                    final String key = "discovery" + name;
+                    ModelNode discoveryGroupModel = model.get(DISCOVERY_GROUP, name);
+                    if (discoveryGroupModel.hasDefined(JGROUPS_CLUSTER.getName())) {
+                        ModelNode channel = DiscoveryGroupDefinition.JGROUPS_CHANNEL.resolveModelAttribute(context, discoveryGroupModel);
+                        ServiceName commandDispatcherFactoryServiceName = channel.isDefined() ? ClusteringRequirement.COMMAND_DISPATCHER_FACTORY.getServiceName(context, channel.asString()) : ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getServiceName(context);
+                        String clusterName = JGROUPS_CLUSTER.resolveModelAttribute(context, discoveryGroupModel).asString();
+                        if (!commandDispatcherFactoryServices.contains(commandDispatcherFactoryServiceName)) {
+                            commandDispatcherFactoryServices.add(commandDispatcherFactoryServiceName);
+                        }
+                        commandDispatcherFactories.put(key, commandDispatcherFactoryServiceName);
+                        clusterNames.put(key, clusterName);
+                    } else {
+                        final ServiceName groupBindingServiceName = GroupBindingService.getDiscoveryBaseServiceName(JBOSS_MESSAGING_ACTIVEMQ).append(name);
+                        if (!groupBindingServices.contains(groupBindingServiceName)) {
+                            groupBindingServices.add(groupBindingServiceName);
+                        }
+                        groupBindings.put(key, groupBindingServiceName);
+                    }
+                }
+                serviceBuilder.setInstance(new ExternalBrokerConfigurationService(
+                        connectors,
+                        discoveryGroupConfigurations,
+                        socketBindings,
+                        outboundSocketBindings,
+                        groupBindings,
+                        commandDispatcherFactories,
+                        clusterNames))
+                        .install();
+            }
+        }, OperationContext.Stage.RUNTIME);
     }
 
     /**

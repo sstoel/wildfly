@@ -22,19 +22,19 @@
 
 package org.wildfly.test.integration.microprofile.config.smallrye.management.config_source_provider;
 
-import static org.wildfly.test.integration.microprofile.config.smallrye.HttpUtils.getContent;
-
 import java.net.URL;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
+import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -42,6 +42,7 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.integration.microprofile.config.smallrye.AbstractMicroProfileConfigTestCase;
 import org.wildfly.test.integration.microprofile.config.smallrye.management.config_source.CustomConfigSource;
 import org.wildfly.test.integration.microprofile.config.smallrye.AssertUtils;
 
@@ -53,13 +54,15 @@ import org.wildfly.test.integration.microprofile.config.smallrye.AssertUtils;
 @RunWith(Arquillian.class)
 @RunAsClient
 @ServerSetup(SetupTask.class)
-public class ConfigSourceProviderFromClassTestCase {
+public class ConfigSourceProviderFromClassTestCase extends AbstractMicroProfileConfigTestCase {
 
     @Deployment
     public static Archive<?> deploy() {
         WebArchive war = ShrinkWrap.create(WebArchive.class, "ConfigSourceProviderFromClassTestCase.war")
-                .addClasses(TestApplication.class, TestApplication.Resource.class)
-                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+                .addClasses(TestApplication.class, TestApplication.Resource.class, AbstractMicroProfileConfigTestCase.class)
+                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml")
+                .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
+                        createPermissions(CustomConfigSource.PROP_NAME)),"permissions.xml");
         return war;
     }
 
@@ -71,7 +74,7 @@ public class ConfigSourceProviderFromClassTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + "custom-config-source-provider/test"));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
             AssertUtils.assertTextContainsProperty(text, CustomConfigSource.PROP_NAME, CustomConfigSource.PROP_VALUE);
         }
     }

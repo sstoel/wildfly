@@ -47,6 +47,7 @@ import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
 import org.jboss.as.test.shared.TimeoutUtil;
+import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -56,6 +57,7 @@ import org.jgroups.util.StackType;
 import org.jgroups.util.Util;
 import org.junit.Assume;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -98,6 +100,7 @@ public class DiscoveryGroupExternalMessagingDeploymentTestCase {
                 logger.info("[WFCI-32] Disable on Windows+IPv6 until CI environment is fixed");
                 return;
             }
+            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
             JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
             ops.createJmsQueue(QUEUE_NAME, "/queue/" + QUEUE_NAME);
             ops.createJmsTopic(TOPIC_NAME, "/topic/" + TOPIC_NAME);
@@ -229,6 +232,11 @@ public class DiscoveryGroupExternalMessagingDeploymentTestCase {
                 .addClass(MessagingServlet.class)
                 .addClasses(QueueMDB.class, TopicMDB.class)
                 .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+    }
+
+    @BeforeClass
+    public static void skipSecurityManager() {
+        AssumeTestGroupUtil.assumeSecurityManagerDisabled();
     }
 
     @Before

@@ -49,6 +49,7 @@ import javax.transaction.Status;
 import javax.transaction.Synchronization;
 import javax.transaction.SystemException;
 import javax.transaction.Transaction;
+import javax.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponent;
@@ -71,7 +72,6 @@ import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
 import org.wildfly.extension.requestcontroller.ControlPoint;
 import org.wildfly.transaction.client.ContextTransactionManager;
-import org.wildfly.transaction.client.ContextTransactionSynchronizationRegistry;
 import org.xnio.IoUtils;
 
 import static org.jboss.as.ejb3.logging.EjbLogger.EJB3_TIMER_LOGGER;
@@ -129,6 +129,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
      */
     private final Object waitingOnTxCompletionKey = new Object();
 
+    private TransactionSynchronizationRegistry tsr;
     private final TimerServiceRegistry timerServiceRegistry;
 
     /**
@@ -181,6 +182,8 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
         if (EJB3_TIMER_LOGGER.isDebugEnabled()) {
             EJB3_TIMER_LOGGER.debug("Starting timerservice for timedObjectId: " + getInvoker().getTimedObjectId());
         }
+        final EJBComponent component = ejbComponentInjectedValue.getValue();
+        this.tsr = component.getTransactionSynchronizationRegistry();
         final TimedObjectInvoker invoker = timedObjectInvoker.getValue();
         if (invoker == null) {
             throw EJB3_TIMER_LOGGER.invokerIsNull();
@@ -531,7 +534,6 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                 .setNewTimer(true)
                 .build(this);
 
-
         this.persistTimer(timer, true);
         // now "start" the timer. This involves, moving the timer to an ACTIVE state
         // and scheduling the timer task
@@ -626,7 +628,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
         }
     }
 
-    public void cancelTimer(final TimerImpl timer) {
+    public void cancelTimer(final TimerImpl timer) throws InterruptedException {
         timer.lock();
         boolean release = true;
         try {
@@ -634,7 +636,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
             timer.assertTimerState();
             boolean startedInTx = getWaitingOnTxCompletionTimers().containsKey(timer.getId());
             if (timer.getState() != TimerState.EXPIRED) {
-                timer.setTimerState(TimerState.CANCELED);
+                timer.setTimerState(TimerState.CANCELED, null);
             }
             if (transactionActive() && !startedInTx) {
                 registerSynchronization(new TimerRemoveSynchronization(timer));
@@ -643,7 +645,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                 // cancel any scheduled Future for this timer
                 this.cancelTimeout(timer);
                 this.unregisterTimerResource(timer.getId());
-                this.timers.remove(timer.getId());
+                removeTimerFromInternalCache(timer);
             }
             // persist changes
             persistTimer(timer, false);
@@ -656,9 +658,9 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
 
     public void expireTimer(final TimerImpl timer) {
         this.cancelTimeout(timer);
-        timer.setTimerState(TimerState.EXPIRED);
+        timer.setTimerState(TimerState.EXPIRED, null);
         this.unregisterTimerResource(timer.getId());
-        this.timers.remove(timer.getId());
+        removeTimerFromInternalCache(timer);
     }
 
     /**
@@ -737,14 +739,13 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                     }
                 }
                 if (!found) {
-                    activeTimer.setTimerState(TimerState.CANCELED);
+                    activeTimer.setTimerState(TimerState.CANCELED, null);
                 } else {
                     // ensure state switch to active if was TIMEOUT in the DB
                     // if the persistence is shared it must be ensured to not update
                     // timers of other nodes in the cluster
-                    activeTimer.setTimerState(TimerState.ACTIVE);
+                    activeTimer.setTimerState(TimerState.ACTIVE, null);
                     calendarTimer.handleRestorationCalculation();
-
                 }
                 try {
                     this.persistTimer(activeTimer, false);
@@ -778,7 +779,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
             this.timers.put(timer.getId(), timer);
             // set active if the timer is started if it was read
             // from persistence as current running to ensure correct schedule here
-            timer.setTimerState(TimerState.ACTIVE);
+            timer.setTimerState(TimerState.ACTIVE, null);
             // create and schedule a timer task
             this.registerTimerResource(timer.getId());
             timer.scheduleTimeout(true);
@@ -924,6 +925,11 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
         }
     }
 
+    private void removeTimerFromInternalCache(final TimerImpl timer) {
+        timers.remove(timer.getId());
+        EJB3_TIMER_LOGGER.debugv("Removed timer {0} from internal cache", timer);
+    }
+
     public boolean isScheduled(final String tid){
         synchronized (this.scheduledTimerFutures) {
             return this.scheduledTimerFutures.containsKey(tid);
@@ -937,15 +943,15 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
     private Map<String, TimerImpl> getWaitingOnTxCompletionTimers() {
         Map<String, TimerImpl> timers = null;
         if (getTransaction() != null) {
-            timers = (Map<String, TimerImpl>) ContextTransactionSynchronizationRegistry.getInstance().getResource(waitingOnTxCompletionKey);
+            timers = (Map<String, TimerImpl>) tsr.getResource(waitingOnTxCompletionKey);
         }
         return timers == null ? Collections.<String, TimerImpl>emptyMap() : timers;
     }
 
     private void addWaitingOnTxCompletionTimer(final TimerImpl timer) {
-        Map<String, TimerImpl> timers = (Map<String, TimerImpl>) ContextTransactionSynchronizationRegistry.getInstance().getResource(waitingOnTxCompletionKey);
+        Map<String, TimerImpl> timers = (Map<String, TimerImpl>) tsr.getResource(waitingOnTxCompletionKey);
         if (timers == null) {
-            ContextTransactionSynchronizationRegistry.getInstance().putResource(waitingOnTxCompletionKey, timers = new HashMap<String, TimerImpl>());
+            tsr.putResource(waitingOnTxCompletionKey, timers = new HashMap<String, TimerImpl>());
         }
         timers.put(timer.getId(), timer);
     }
@@ -1170,7 +1176,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                 TimerState timerState = this.timer.getState();
                 switch (timerState) {
                     case CREATED:
-                        this.timer.setTimerState(TimerState.ACTIVE);
+                        this.timer.setTimerState(TimerState.ACTIVE, null);
                         this.timer.scheduleTimeout(true);
                         break;
                     case ACTIVE:
@@ -1179,7 +1185,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                 }
             } else if (status == Status.STATUS_ROLLEDBACK) {
                 EJB3_TIMER_LOGGER.debugv("Rolling back timer creation: {0}", this.timer);
-                this.timer.setTimerState(TimerState.CANCELED);
+                this.timer.setTimerState(TimerState.CANCELED, null);
             }
         }
     }
@@ -1204,9 +1210,9 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
                 if (status == Status.STATUS_COMMITTED) {
                     cancelTimeout(timer);
                     unregisterTimerResource(timer.getId());
-                    timers.remove(timer.getId());
+                    removeTimerFromInternalCache(timer);
                 } else {
-                    timer.setTimerState(TimerState.ACTIVE);
+                    timer.setTimerState(TimerState.ACTIVE, null);
                 }
             } finally {
                 timer.unlock();
@@ -1321,6 +1327,7 @@ public class TimerServiceImpl implements TimerService, Service<TimerService> {
             TimerImpl timer = TimerServiceImpl.this.getTimer(timerId);
             if(timer != null) {
                 TimerServiceImpl.this.cancelTimeout(timer);
+                TimerServiceImpl.this.removeTimerFromInternalCache(timer);
             }
         }
 

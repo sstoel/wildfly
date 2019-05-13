@@ -37,6 +37,7 @@ public class HelloApplication extends Application {
     public Set<Class<?>> getClasses() {
         final Set<Class<?>> classes = new HashSet<>();
         classes.add(HelloResource.class);
+        classes.add(PureProxyEndPoint.class);
         return classes;
     }
 }

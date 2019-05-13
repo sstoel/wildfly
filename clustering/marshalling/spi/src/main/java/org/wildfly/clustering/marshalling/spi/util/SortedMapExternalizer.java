@@ -29,41 +29,25 @@ import java.util.Comparator;
 import java.util.SortedMap;
 import java.util.function.Function;
 
-import org.wildfly.clustering.marshalling.Externalizer;
-import org.wildfly.clustering.marshalling.spi.IndexSerializer;
-
 /**
  * Externalizers for implementations of {@link SortedMap}.
  * Requires additional serialization of the comparator.
  * @author Paul Ferraro
  */
-public class SortedMapExternalizer<T extends SortedMap<Object, Object>> implements Externalizer<T> {
+public class SortedMapExternalizer<T extends SortedMap<Object, Object>> extends MapExternalizer<T, Comparator<Object>> {
 
-    private final Class<T> targetClass;
-    private final Function<Comparator<? super Object>, T> factory;
+    public SortedMapExternalizer(Class<?> targetClass, Function<Comparator<Object>, T> factory) {
+        super(targetClass, factory);
+    }
+
+    @Override
+    protected void writeContext(ObjectOutput output, T map) throws IOException {
+        output.writeObject(map.comparator());
+    }
 
     @SuppressWarnings("unchecked")
-    public SortedMapExternalizer(Class<?> targetClass, Function<Comparator<? super Object>, T> factory) {
-        this.targetClass = (Class<T>) targetClass;
-        this.factory = factory;
-    }
-
     @Override
-    public void writeObject(ObjectOutput output, T map) throws IOException {
-        output.writeObject(map.comparator());
-        MapExternalizer.writeMap(output, map);
-    }
-
-    @Override
-    public T readObject(ObjectInput input) throws IOException, ClassNotFoundException {
-        @SuppressWarnings("unchecked")
-        Comparator<? super Object> comparator = (Comparator<? super Object>) input.readObject();
-        int size = IndexSerializer.VARIABLE.readInt(input);
-        return MapExternalizer.readMap(input, this.factory.apply(comparator), size);
-    }
-
-    @Override
-    public Class<T> getTargetClass() {
-        return this.targetClass;
+    protected Comparator<Object> readContext(ObjectInput input) throws IOException, ClassNotFoundException {
+        return (Comparator<Object>) input.readObject();
     }
 }

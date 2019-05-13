@@ -22,6 +22,9 @@
 
 package org.wildfly.extension.mod_cluster;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.model.test.FailedOperationTransformationConfig;
@@ -64,6 +67,8 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
                 return ModClusterModel.VERSION_4_0_0;
             case EAP_7_1_0:
                 return ModClusterModel.VERSION_5_0_0;
+            case EAP_7_2_0:
+                return ModClusterModel.VERSION_6_0_0;
         }
         throw new IllegalArgumentException();
     }
@@ -79,6 +84,12 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
                 return new String[] {
                         formatEAP7SubsystemArtifact(version),
                         "org.jboss.mod_cluster:mod_cluster-core:1.3.7.Final-redhat-1",
+                        formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
+                };
+            case EAP_7_2_0:
+                return new String[] {
+                        formatArtifact("org.jboss.eap:wildfly-mod_cluster-extension:%s", version),
+                        "org.jboss.mod_cluster:mod_cluster-core:1.4.0.Final",
                         formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
                 };
         }
@@ -100,14 +111,27 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
         this.testTransformation(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testTransformerEAP_7_2_0() throws Exception {
+        this.testTransformation(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     private void testTransformation(ModelTestControllerVersion controllerVersion) throws Exception {
-        String[] resources = { "subsystem-transform-simple.xml", "subsystem-transform.xml" };
+        ModClusterModel model = getModelVersion(controllerVersion);
+        ModelVersion modelVersion = model.getVersion();
+        String[] dependencies = getDependencies(controllerVersion);
+
+
+        Set<String> resources = new HashSet<>();
+        resources.add(String.format("subsystem-transform-%d_%d_%d.xml", modelVersion.getMajor(), modelVersion.getMinor(), modelVersion.getMicro()));
+        if (modelVersion.getMajor() < 6) {
+            // Also test simple-load-provider for legacy slaves which only allow for one mod_cluster proxy configuration
+            // which we can now tests within scope of multiple proxy configurations
+            resources.add("subsystem-transform-simple.xml");
+        }
 
         for (String resource : resources) {
-            String[] dependencies = getDependencies(controllerVersion);
             String subsystemXml = readResource(resource);
-            ModClusterModel model = getModelVersion(controllerVersion);
-            ModelVersion modelVersion = model.getVersion();
             String extensionClassName = (model.getVersion().getMajor() == 1) ? "org.jboss.as.modcluster.ModClusterExtension" : "org.wildfly.extension.mod_cluster.ModClusterExtension";
 
             KernelServicesBuilder builder = createKernelServicesBuilder(new ModClusterAdditionalInitialization())
@@ -144,6 +168,11 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
         this.testRejections(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testRejectionsEAP_7_2_0() throws Exception {
+        this.testRejections(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     private void testRejections(ModelTestControllerVersion controllerVersion) throws Exception {
         String[] dependencies = getDependencies(controllerVersion);
         String subsystemXml = readResource("subsystem-reject.xml");
@@ -174,6 +203,12 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
         PathAddress subsystemAddress = PathAddress.pathAddress(ModClusterSubsystemResourceDefinition.PATH);
         PathAddress configurationAddress = subsystemAddress.append(ProxyConfigurationResourceDefinition.pathElement("default"));
         PathAddress dynamicLoadProviderAddress = configurationAddress.append(DynamicLoadProviderResourceDefinition.PATH);
+
+        if (ModClusterModel.VERSION_7_0_0.requiresTransformation(version)) {
+            config.addFailedAttribute(dynamicLoadProviderAddress, FailedOperationTransformationConfig.ChainedConfig.createBuilder(DynamicLoadProviderResourceDefinition.Attribute.INITIAL_LOAD.getName())
+                    .addConfig(new InitialLoadFailedAttributeConfig())
+                    .build());
+        }
 
         if (ModClusterModel.VERSION_6_0_0.requiresTransformation(version)) {
 //            config.addFailedAttribute(subsystemAddress.append(ProxyConfigurationResourceDefinition.pathElement("other")), FailedOperationTransformationConfig.REJECTED_RESOURCE);
@@ -254,6 +289,26 @@ public class ModClusterTransformersTestCase extends AbstractSubsystemTest {
         @Override
         protected ModelNode correctValue(ModelNode toResolve, boolean isWriteAttribute) {
             return CustomLoadMetricResourceDefinition.Attribute.MODULE.getDefinition().getDefaultValue();
+        }
+    }
+
+    static class InitialLoadFailedAttributeConfig extends FailedOperationTransformationConfig.AttributesPathAddressConfig {
+        InitialLoadFailedAttributeConfig() {
+            super(DynamicLoadProviderResourceDefinition.Attribute.INITIAL_LOAD.getName());
+        }
+
+        @Override
+        protected boolean isAttributeWritable(String attributeName) {
+            return true;
+        }
+
+        protected boolean checkValue(String attrName, ModelNode attribute, boolean isGeneratedWriteAttribute) {
+            return !attribute.equals(new ModelNode(-1));
+        }
+
+        @Override
+        protected ModelNode correctValue(ModelNode toResolve, boolean isGeneratedWriteAttribute) {
+            return new ModelNode(-1);
         }
     }
 }

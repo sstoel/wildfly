@@ -23,7 +23,9 @@
 package org.wildfly.clustering.server.singleton;
 
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletionStage;
@@ -45,6 +47,7 @@ import org.wildfly.clustering.provider.ServiceProviderRegistration;
 import org.wildfly.clustering.provider.ServiceProviderRegistry;
 import org.wildfly.clustering.provider.ServiceProviderRegistration.Listener;
 import org.wildfly.clustering.server.logging.ClusteringServerLogger;
+import org.wildfly.clustering.singleton.SingletonElectionListener;
 import org.wildfly.clustering.singleton.SingletonElectionPolicy;
 import org.wildfly.clustering.singleton.service.SingletonService;
 
@@ -52,12 +55,13 @@ import org.wildfly.clustering.singleton.service.SingletonService;
  * Logic common to current and legacy {@link SingletonService} implementations.
  * @author Paul Ferraro
  */
-public abstract class AbstractDistributedSingletonService<C extends Lifecycle> implements SingletonService, Lifecycle, Listener, Supplier<C> {
+public abstract class AbstractDistributedSingletonService<C extends SingletonContext> implements SingletonService, SingletonContext, Listener, Supplier<C> {
 
     private final ServiceName name;
     private final Supplier<ServiceProviderRegistry<ServiceName>> registry;
     private final Supplier<CommandDispatcherFactory> dispatcherFactory;
     private final SingletonElectionPolicy electionPolicy;
+    private final SingletonElectionListener electionListener;
     private final int quorum;
     private final Function<ServiceTarget, Lifecycle> primaryLifecycleFactory;
 
@@ -72,6 +76,7 @@ public abstract class AbstractDistributedSingletonService<C extends Lifecycle> i
         this.registry = context.getServiceProviderRegistry();
         this.dispatcherFactory = context.getCommandDispatcherFactory();
         this.electionPolicy = context.getElectionPolicy();
+        this.electionListener = context.getElectionListener();
         this.quorum = context.getQuorum();
         this.primaryLifecycleFactory = primaryLifecycleFactory;
     }
@@ -93,7 +98,7 @@ public abstract class AbstractDistributedSingletonService<C extends Lifecycle> i
     }
 
     @Override
-    public void providersChanged(Set<Node> nodes) {
+    public synchronized void providersChanged(Set<Node> nodes) {
         Group group = this.registry.get().getGroup();
         List<Node> candidates = new ArrayList<>(group.getMembership().getMembers());
         candidates.retainAll(nodes);
@@ -113,8 +118,6 @@ public abstract class AbstractDistributedSingletonService<C extends Lifecycle> i
 
             try {
                 if (elected != null) {
-                    ClusteringServerLogger.ROOT_LOGGER.elected(elected.getName(), this.name.getCanonicalName());
-
                     // Stop service on every node except elected node
                     for (CompletionStage<Void> stage : this.dispatcher.executeOnGroup(new StopCommand(), elected).values()) {
                         try {
@@ -126,14 +129,22 @@ public abstract class AbstractDistributedSingletonService<C extends Lifecycle> i
                     // Start service on elected node
                     this.dispatcher.executeOnMember(new StartCommand(), elected).toCompletableFuture().join();
                 } else {
-                    if (quorumMet) {
-                        ClusteringServerLogger.ROOT_LOGGER.noPrimaryElected(this.name.getCanonicalName());
-                    } else {
+                    if (!quorumMet) {
                         ClusteringServerLogger.ROOT_LOGGER.quorumNotReached(this.name.getCanonicalName(), this.quorum);
                     }
 
                     // Stop service on every node
                     for (CompletionStage<Void> stage : this.dispatcher.executeOnGroup(new StopCommand()).values()) {
+                        try {
+                            stage.toCompletableFuture().join();
+                        } catch (CancellationException e) {
+                            // Ignore
+                        }
+                    }
+                }
+
+                if (this.electionListener != null) {
+                    for (CompletionStage<Void> stage : this.dispatcher.executeOnGroup(new SingletonElectionCommand(candidates, elected)).values()) {
                         try {
                             stage.toCompletableFuture().join();
                         } catch (CancellationException e) {
@@ -148,26 +159,62 @@ public abstract class AbstractDistributedSingletonService<C extends Lifecycle> i
     }
 
     @Override
-    public void start() {
+    public synchronized void start() {
         // If we were not already the primary node
         if (this.primary.compareAndSet(false, true)) {
-            ClusteringServerLogger.ROOT_LOGGER.startSingleton(this.name.getCanonicalName());
             this.primaryLifecycle.start();
         }
     }
 
     @Override
-    public void stop() {
+    public synchronized void stop() {
         // If we were the previous the primary node
         if (this.primary.compareAndSet(true, false)) {
-            ClusteringServerLogger.ROOT_LOGGER.stopSingleton(this.name.getCanonicalName());
             this.primaryLifecycle.stop();
+        }
+    }
+
+    @Override
+    public void elected(List<Node> candidates, Node elected) {
+        try {
+            this.electionListener.elected(candidates, elected);
+        } catch (Throwable e) {
+            ClusteringServerLogger.ROOT_LOGGER.warn(e.getLocalizedMessage(), e);
         }
     }
 
     @Override
     public boolean isPrimary() {
         return this.primary.get();
+    }
+
+    @Override
+    public Node getPrimaryProvider() {
+        if (this.isPrimary()) return this.registry.get().getGroup().getLocalMember();
+
+        List<Node> primaryMembers = new LinkedList<>();
+        try {
+            for (Map.Entry<Node, CompletionStage<Boolean>> entry : this.dispatcher.executeOnGroup(new PrimaryProviderCommand()).entrySet()) {
+                try {
+                    if (entry.getValue().toCompletableFuture().join().booleanValue()) {
+                        primaryMembers.add(entry.getKey());
+                    }
+                } catch (CancellationException e) {
+                    // Ignore
+                }
+            }
+            if (primaryMembers.size() > 1) {
+                throw ClusteringServerLogger.ROOT_LOGGER.multiplePrimaryProvidersDetected(this.name.getCanonicalName(), primaryMembers);
+            }
+            return !primaryMembers.isEmpty() ? primaryMembers.get(0) : null;
+        } catch (CommandDispatcherException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public Set<Node> getProviders() {
+        return this.registration.getProviders();
     }
 
     int getQuorum() {

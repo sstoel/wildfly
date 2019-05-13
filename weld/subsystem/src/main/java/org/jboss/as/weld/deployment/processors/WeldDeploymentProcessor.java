@@ -33,11 +33,14 @@ import java.util.Map.Entry;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import javax.enterprise.inject.spi.Extension;
 
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
+import org.jboss.as.ee.concurrent.ConcurrentContextSetupAction;
 import org.jboss.as.ee.naming.JavaNamespaceSetup;
-import org.jboss.as.ee.weld.WeldDeploymentMarker;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.deployment.JndiNamingDependencyProcessor;
 import org.jboss.as.naming.service.DefaultNamespaceContextSelectorService;
@@ -54,6 +57,7 @@ import org.jboss.as.server.deployment.module.ModuleSpecification;
 import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jboss.as.weld.ServiceNames;
 import org.jboss.as.weld.WeldBootstrapService;
+import org.jboss.as.weld._private.WeldDeploymentMarker;
 import org.jboss.as.weld.WeldStartService;
 import org.jboss.as.weld.deployment.BeanDeploymentArchiveImpl;
 import org.jboss.as.weld.deployment.BeanDeploymentModule;
@@ -93,6 +97,7 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  *
  * @author Stuart Douglas
  * @author <a href="mailto:tadamski@redhat.com">Tomasz Adamski</a>
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
 
@@ -224,21 +229,16 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
 
         final WeldDeployment deployment = new WeldDeployment(beanDeploymentArchives, extensions, module, subDeploymentLoaders, deploymentUnit, rootBeanDeploymentModule, eeModuleDescriptors);
 
-        final WeldBootstrapService weldBootstrapService = new WeldBootstrapService(deployment, WildFlyWeldEnvironment.INSTANCE, deploymentUnit.getName());
-
         installBootstrapConfigurationService(deployment, parent);
 
-        // Add root module services to WeldDeployment
-        for (Entry<Class<? extends Service>, Service> entry : rootModuleServices.entrySet()) {
-            weldBootstrapService.addWeldService(entry.getKey(), Reflections.cast(entry.getValue()));
-        }
-
         // add the weld service
-        final ServiceBuilder<WeldBootstrapService> weldBootstrapServiceBuilder = serviceTarget.addService(weldBootstrapServiceName, weldBootstrapService);
-
-        weldBootstrapServiceBuilder.addDependencies(TCCLSingletonService.SERVICE_NAME);
-        weldBootstrapServiceBuilder.addDependency(WeldExecutorServices.SERVICE_NAME, ExecutorServices.class, weldBootstrapService.getExecutorServices());
-        weldBootstrapServiceBuilder.addDependency(Services.JBOSS_SERVER_EXECUTOR, ExecutorService.class, weldBootstrapService.getServerExecutor());
+        final ServiceBuilder<?> weldBootstrapServiceBuilder = serviceTarget.addService(weldBootstrapServiceName);
+        final Consumer<WeldBootstrapService> weldBootstrapServiceConsumer = weldBootstrapServiceBuilder.provides(weldBootstrapServiceName);
+        weldBootstrapServiceBuilder.requires(TCCLSingletonService.SERVICE_NAME);
+        final Supplier<ExecutorServices> executorServicesSupplier = weldBootstrapServiceBuilder.requires(WeldExecutorServices.SERVICE_NAME);
+        final Supplier<ExecutorService> serverExecutorSupplier = weldBootstrapServiceBuilder.requires(Services.JBOSS_SERVER_EXECUTOR);
+        Supplier<SecurityServices> securityServicesSupplier = null;
+        Supplier<TransactionServices> weldTransactionServicesSupplier = null;
 
         // Install additional services
         final ServiceLoader<BootstrapDependencyInstaller> installers = ServiceLoader.load(BootstrapDependencyInstaller.class,
@@ -247,47 +247,55 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
             ServiceName serviceName = installer.install(serviceTarget, deploymentUnit, jtsEnabled);
             // Add dependency for recognized services
             if (ServiceNames.WELD_SECURITY_SERVICES_SERVICE_NAME.getSimpleName().equals(serviceName.getSimpleName())) {
-                weldBootstrapServiceBuilder.addDependency(serviceName, SecurityServices.class, weldBootstrapService.getSecurityServices());
+                securityServicesSupplier = weldBootstrapServiceBuilder.requires(serviceName);
             } else if (ServiceNames.WELD_TRANSACTION_SERVICES_SERVICE_NAME.getSimpleName().equals(serviceName.getSimpleName())) {
-                weldBootstrapServiceBuilder.addDependency(serviceName, TransactionServices.class, weldBootstrapService.getWeldTransactionServices());
+                weldTransactionServicesSupplier = weldBootstrapServiceBuilder.requires(serviceName);
             }
         }
-
+        final WeldBootstrapService weldBootstrapService = new WeldBootstrapService(deployment, WildFlyWeldEnvironment.INSTANCE, deploymentUnit.getName(),
+                weldBootstrapServiceConsumer, executorServicesSupplier, serverExecutorSupplier, securityServicesSupplier, weldTransactionServicesSupplier);
+        // Add root module services to WeldDeployment
+        for (Entry<Class<? extends Service>, Service> entry : rootModuleServices.entrySet()) {
+            weldBootstrapService.addWeldService(entry.getKey(), Reflections.cast(entry.getValue()));
+        }
+        weldBootstrapServiceBuilder.setInstance(weldBootstrapService);
         weldBootstrapServiceBuilder.install();
 
-        final List<SetupAction> setupActions = new ArrayList<SetupAction>();
-        JavaNamespaceSetup naming = deploymentUnit.getAttachment(org.jboss.as.ee.naming.Attachments.JAVA_NAMESPACE_SETUP_ACTION);
-        if (naming != null) {
-            setupActions.add(naming);
+        final List<SetupAction> setupActions = getSetupActions(deploymentUnit);
+
+        ServiceBuilder<?> startService = serviceTarget.addService(weldStartServiceName);
+        for (final ServiceName dependency : dependencies) {
+            startService.requires(dependency);
         }
 
-        final WeldStartService weldStartService = new WeldStartService(setupActions, module.getClassLoader(), Utils.getRootDeploymentUnit(deploymentUnit).getServiceName());
-
-        ServiceBuilder<WeldStartService> startService = serviceTarget.addService(weldStartServiceName, weldStartService)
-                .addDependency(weldBootstrapServiceName, WeldBootstrapService.class, weldStartService.getBootstrap())
-                .addDependencies(dependencies);
-
         // make sure JNDI bindings are up
-        startService.addDependency(JndiNamingDependencyProcessor.serviceName(deploymentUnit));
+        startService.requires(JndiNamingDependencyProcessor.serviceName(deploymentUnit));
 
+        final CapabilityServiceSupport capabilities = deploymentUnit.getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT);
+        boolean tx = capabilities.hasCapability("org.wildfly.transactions");
         // [WFLY-5232]
-        startService.addDependencies(getJNDISubsytemDependencies());
+        for (final ServiceName jndiSubsystemDependency : getJNDISubsytemDependencies(tx)) {
+            startService.requires(jndiSubsystemDependency);
+        }
 
         final EarMetaData earConfig = deploymentUnit.getAttachment(org.jboss.as.ee.structure.Attachments.EAR_METADATA);
         if (earConfig == null || !earConfig.getInitializeInOrder())  {
             // in-order install of sub-deployments may result in service dependencies deadlocks if the jndi dependency services of subdeployments are added as dependencies
             for (DeploymentUnit sub : subDeployments) {
-                startService.addDependency(JndiNamingDependencyProcessor.serviceName(sub));
+                startService.requires(JndiNamingDependencyProcessor.serviceName(sub));
             }
         }
-
+        final Supplier<WeldBootstrapService> bootstrapSupplier = startService.requires(weldBootstrapServiceName);
+        startService.setInstance(new WeldStartService(bootstrapSupplier, setupActions, module.getClassLoader(), Utils.getRootDeploymentUnit(deploymentUnit).getServiceName()));
         startService.install();
     }
 
-    private List<ServiceName> getJNDISubsytemDependencies() {
+    private List<ServiceName> getJNDISubsytemDependencies(boolean tx) {
         List<ServiceName> dependencies = new ArrayList<>();
-        dependencies.add(ContextNames.JBOSS_CONTEXT_SERVICE_NAME.append(ServiceName.of("UserTransaction")));
-        dependencies.add(ContextNames.JBOSS_CONTEXT_SERVICE_NAME.append(ServiceName.of("TransactionSynchronizationRegistry")));
+        if (tx) {
+            dependencies.add(ContextNames.JBOSS_CONTEXT_SERVICE_NAME.append(ServiceName.of("UserTransaction")));
+            dependencies.add(ContextNames.JBOSS_CONTEXT_SERVICE_NAME.append(ServiceName.of("TransactionSynchronizationRegistry")));
+        }
         dependencies.add(NamingService.SERVICE_NAME);
         dependencies.add(DefaultNamespaceContextSelectorService.SERVICE_NAME);
         return dependencies;
@@ -317,4 +325,16 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
         }
     }
 
+    static List<SetupAction> getSetupActions(DeploymentUnit deploymentUnit) {
+        final List<SetupAction> setupActions = new ArrayList<SetupAction>();
+        JavaNamespaceSetup naming = deploymentUnit.getAttachment(org.jboss.as.ee.naming.Attachments.JAVA_NAMESPACE_SETUP_ACTION);
+        if (naming != null) {
+            setupActions.add(naming);
+        }
+        final ConcurrentContextSetupAction concurrentContext = deploymentUnit.getAttachment(org.jboss.as.ee.component.Attachments.CONCURRENT_CONTEXT_SETUP_ACTION);
+        if (concurrentContext != null) {
+            setupActions.add(concurrentContext);
+        }
+        return setupActions;
+    }
 }

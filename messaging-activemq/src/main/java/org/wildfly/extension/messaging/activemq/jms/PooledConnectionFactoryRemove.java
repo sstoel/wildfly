@@ -22,15 +22,12 @@
 
 package org.wildfly.extension.messaging.activemq.jms;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttributes.Common.ENTRIES;
 
 import java.util.List;
 
 import org.jboss.as.controller.AbstractRemoveStepHandler;
 import org.jboss.as.controller.OperationContext;
-import org.jboss.as.controller.PathAddress;
-import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.wildfly.extension.messaging.activemq.MessagingServices;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.dmr.ModelNode;
@@ -45,19 +42,14 @@ public class PooledConnectionFactoryRemove extends AbstractRemoveStepHandler {
 
     public static final PooledConnectionFactoryRemove INSTANCE = new PooledConnectionFactoryRemove();
 
-
-
+    @Override
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) {
-        final ModelNode operationAddress = operation.require(OP_ADDR);
-        final PathAddress address = PathAddress.pathAddress(operationAddress);
-        final String name = address.getLastElement().getValue();
-        final ServiceName serviceName = MessagingServices.getActiveMQServiceName(PathAddress.pathAddress(operation.get(ModelDescriptionConstants.OP_ADDR)));
-
-        context.removeService(JMSServices.getPooledConnectionFactoryBaseServiceName(serviceName).append(name));
-
+        ServiceName serviceName = MessagingServices.getActiveMQServiceName(context.getCurrentAddress());
+        context.removeService(JMSServices.getPooledConnectionFactoryBaseServiceName(serviceName).append(context.getCurrentAddressValue()));
         removeJNDIAliases(context, model.require(ENTRIES.getName()).asList());
     }
 
+    @Override
     protected void recoverServices(OperationContext context, ModelNode operation, ModelNode model) {
         // TODO:  RE-ADD SERVICES
     }
@@ -68,7 +60,7 @@ public class PooledConnectionFactoryRemove extends AbstractRemoveStepHandler {
      * The 1st JNDI entry is not removed by this method as it is already handled when removing
      * the pooled-connection-factory service
      */
-    private void removeJNDIAliases(OperationContext context, List<ModelNode> entries) {
+    protected void removeJNDIAliases(OperationContext context, List<ModelNode> entries) {
         if (entries.size() > 1) {
             for (int i = 1; i < entries.size() ; i++) {
                 ContextNames.BindInfo aliasBindInfo = ContextNames.bindInfoFor(entries.get(i).asString());

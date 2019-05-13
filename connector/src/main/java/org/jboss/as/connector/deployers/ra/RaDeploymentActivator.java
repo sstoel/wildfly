@@ -22,6 +22,8 @@
 
 package org.jboss.as.connector.deployers.ra;
 
+import static org.jboss.as.connector.util.ConnectorServices.TRANSACTION_INTEGRATION_CAPABILITY_NAME;
+
 import org.jboss.as.connector.deployers.ds.processors.DriverProcessor;
 import org.jboss.as.connector.deployers.ds.processors.StructureDriverProcessor;
 import org.jboss.as.connector.deployers.ra.processors.IronJacamarDeploymentParsingProcessor;
@@ -43,6 +45,7 @@ import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
 import org.jboss.jca.core.spi.mdr.MetadataRepository;
 import org.jboss.jca.core.spi.transaction.TransactionIntegration;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceTarget;
 
 /**
@@ -68,7 +71,7 @@ public class RaDeploymentActivator {
         RaRepositoryService raRepositoryService = new RaRepositoryService();
         serviceTarget.addService(ConnectorServices.RA_REPOSITORY_SERVICE, raRepositoryService)
                 .addDependency(ConnectorServices.IRONJACAMAR_MDR, MetadataRepository.class, raRepositoryService.getMdrInjector())
-                .addDependency(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE, TransactionIntegration.class,
+                .addDependency(ConnectorServices.getCachedCapabilityServiceName(TRANSACTION_INTEGRATION_CAPABILITY_NAME), TransactionIntegration.class,
                         raRepositoryService.getTransactionIntegrationInjector())
                 .install();
 
@@ -84,9 +87,9 @@ public class RaDeploymentActivator {
                 .install();
 
         ResourceAdapterDeploymentRegistryService registryService = new ResourceAdapterDeploymentRegistryService();
-        serviceTarget.addService(ConnectorServices.RESOURCE_ADAPTER_REGISTRY_SERVICE, registryService)
-                .addDependency(ConnectorServices.IRONJACAMAR_MDR)
-                .install();
+        final ServiceBuilder sb = serviceTarget.addService(ConnectorServices.RESOURCE_ADAPTER_REGISTRY_SERVICE, registryService);
+        sb.requires(ConnectorServices.IRONJACAMAR_MDR);
+        sb.install();
     }
 
 

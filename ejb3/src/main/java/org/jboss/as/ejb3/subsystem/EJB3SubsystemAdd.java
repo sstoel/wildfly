@@ -33,13 +33,10 @@ import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.DEFAULT_SLSB_INSTAN
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.DEFAULT_STATEFUL_BEAN_ACCESS_TIMEOUT;
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemRootResourceDefinition.CLUSTERED_SINGLETON_CAPABILITY;
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemRootResourceDefinition.DEFAULT_CLUSTERED_SFSB_CACHE;
-import static org.jboss.as.ejb3.subsystem.EJB3SubsystemRootResourceDefinition.EJB_CAPABILITY;
-import static org.jboss.as.ejb3.subsystem.EJB3SubsystemRootResourceDefinition.EJB_CLIENT_CONFIGURATOR;
 
 import java.net.URI;
 import java.util.function.Supplier;
 
-import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
@@ -49,7 +46,6 @@ import org.jboss.as.controller.ProcessType;
 import org.jboss.as.controller.RunningMode;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.ejb3.clustering.SingletonBarrierService;
-import org.jboss.as.ejb3.component.EJBUtilities;
 import org.jboss.as.ejb3.deployment.DeploymentRepository;
 import org.jboss.as.ejb3.deployment.DeploymentRepositoryService;
 import org.jboss.as.ejb3.deployment.processors.AnnotatedEJBComponentDescriptionDeploymentUnitProcessor;
@@ -135,7 +131,6 @@ import org.jboss.as.txn.service.UserTransactionAccessControlService;
 import org.jboss.dmr.ModelNode;
 import org.jboss.ejb.client.EJBTransportProvider;
 import org.jboss.javax.rmi.RemoteObjectSubstitutionManager;
-import org.jboss.jca.core.spi.rar.ResourceAdapterRepository;
 import org.jboss.metadata.ejb.spec.EjbJarMetaData;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
@@ -156,6 +151,7 @@ import io.undertow.server.handlers.PathHandler;
  * Add operation handler for the EJB3 subsystem.
  *
  * @author Emanuel Muckenhuber
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 class EJB3SubsystemAdd extends AbstractBoottimeAddStepHandler {
 
@@ -168,15 +164,6 @@ class EJB3SubsystemAdd extends AbstractBoottimeAddStepHandler {
     EJB3SubsystemAdd(final EJBDefaultSecurityDomainProcessor defaultSecurityDomainDeploymentProcessor, final MissingMethodPermissionsDenyAccessMergingProcessor missingMethodPermissionsDenyAccessMergingProcessor) {
         this.defaultSecurityDomainDeploymentProcessor = defaultSecurityDomainDeploymentProcessor;
         this.missingMethodPermissionsDenyAccessMergingProcessor = missingMethodPermissionsDenyAccessMergingProcessor;
-    }
-
-    @Override
-    protected void recordCapabilitiesAndRequirements(OperationContext context, ModelNode operation, Resource resource) throws OperationFailedException {
-        super.recordCapabilitiesAndRequirements(context, operation, resource);
-        // TODO: delete these once optional requirements no longer require the existence of a capability
-        context.registerCapability(CLUSTERED_SINGLETON_CAPABILITY);
-        context.registerCapability(EJB_CLIENT_CONFIGURATOR);
-        context.registerCapability(EJB_CAPABILITY);
     }
 
     @Override
@@ -414,13 +401,6 @@ class EJB3SubsystemAdd extends AbstractBoottimeAddStepHandler {
                 .install();
 
         if (!appclient) {
-            final EJBUtilities utilities = new EJBUtilities();
-            ServiceBuilder<EJBUtilities> ejbUtilsBuilder = serviceTarget.addService(EJBUtilities.SERVICE_NAME, utilities)
-                    .addDependency(ConnectorServices.RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, utilities.getResourceAdapterRepositoryInjector())
-                    .setInitialMode(ServiceController.Mode.PASSIVE);
-            ejbUtilsBuilder.install();
-
-
             // create the POA Registry use by iiop
             final POARegistry poaRegistry = new POARegistry();
             context.getServiceTarget().addService(POARegistry.SERVICE_NAME, poaRegistry)

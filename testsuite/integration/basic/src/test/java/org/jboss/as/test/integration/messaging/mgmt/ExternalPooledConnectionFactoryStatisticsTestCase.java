@@ -29,6 +29,7 @@ import static org.jboss.shrinkwrap.api.ArchivePaths.create;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.net.SocketPermission;
 
 import javax.naming.Context;
 
@@ -41,6 +42,7 @@ import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
+import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
 import org.jboss.dmr.ModelNode;
@@ -65,6 +67,7 @@ public class ExternalPooledConnectionFactoryStatisticsTestCase {
 
         @Override
         public void doSetup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
+            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
             JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
             ops.addExternalHttpConnector("http-test-connector", "http", "http-acceptor");
             ModelNode attr = new ModelNode();
@@ -118,6 +121,8 @@ public class ExternalPooledConnectionFactoryStatisticsTestCase {
         return ShrinkWrap.create(JavaArchive.class, "PooledConnectionFactoryStatisticsTestCase.jar")
                 .addClass(ConnectionHoldingBean.class)
                 .addClass(RemoteConnectionHolding.class)
+                .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
+                        new SocketPermission("localhost", "resolve")), "permissions.xml")
                 .addAsManifestResource(EmptyAsset.INSTANCE, create("beans.xml"));
     }
 

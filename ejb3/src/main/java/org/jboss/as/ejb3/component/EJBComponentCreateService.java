@@ -22,13 +22,6 @@
 
 package org.jboss.as.ejb3.component;
 
-import javax.ejb.TimerService;
-import javax.ejb.TransactionAttributeType;
-import javax.ejb.TransactionManagementType;
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
-import javax.transaction.UserTransaction;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Collections;
@@ -41,6 +34,12 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+import javax.ejb.TimerService;
+import javax.ejb.TransactionAttributeType;
+import javax.ejb.TransactionManagementType;
+import javax.transaction.TransactionSynchronizationRegistry;
+import javax.transaction.UserTransaction;
+
 import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.ee.component.BasicComponentCreateService;
 import org.jboss.as.ee.component.ComponentConfiguration;
@@ -52,19 +51,19 @@ import org.jboss.as.ejb3.deployment.ApplicationExceptions;
 import org.jboss.as.ejb3.security.EJBSecurityMetaData;
 import org.jboss.as.ejb3.subsystem.ApplicationSecurityDomainService.ApplicationSecurityDomain;
 import org.jboss.as.ejb3.suspend.EJBSuspendHandlerService;
-import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.invocation.InterceptorFactory;
 import org.jboss.invocation.Interceptors;
 import org.jboss.invocation.proxy.MethodIdentifier;
 import org.jboss.msc.inject.Injector;
-import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.value.InjectedValue;
 import org.wildfly.extension.requestcontroller.ControlPoint;
 import org.wildfly.security.auth.server.SecurityDomain;
+import org.wildfly.transaction.client.LocalUserTransaction;
 
 /**
  * @author Jaikiran Pai
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class EJBComponentCreateService extends BasicComponentCreateService {
 
@@ -99,8 +98,6 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
     private final String distinctName;
     private final String policyContextID;
 
-    private final InjectedValue<TransactionManager> transactionManagerInjectedValue = new InjectedValue<>();
-    private final InjectedValue<UserTransaction> userTransactionInjectedValue = new InjectedValue<>();
     private final InjectedValue<TransactionSynchronizationRegistry> transactionSynchronizationRegistryValue = new InjectedValue<TransactionSynchronizationRegistry>();
     private final InjectedValue<ServerSecurityManager> serverSecurityManagerInjectedValue = new InjectedValue<>();
     private final InjectedValue<ControlPoint> controlPoint = new InjectedValue<>();
@@ -237,18 +234,6 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         }
     }
 
-    /**
-     * @return
-     * @deprecated {@link EJBUtilities} is deprecated post 7.2.0.Final version.
-     */
-    @Deprecated
-    protected EJBUtilities getEJBUtilities() {
-        // constructs
-        final DeploymentUnit deploymentUnit = getDeploymentUnitInjector().getValue();
-        final ServiceController<EJBUtilities> serviceController = (ServiceController<EJBUtilities>) deploymentUnit.getServiceRegistry().getRequiredService(EJBUtilities.SERVICE_NAME);
-        return serviceController.getValue();
-    }
-
     Map<MethodTransactionAttributeKey, TransactionAttributeType> getTxAttrs() {
         return txAttrs;
     }
@@ -340,12 +325,16 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         return moduleName;
     }
 
-    Injector<UserTransaction> getUserTransactionInjector() {
-        return this.userTransactionInjectedValue;
+    UserTransaction getUserTransaction() {
+        return LocalUserTransaction.getInstance();
     }
 
-    UserTransaction getUserTransaction() {
-        return this.userTransactionInjectedValue.getValue();
+    Injector<TransactionSynchronizationRegistry> getTransactionSynchronizationRegistryInjector() {
+        return transactionSynchronizationRegistryValue;
+    }
+
+    TransactionSynchronizationRegistry getTransactionSynchronizationRegistry() {
+        return transactionSynchronizationRegistryValue.getValue();
     }
 
     public Injector<EJBSuspendHandlerService> getEJBSuspendHandlerInjector() {

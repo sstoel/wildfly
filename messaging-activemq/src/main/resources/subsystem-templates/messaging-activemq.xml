@@ -2,10 +2,13 @@
 <!--  See src/resources/configuration/ReadMe.txt for how the configuration assembly works -->
 <config default-supplement="default">
     <extension-module>org.wildfly.extension.messaging-activemq</extension-module>
-    <subsystem xmlns="urn:jboss:domain:messaging-activemq:5.0">
+    <subsystem xmlns="urn:jboss:domain:messaging-activemq:6.0">
 
         <server name="default">
+
             <?CLUSTERED?>
+
+            <statistics enabled="${wildfly.messaging-activemq.statistics-enabled:${wildfly.statistics-enabled:false}}" />
 
             <security-setting name="#">
                 <role name="guest"

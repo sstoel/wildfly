@@ -27,6 +27,7 @@ import static org.junit.Assert.assertNotNull;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,6 +40,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.text.StrSubstitutor;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
 import org.jboss.logging.Logger;
 import org.jboss.security.xacml.core.JBossPDP;
 import org.jboss.security.xacml.core.model.context.ActionType;
@@ -62,6 +64,7 @@ import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -102,6 +105,11 @@ public class JBossPDPInteroperabilityTestCase {
                 + "/med-example-request.xml");
 
         return jar;
+    }
+
+    @BeforeClass
+    public static void skipSecurityManager() {
+        AssumeTestGroupUtil.assumeSecurityManagerDisabled();
     }
 
     /**
@@ -166,7 +174,7 @@ public class JBossPDPInteroperabilityTestCase {
         try {
             policyDir.mkdirs();
             final JBossPDP pdp = createPDPForMed(policyDir);
-            final String requestTemplate = IOUtils.toString(requestIS, "UTF-8");
+            final String requestTemplate = IOUtils.toString(requestIS, StandardCharsets.UTF_8);
             LOGGER.trace("REQUEST template: " + requestTemplate);
             final Map<String, Object> substitutionMap = new HashMap<String, Object>();
 
@@ -249,7 +257,7 @@ public class JBossPDPInteroperabilityTestCase {
      */
     private int getDecisionForStr(PolicyDecisionPoint pdp, String requestStr) throws Exception {
         final RequestContext request = RequestResponseContextFactory.createRequestCtx();
-        request.readRequest(IOUtils.toInputStream(requestStr));
+        request.readRequest(IOUtils.toInputStream(requestStr, StandardCharsets.UTF_8));
         return getDecision(pdp, request);
     }
 

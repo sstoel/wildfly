@@ -33,6 +33,9 @@ import java.security.ProtectionDomain;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 import javax.ejb.EJBHome;
 import javax.ejb.EJBLocalHome;
@@ -49,10 +52,6 @@ import javax.transaction.TransactionManager;
 import javax.transaction.TransactionSynchronizationRegistry;
 import javax.transaction.UserTransaction;
 
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-
 import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.ee.component.BasicComponent;
 import org.jboss.as.ee.component.ComponentView;
@@ -63,6 +62,7 @@ import org.jboss.as.ejb3.context.CurrentInvocationContext;
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.security.EJBSecurityMetaData;
 import org.jboss.as.ejb3.security.JaccInterceptor;
+import org.jboss.as.ejb3.subsystem.EJBStatistics;
 import org.jboss.as.ejb3.suspend.EJBSuspendHandlerService;
 import org.jboss.as.ejb3.timerservice.TimerServiceImpl;
 import org.jboss.as.ejb3.tx.ApplicationExceptionDetails;
@@ -85,10 +85,10 @@ import org.wildfly.security.auth.server.SecurityIdentity;
 import org.wildfly.security.authz.Roles;
 import org.wildfly.security.manager.WildFlySecurityManager;
 import org.wildfly.transaction.client.ContextTransactionManager;
-import org.wildfly.transaction.client.ContextTransactionSynchronizationRegistry;
 
 /**
  * @author <a href="mailto:cdewolf@redhat.com">Carlo de Wolf</a>
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public abstract class EJBComponent extends BasicComponent implements ServerActivityCallback {
 
@@ -98,7 +98,6 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     private final Map<MethodTransactionAttributeKey, Integer> txTimeouts;
     private final Map<MethodTransactionAttributeKey, Boolean> txExplicitAttrs;
 
-    private final EJBUtilities utilities;
     private final boolean isBeanManagedTransaction;
     private final Map<Class<?>, ApplicationExceptionDetails> applicationExceptions;
     private final EJBSecurityMetaData securityMetaData;
@@ -120,6 +119,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     private final InvocationMetrics invocationMetrics = new InvocationMetrics();
     private final EJBSuspendHandlerService ejbSuspendHandlerService;
     private final ShutDownInterceptorFactory shutDownInterceptorFactory;
+    private final TransactionSynchronizationRegistry transactionSynchronizationRegistry;
     private final UserTransaction userTransaction;
     private final ServerSecurityManager serverSecurityManager;
     private final ControlPoint controlPoint;
@@ -145,11 +145,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
      */
     protected EJBComponent(final EJBComponentCreateService ejbComponentCreateService) {
         super(ejbComponentCreateService);
-
-
         this.applicationExceptions = Collections.unmodifiableMap(ejbComponentCreateService.getApplicationExceptions().getApplicationExceptions());
-
-        this.utilities = ejbComponentCreateService.getEJBUtilities();
         final Map<MethodTransactionAttributeKey, TransactionAttributeType> txAttrs = ejbComponentCreateService.getTxAttrs();
         if (txAttrs == null || txAttrs.isEmpty()) {
             this.txAttrs = Collections.emptyMap();
@@ -184,6 +180,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         this.timeoutInterceptors = Collections.unmodifiableMap(ejbComponentCreateService.getTimeoutInterceptors());
         this.shutDownInterceptorFactory = ejbComponentCreateService.getShutDownInterceptorFactory();
         this.ejbSuspendHandlerService = ejbComponentCreateService.getEJBSuspendHandler();
+        this.transactionSynchronizationRegistry = ejbComponentCreateService.getTransactionSynchronizationRegistry();
         this.userTransaction = ejbComponentCreateService.getUserTransaction();
         this.serverSecurityManager = ejbComponentCreateService.getServerSecurityManager();
         this.controlPoint = ejbComponentCreateService.getControlPoint();
@@ -419,13 +416,8 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         return ContextTransactionManager.getInstance();
     }
 
-    /**
-     * @deprecated Use {@link ContextTransactionSynchronizationRegistry#getInstance()} instead.
-     * @return the value of {@link ContextTransactionSynchronizationRegistry#getInstance()}
-     */
-    @Deprecated
     public TransactionSynchronizationRegistry getTransactionSynchronizationRegistry() {
-        return ContextTransactionSynchronizationRegistry.getInstance();
+        return transactionSynchronizationRegistry;
     }
 
     public int getTransactionTimeout(final MethodIntf methodIntf, final Method method) {
@@ -468,7 +460,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     }
 
     public boolean isStatisticsEnabled() {
-        return utilities.isStatisticsEnabled();
+        return EJBStatistics.getInstance().isEnabled();
     }
 
     public Object lookup(String name) throws IllegalArgumentException {

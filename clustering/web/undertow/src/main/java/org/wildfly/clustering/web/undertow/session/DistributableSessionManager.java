@@ -21,14 +21,6 @@
  */
 package org.wildfly.clustering.web.undertow.session;
 
-import io.undertow.UndertowMessages;
-import io.undertow.server.HttpServerExchange;
-import io.undertow.server.session.SessionConfig;
-import io.undertow.server.session.SessionListener;
-import io.undertow.server.session.SessionListeners;
-import io.undertow.server.session.SessionManagerStatistics;
-import io.undertow.util.AttachmentKey;
-
 import java.time.Duration;
 import java.util.Collections;
 import java.util.OptionalLong;
@@ -37,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
+import java.util.function.LongConsumer;
 
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
@@ -47,11 +40,19 @@ import org.wildfly.clustering.web.session.SessionManager;
 import org.wildfly.clustering.web.undertow.UndertowIdentifierSerializerProvider;
 import org.wildfly.clustering.web.undertow.logging.UndertowClusteringLogger;
 
+import io.undertow.UndertowMessages;
+import io.undertow.server.HttpServerExchange;
+import io.undertow.server.session.SessionConfig;
+import io.undertow.server.session.SessionListener;
+import io.undertow.server.session.SessionListeners;
+import io.undertow.server.session.SessionManagerStatistics;
+import io.undertow.util.AttachmentKey;
+
 /**
  * Adapts a distributable {@link SessionManager} to an Undertow {@link io.undertow.server.session.SessionManager}.
  * @author Paul Ferraro
  */
-public class DistributableSessionManager implements UndertowSessionManager {
+public class DistributableSessionManager implements UndertowSessionManager, Consumer<HttpServerExchange>, LongConsumer {
 
     private static final IdentifierSerializer IDENTIFIER_SERIALIZER = new UndertowIdentifierSerializerProvider().getSerializer();
 
@@ -84,7 +85,7 @@ public class DistributableSessionManager implements UndertowSessionManager {
 
     @Override
     public synchronized void start() {
-        this.lifecycleStamp.ifPresent(stamp -> this.lifecycleLock.unlock(stamp));
+        this.lifecycleStamp.ifPresent(this);
         this.manager.start();
         if (this.statistics != null) {
             this.statistics.reset();
@@ -92,18 +93,25 @@ public class DistributableSessionManager implements UndertowSessionManager {
     }
 
     @Override
+    public void accept(long stamp) {
+        this.lifecycleLock.unlock(stamp);
+        this.lifecycleStamp = OptionalLong.empty();
+    }
+
+    @Override
     public synchronized void stop() {
         if (!this.lifecycleStamp.isPresent()) {
+            Duration stopTimeout = this.manager.getStopTimeout();
             try {
-                long stamp = this.lifecycleLock.tryWriteLock(this.manager.getDefaultMaxInactiveInterval().getSeconds(), TimeUnit.SECONDS);
+                long stamp = this.lifecycleLock.tryWriteLock(stopTimeout.getSeconds(), TimeUnit.SECONDS);
                 if (stamp != 0) {
                     this.lifecycleStamp = OptionalLong.of(stamp);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-            this.manager.stop();
         }
+        this.manager.stop();
     }
 
     private Consumer<HttpServerExchange> getSessionCloseTask() {
@@ -133,17 +141,25 @@ public class DistributableSessionManager implements UndertowSessionManager {
     }
 
     @Override
+    public void accept(HttpServerExchange exchange) {
+        if (exchange != null) {
+            exchange.removeAttachment(this.key);
+        }
+    }
+
+    @Override
     public io.undertow.server.session.Session createSession(HttpServerExchange exchange, SessionConfig config) {
         if (config == null) {
             throw UndertowMessages.MESSAGES.couldNotFindSessionCookieConfig();
         }
 
         String requestedId = config.findSessionId(exchange);
-        String id = (requestedId == null) ? this.manager.createIdentifier() : requestedId;
 
-        Consumer<HttpServerExchange> closeTask = this.getSessionCloseTask();
         boolean close = true;
+        Consumer<HttpServerExchange> closeTask = this.getSessionCloseTask();
         try {
+            String id = (requestedId == null) ? this.manager.createIdentifier() : requestedId;
+
             Batcher<Batch> batcher = this.manager.getBatcher();
             // Batch will be closed by Session.close();
             Batch batch = batcher.createBatch();
@@ -161,8 +177,8 @@ public class DistributableSessionManager implements UndertowSessionManager {
                 if (this.statistics != null) {
                     this.statistics.record(result);
                 }
-                close = false;
                 exchange.putAttachment(this.key, result);
+                close = false;
                 return result;
             } catch (RuntimeException | Error e) {
                 batch.discard();
@@ -202,8 +218,8 @@ public class DistributableSessionManager implements UndertowSessionManager {
             return null;
         }
 
-        Consumer<HttpServerExchange> closeTask = this.getSessionCloseTask();
         boolean close = true;
+        Consumer<HttpServerExchange> closeTask = this.getSessionCloseTask();
         try {
             Batcher<Batch> batcher = this.manager.getBatcher();
             Batch batch = batcher.createBatch();
@@ -214,10 +230,10 @@ public class DistributableSessionManager implements UndertowSessionManager {
                 }
 
                 io.undertow.server.session.Session result = new DistributableSession(this, session, config, batcher.suspendBatch(), closeTask);
-                close = false;
                 if (exchange != null) {
                     exchange.putAttachment(this.key, result);
                 }
+                close = false;
                 return result;
             } catch (RuntimeException | Error e) {
                 batch.discard();

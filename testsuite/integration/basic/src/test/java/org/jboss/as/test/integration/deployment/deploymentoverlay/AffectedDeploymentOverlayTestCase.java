@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 JBoss by Red Hat.
+ * Copyright 2017 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.DEP
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.hamcrest.CoreMatchers;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -77,7 +78,8 @@ public class AffectedDeploymentOverlayTestCase extends ContainerResourceMgmtTest
         getModelControllerClient().execute(Operations.createAddOperation(TEST_WILDCARD_ADDRESS.toModelNode()));
 
         op = Operations.createAddOperation(TEST_WILDCARD_ADDRESS.append(ModelDescriptionConstants.CONTENT, "WEB-INF/web.xml").toModelNode());
-        op.get(ModelDescriptionConstants.CONTENT).get(ModelDescriptionConstants.BYTES).set(FileUtils.readFile(AffectedDeploymentOverlayTestCase.class, "wildcard-override.xml").getBytes());
+        op.get(ModelDescriptionConstants.CONTENT).get(ModelDescriptionConstants.BYTES).set(
+                FileUtils.readFile(AffectedDeploymentOverlayTestCase.class, "wildcard-override.xml").getBytes(StandardCharsets.UTF_8));
         getModelControllerClient().execute(op);
 
         op = Operations.createAddOperation(TEST_WILDCARD_ADDRESS.append(ModelDescriptionConstants.CONTENT, "WEB-INF/classes/wildcard-new-file").toModelNode());

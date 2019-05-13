@@ -46,6 +46,7 @@ import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.as.subsystem.test.KernelServicesBuilder;
 import org.jboss.dmr.ModelNode;
+import org.jgroups.conf.ClassConfigurator;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -79,6 +80,8 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
                 return JGroupsModel.VERSION_4_0_0;
             case EAP_7_1_0:
                 return JGroupsModel.VERSION_5_0_0;
+            case EAP_7_2_0:
+                return JGroupsModel.VERSION_6_0_0;
             default:
                 throw new IllegalArgumentException();
         }
@@ -92,18 +95,13 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
                         formatEAP6SubsystemArtifact(version),
                 };
             case EAP_7_0_0:
-                return new String[] {
-                        formatEAP7SubsystemArtifact(version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-spi:%s", version),
-                };
             case EAP_7_1_0:
+            case EAP_7_2_0:
                 return new String[] {
                         formatEAP7SubsystemArtifact(version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-spi:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-spi:%s", version),
                 };
             default:
@@ -113,7 +111,7 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
 
     private static org.jboss.as.subsystem.test.AdditionalInitialization createAdditionalInitialization() {
         return new AdditionalInitialization()
-                .require(CommonUnaryRequirement.SOCKET_BINDING, "jgroups-tcp", "jgroups-udp", "jgroups-udp-fd", "some-binding", "jgroups-diagnostics", "jgroups-mping", "jgroups-tcp-fd", "jgroups-state-xfr")
+                .require(CommonUnaryRequirement.SOCKET_BINDING, "jgroups-tcp", "jgroups-udp", "jgroups-udp-fd", "some-binding", "client-binding", "jgroups-diagnostics", "jgroups-mping", "jgroups-tcp-fd", "jgroups-client-fd", "jgroups-state-xfr")
                 ;
     }
 
@@ -132,21 +130,29 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
         testTransformation(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testTransformerEAP720() throws Exception {
+        testTransformation(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     /**
      * Tests transformation of model from current version into specified version.
      */
     private void testTransformation(final ModelTestControllerVersion controller) throws Exception {
         final ModelVersion version = getModelVersion(controller).getVersion();
         final String[] dependencies = getDependencies(controller);
+        final String subsystemXmlResource = String.format("subsystem-jgroups-transform-%d_%d_%d.xml", version.getMajor(), version.getMinor(), version.getMicro());
 
         // create builder for current subsystem version
         KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization())
-                .setSubsystemXmlResource("subsystem-jgroups-transform.xml");
+                .setSubsystemXmlResource(subsystemXmlResource);
 
         // initialize the legacy services and add required jars
         builder.createLegacyKernelServicesBuilder(createAdditionalInitialization(), controller, version)
                 .addMavenResourceURL(dependencies)
                 .addSingleChildFirstClass(AdditionalInitialization.class)
+                // workaround IllegalArgumentException: key 1100 (org.jboss.as.clustering.jgroups.auth.BinaryAuthToken) is already in magic map; make sure that all keys are unique
+                .addSingleChildFirstClass(ClassConfigurator.class)
                 .skipReverseControllerCheck()
                 .dontPersistXml();
 
@@ -295,7 +301,7 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
 
         final PathAddress transportAddr = stackAddr.append("transport", "tcp");
         ModelNode addTransport = Util.createAddOperation(transportAddr);
-        addTransport.get(SocketBindingProtocolResourceDefinition.Attribute.SOCKET_BINDING.getName()).set("some-binding");
+        addTransport.get(MulticastProtocolResourceDefinition.Attribute.SOCKET_BINDING.getName()).set("some-binding");
         addTransport.get(MODULE).set("do.reject");
         TransformedOperation op = services.executeInMainAndGetTheTransformedOperation(addTransport, version);
         Assert.assertTrue(op.rejectOperation(success()));
@@ -328,6 +334,11 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
         testRejections(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testRejectionsEAP720() throws Exception {
+        testRejections(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     private void testRejections(final ModelTestControllerVersion controller) throws Exception {
         final ModelVersion version = getModelVersion(controller).getVersion();
         final String[] dependencies = getDependencies(controller);
@@ -339,6 +350,8 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
         builder.createLegacyKernelServicesBuilder(createAdditionalInitialization(), controller, version)
                 .addSingleChildFirstClass(AdditionalInitialization.class)
                 .addMavenResourceURL(dependencies)
+                // workaround IllegalArgumentException: key 1100 (org.jboss.as.clustering.jgroups.auth.BinaryAuthToken) is already in magic map; make sure that all keys are unique
+                .addSingleChildFirstClass(ClassConfigurator.class)
                 .dontPersistXml();
 
         KernelServices services = builder.build();
@@ -356,11 +369,16 @@ public class JGroupsTransformersTestCase extends OperationTestCaseBase {
 
         PathAddress subsystemAddress = PathAddress.pathAddress(JGroupsSubsystemResourceDefinition.PATH);
 
+        if (JGroupsModel.VERSION_7_0_0.requiresTransformation(version)) {
+            config.addFailedAttribute(subsystemAddress.append(StackResourceDefinition.WILDCARD_PATH).append(TransportResourceDefinition.pathElement("TCP_NIO2")), FailedOperationTransformationConfig.REJECTED_RESOURCE);
+            config.addFailedAttribute(subsystemAddress.append(StackResourceDefinition.WILDCARD_PATH).append(ProtocolResourceDefinition.pathElement("FD_SOCK")), FailedOperationTransformationConfig.REJECTED_RESOURCE);
+        }
+
         if (JGroupsModel.VERSION_3_0_0.requiresTransformation(version)) {
             // Channel resource in a typical configuration would be not rejected, but since we don't have infinispan subsystem setup (because
             // that would create a cyclical dependency) it has to be rejected in this subsystem test
             config.addFailedAttribute(subsystemAddress.append(ChannelResourceDefinition.WILDCARD_PATH), FailedOperationTransformationConfig.REJECTED_RESOURCE);
-            config.addFailedAttribute(subsystemAddress.append(StackResourceDefinition.WILDCARD_PATH).append(TransportResourceDefinition.WILDCARD_PATH).append(ThreadPoolResourceDefinition.WILDCARD_PATH), FailedOperationTransformationConfig.REJECTED_RESOURCE);
+            config.addFailedAttribute(subsystemAddress.append(StackResourceDefinition.WILDCARD_PATH).append(TransportResourceDefinition.pathElement("TCP")).append(ThreadPoolResourceDefinition.WILDCARD_PATH), FailedOperationTransformationConfig.REJECTED_RESOURCE);
         }
 
         if (JGroupsModel.VERSION_2_0_0.requiresTransformation(version)) {

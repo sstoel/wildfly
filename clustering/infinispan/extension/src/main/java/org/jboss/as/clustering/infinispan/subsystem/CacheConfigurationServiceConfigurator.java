@@ -27,16 +27,16 @@ import static org.jboss.as.clustering.infinispan.subsystem.CacheResourceDefiniti
 
 import java.util.function.Consumer;
 
+import org.infinispan.commons.CacheException;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.ExpirationConfiguration;
 import org.infinispan.configuration.cache.GroupsConfigurationBuilder;
-import org.infinispan.configuration.cache.JMXStatisticsConfiguration;
 import org.infinispan.configuration.cache.LockingConfiguration;
 import org.infinispan.configuration.cache.MemoryConfiguration;
 import org.infinispan.configuration.cache.PersistenceConfiguration;
+import org.infinispan.configuration.cache.StorageType;
 import org.infinispan.configuration.cache.TransactionConfiguration;
 import org.infinispan.distribution.group.Grouper;
-import org.infinispan.eviction.EvictionStrategy;
 import org.jboss.as.clustering.controller.CapabilityServiceNameProvider;
 import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
 import org.jboss.as.controller.OperationContext;
@@ -52,6 +52,7 @@ import org.wildfly.clustering.service.Dependency;
 import org.wildfly.clustering.service.ServiceConfigurator;
 import org.wildfly.clustering.service.ServiceSupplierDependency;
 import org.wildfly.clustering.service.SupplierDependency;
+import org.wildfly.transaction.client.ContextTransactionManager;
 
 /**
  * Builds a cache configuration from its components.
@@ -67,7 +68,7 @@ public class CacheConfigurationServiceConfigurator extends CapabilityServiceName
     private final SupplierDependency<TransactionConfiguration> transaction;
     private final SupplierDependency<Module> module;
 
-    private volatile JMXStatisticsConfiguration statistics;
+    private volatile boolean statisticsEnabled;
 
     CacheConfigurationServiceConfigurator(PathAddress address) {
         super(CONFIGURATION, address);
@@ -81,9 +82,11 @@ public class CacheConfigurationServiceConfigurator extends CapabilityServiceName
         String containerName = address.getParent().getLastElement().getValue();
         String cacheName = address.getLastElement().getValue();
         this.configurator = new ConfigurationServiceConfigurator(this.getServiceName(), containerName, cacheName, this.andThen(builder -> {
-            GroupsConfigurationBuilder groupsBuilder = builder.clustering().hash().groups().enabled();
-            for (Grouper<?> grouper : this.module.get().loadService(Grouper.class)) {
-                groupsBuilder.addGrouper(grouper);
+            if (builder.memory().storageType() == StorageType.OBJECT) {
+                GroupsConfigurationBuilder groupsBuilder = builder.clustering().hash().groups().enabled();
+                for (Grouper<?> grouper : this.module.get().loadService(Grouper.class)) {
+                    groupsBuilder.addGrouper(grouper);
+                }
             }
         })).require(this);
     }
@@ -100,24 +103,29 @@ public class CacheConfigurationServiceConfigurator extends CapabilityServiceName
 
     @Override
     public ServiceConfigurator configure(OperationContext context, ModelNode model) throws OperationFailedException {
-        boolean enabled = STATISTICS_ENABLED.resolveModelAttribute(context, model).asBoolean();
-        this.statistics = new ConfigurationBuilder().jmxStatistics().enabled(enabled).available(enabled).create();
+        this.statisticsEnabled = STATISTICS_ENABLED.resolveModelAttribute(context, model).asBoolean();
 
         this.configurator.configure(context);
         return this;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void accept(ConfigurationBuilder builder) {
+        TransactionConfiguration tx = this.transaction.get();
+
         builder.memory().read(this.memory.get());
         builder.expiration().read(this.expiration.get());
         builder.locking().read(this.locking.get());
         builder.persistence().read(this.persistence.get());
-        builder.transaction().read(this.transaction.get());
-        builder.jmxStatistics().read(this.statistics);
-        // Still need to specify this to silence log messages
-        builder.eviction().strategy(EvictionStrategy.MANUAL);
+        builder.transaction().read(tx);
+        builder.jmxStatistics().enabled(this.statisticsEnabled).available(this.statisticsEnabled);
+
+        try {
+            // Configure invocation batching based on transaction configuration
+            builder.invocationBatching().enable(tx.transactionMode().isTransactional() && (tx.transactionManagerLookup().getTransactionManager() != ContextTransactionManager.getInstance()));
+        } catch (Exception e) {
+            throw new CacheException(e);
+        }
     }
 
     MemoryConfiguration memory() {

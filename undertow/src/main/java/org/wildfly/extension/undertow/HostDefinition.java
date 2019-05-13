@@ -33,13 +33,13 @@ import org.jboss.as.controller.AttributeParser;
 import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.StringListAttributeDefinition;
 import org.jboss.as.controller.capability.DynamicNameMappers;
 import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.operations.validation.IntRangeValidator;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.web.host.WebHost;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
@@ -49,6 +49,8 @@ import org.wildfly.extension.undertow.filters.FilterRefDefinition;
  * @author <a href="mailto:tomaz.cerar@redhat.com">Tomaz Cerar</a> (c) 2013 Red Hat Inc.
  */
 class HostDefinition extends PersistentResourceDefinition {
+
+    public static final String DEFAULT_WEB_MODULE_DEFAULT = "ROOT.war";
 
     static final RuntimeCapability<Void> HOST_CAPABILITY = RuntimeCapability.Builder.of(Capabilities.CAPABILITY_HOST, true, Host.class)
             .addRequirements(Capabilities.CAPABILITY_UNDERTOW)
@@ -68,7 +70,7 @@ class HostDefinition extends PersistentResourceDefinition {
     static final SimpleAttributeDefinition DEFAULT_WEB_MODULE = new SimpleAttributeDefinitionBuilder(Constants.DEFAULT_WEB_MODULE, ModelType.STRING, true)
             .setRestartAllServices()
             .setValidator(new StringLengthValidator(1, true, false))
-            .setDefaultValue(new ModelNode("ROOT.war"))
+            .setDefaultValue(new ModelNode(DEFAULT_WEB_MODULE_DEFAULT))
             .build();
 
     static final SimpleAttributeDefinition DEFAULT_RESPONSE_CODE = new SimpleAttributeDefinitionBuilder(Constants.DEFAULT_RESPONSE_CODE, ModelType.INT, true)
@@ -99,9 +101,11 @@ class HostDefinition extends PersistentResourceDefinition {
     ));
 
     private HostDefinition() {
-        super(UndertowExtension.HOST_PATH, UndertowExtension.getResolver(Constants.HOST),
-                HostAdd.INSTANCE,
-                new HostRemove());
+        super(new SimpleResourceDefinition.Parameters(UndertowExtension.HOST_PATH, UndertowExtension.getResolver(Constants.HOST))
+                .setAddHandler(HostAdd.INSTANCE)
+                .setRemoveHandler(new HostRemove())
+                .addCapabilities(HOST_CAPABILITY,
+                        WebHost.CAPABILITY));
     }
 
     @Override
@@ -114,9 +118,4 @@ class HostDefinition extends PersistentResourceDefinition {
         return CHILDREN;
     }
 
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        resourceRegistration.registerCapability(HOST_CAPABILITY);
-        resourceRegistration.registerCapability(WebHost.CAPABILITY);
-    }
 }

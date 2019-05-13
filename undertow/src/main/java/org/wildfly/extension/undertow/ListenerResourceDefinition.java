@@ -23,6 +23,7 @@
 package org.wildfly.extension.undertow;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.NAME;
+import static org.jboss.as.controller.registry.AttributeAccess.Flag.COUNTER_METRIC;
 import static org.wildfly.extension.undertow.Capabilities.REF_IO_WORKER;
 import static org.wildfly.extension.undertow.Capabilities.REF_SOCKET_BINDING;
 
@@ -48,6 +49,7 @@ import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.StringListAttributeDefinition;
 import org.jboss.as.controller.access.management.AccessConstraintDefinition;
 import org.jboss.as.controller.access.management.SensitiveTargetAccessConstraintDefinition;
@@ -166,18 +168,32 @@ abstract class ListenerResourceDefinition extends PersistentResourceDefinition {
 
     public enum ConnectorStat {
         REQUEST_COUNT(new SimpleAttributeDefinitionBuilder("request-count", ModelType.LONG)
-                .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build()),
+                .setUndefinedMetricValue(new ModelNode(0))
+                .setFlags(COUNTER_METRIC)
+                .setStorageRuntime()
+                .build()),
         BYTES_SENT(new SimpleAttributeDefinitionBuilder("bytes-sent", ModelType.LONG)
+                .setUndefinedMetricValue(new ModelNode(0))
                 .setMeasurementUnit(MeasurementUnit.BYTES)
-                .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build()),
+                .setFlags(COUNTER_METRIC)
+                .setStorageRuntime()
+                .build()),
         BYTES_RECEIVED(new SimpleAttributeDefinitionBuilder("bytes-received", ModelType.LONG)
+                .setUndefinedMetricValue(new ModelNode(0))
                 .setMeasurementUnit(MeasurementUnit.BYTES)
-                .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build()),
+                .setFlags(COUNTER_METRIC)
+                .setStorageRuntime()
+                .build()),
         ERROR_COUNT(new SimpleAttributeDefinitionBuilder("error-count", ModelType.LONG)
-                .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build()),
+                .setUndefinedMetricValue(new ModelNode(0))
+                .setFlags(COUNTER_METRIC)
+                .setStorageRuntime().build()),
         PROCESSING_TIME(new SimpleAttributeDefinitionBuilder("processing-time", ModelType.LONG)
+                .setUndefinedMetricValue(new ModelNode(0))
                 .setMeasurementUnit(MeasurementUnit.NANOSECONDS)
-                .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build()),
+                .setFlags(COUNTER_METRIC)
+                .setStorageRuntime()
+                .build()),
         MAX_PROCESSING_TIME(new SimpleAttributeDefinitionBuilder("max-processing-time", ModelType.LONG)
                 .setMeasurementUnit(MeasurementUnit.NANOSECONDS)
                 .setUndefinedMetricValue(new ModelNode(0)).setStorageRuntime().build());
@@ -224,8 +240,8 @@ abstract class ListenerResourceDefinition extends PersistentResourceDefinition {
     }
 
     public ListenerResourceDefinition(PathElement pathElement) {
-        super(new PersistentResourceDefinition.Parameters(pathElement, UndertowExtension.getResolver(Constants.LISTENER))
-                .setCapabilities(LISTENER_CAPABILITY));
+        super(new SimpleResourceDefinition.Parameters(pathElement, UndertowExtension.getResolver(Constants.LISTENER))
+                .addCapabilities(LISTENER_CAPABILITY));
     }
 
     public Collection<AttributeDefinition> getAttributes() {
@@ -276,7 +292,6 @@ abstract class ListenerResourceDefinition extends PersistentResourceDefinition {
         public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
             ListenerService service =  getListenerService(context);
             if (service == null) {
-                context.getResult().set(0L);
                 return;
             }
             String op = operation.get(NAME).asString();
@@ -303,10 +318,7 @@ abstract class ListenerResourceDefinition extends PersistentResourceDefinition {
                         context.getResult().set(stats.getRequestCount());
                         break;
                 }
-            } else {
-                context.getResult().set(0L);
             }
-            context.completeStep(OperationContext.RollbackHandler.NOOP_ROLLBACK_HANDLER);
         }
     }
 
@@ -318,11 +330,6 @@ abstract class ListenerResourceDefinition extends PersistentResourceDefinition {
             return null;
         }
         return listenerSC.getValue();
-    }
-
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        resourceRegistration.registerCapability(LISTENER_CAPABILITY);
     }
 
     private static class EnabledAttributeHandler extends AbstractWriteAttributeHandler<Boolean> {

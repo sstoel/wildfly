@@ -47,6 +47,7 @@ import org.wildfly.clustering.dispatcher.CommandDispatcher;
 import org.wildfly.clustering.dispatcher.CommandDispatcherFactory;
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
+import org.wildfly.clustering.ee.Immutability;
 import org.wildfly.clustering.ee.Recordable;
 import org.wildfly.clustering.ee.infinispan.CacheProperties;
 import org.wildfly.clustering.ee.infinispan.InfinispanBatcher;
@@ -72,7 +73,6 @@ import org.wildfly.clustering.web.session.SessionExpirationListener;
 import org.wildfly.clustering.web.session.SessionManager;
 import org.wildfly.clustering.web.session.SessionManagerConfiguration;
 import org.wildfly.clustering.web.session.SessionManagerFactory;
-import org.wildfly.clustering.web.session.SessionManagerFactoryConfiguration;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
@@ -109,7 +109,7 @@ public class InfinispanSessionManagerFactory<C extends Marshallability, L> imple
         this.batcher = new InfinispanBatcher(this.cache);
         this.properties = new InfinispanCacheProperties(this.cache.getCacheConfiguration());
         SessionMetaDataFactory<InfinispanSessionMetaData<L>, L> metaDataFactory = new InfinispanSessionMetaDataFactory<>(config.getCache(), this.properties);
-        this.factory = new InfinispanSessionFactory<>(metaDataFactory, this.createSessionAttributesFactory(config), config.getSessionManagerFactoryConfiguration().getLocalContextFactory());
+        this.factory = new InfinispanSessionFactory<>(metaDataFactory, this.createSessionAttributesFactory(config), config.getLocalContextFactory());
         CommandDispatcherFactory dispatcherFactory = config.getCommandDispatcherFactory();
         ExpiredSessionRemover<?, ?, L> remover = new ExpiredSessionRemover<>(this.factory);
         this.expirationRegistrar = remover;
@@ -183,16 +183,16 @@ public class InfinispanSessionManagerFactory<C extends Marshallability, L> imple
     }
 
     private SessionAttributesFactory<?> createSessionAttributesFactory(InfinispanSessionManagerFactoryConfiguration<C, L> configuration) {
-        SessionManagerFactoryConfiguration<C, L> config = configuration.getSessionManagerFactoryConfiguration();
-        MarshalledValueFactory<C> factory = config.getMarshalledValueFactory();
-        C context = config.getMarshallingContext();
+        MarshalledValueFactory<C> factory = configuration.getMarshalledValueFactory();
+        C context = configuration.getMarshallingContext();
+        Immutability immutability = configuration.getImmutability();
 
-        switch (config.getAttributePersistenceStrategy()) {
+        switch (configuration.getAttributePersistenceStrategy()) {
             case FINE: {
-                return new FineSessionAttributesFactory<>(configuration.getCache(), configuration.getCache(), new MarshalledValueMarshaller<>(factory, context), this.properties);
+                return new FineSessionAttributesFactory<>(configuration.getCache(), configuration.getCache(), new MarshalledValueMarshaller<>(factory, context), immutability, this.properties);
             }
             case COARSE: {
-                return new CoarseSessionAttributesFactory<>(configuration.getCache(), new MarshalledValueMarshaller<>(factory, context), this.properties);
+                return new CoarseSessionAttributesFactory<>(configuration.getCache(), new MarshalledValueMarshaller<>(factory, context), immutability, this.properties);
             }
             default: {
                 // Impossible

@@ -25,16 +25,16 @@ import java.security.AccessController;
 import java.security.Principal;
 import java.security.PrivilegedAction;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-import org.jboss.as.security.service.SimpleSecurityManager;
+import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.weld.ServiceNames;
 import org.jboss.as.weld.logging.WeldLogger;
-import org.jboss.msc.service.Service;
+import org.jboss.msc.Service;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.InjectedValue;
 import org.jboss.security.SecurityContext;
 import org.jboss.security.SecurityContextAssociation;
 import org.jboss.weld.security.spi.SecurityServices;
@@ -42,25 +42,31 @@ import org.wildfly.security.auth.server.SecurityDomain;
 import org.wildfly.security.auth.server.SecurityIdentity;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
-public class WeldSecurityServices implements Service<WeldSecurityServices>, SecurityServices {
+/**
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
+ */
+public class WeldSecurityServices implements Service, SecurityServices {
 
     public static final ServiceName SERVICE_NAME = ServiceNames.WELD_SECURITY_SERVICES_SERVICE_NAME;
+    private final Consumer<SecurityServices> securityServicesConsumer;
+    // This is a Supplier<ServerSecurityManager>. I use ? even though with type erasure
+    // that doesn't matter, just to make it harder for someone to modify this class and
+    // accidentally introduce any unnecessary loading of ServerSecurityManager
+    private final Supplier<?> securityManagerSupplier;
 
-    private final InjectedValue<SimpleSecurityManager> securityManagerValue = new InjectedValue<SimpleSecurityManager>();
-
-    @Override
-    public void start(StartContext context) throws StartException {
-
+    public WeldSecurityServices(final Consumer<SecurityServices> securityServicesConsumer, final Supplier<?> securityManagerSupplier) {
+        this.securityServicesConsumer = securityServicesConsumer;
+        this.securityManagerSupplier = securityManagerSupplier;
     }
 
     @Override
-    public void stop(StopContext context) {
-
+    public void start(final StartContext context) throws StartException {
+        securityServicesConsumer.accept(this);
     }
 
     @Override
-    public WeldSecurityServices getValue() throws IllegalStateException, IllegalArgumentException {
-        return this;
+    public void stop(final StopContext context) {
+        securityServicesConsumer.accept(null);
     }
 
     @Override
@@ -70,18 +76,20 @@ public class WeldSecurityServices implements Service<WeldSecurityServices>, Secu
             return elytronDomain.getCurrentSecurityIdentity().getPrincipal();
         }
 
-        final SimpleSecurityManager securityManager = securityManagerValue.getOptionalValue();
+        // Use 'Object' initially to avoid loading ServerSecurityManager (which may not be present)
+        // until we know for sure we need it.
+        final Object securityManager = securityManagerSupplier != null ? securityManagerSupplier.get() : null;
         if (securityManager == null)
             throw WeldLogger.ROOT_LOGGER.securityNotEnabled();
-        return securityManager.getCallerPrincipal();
+        if (WildFlySecurityManager.isChecking()) {
+            return AccessController.doPrivileged((PrivilegedAction<Principal>) ((ServerSecurityManager) securityManager)::getCallerPrincipal);
+        } else {
+            return ((ServerSecurityManager)securityManager).getCallerPrincipal();
+        }
     }
 
     @Override
     public void cleanup() {
-    }
-
-    public InjectedValue<SimpleSecurityManager> getSecurityManagerValue() {
-        return securityManagerValue;
     }
 
     @Override

@@ -21,32 +21,31 @@
  */
 package org.jboss.as.weld.deployment.processor;
 
-import javax.transaction.TransactionManager;
-import javax.transaction.UserTransaction;
-
 import org.jboss.as.server.deployment.DeploymentUnit;
-import org.jboss.as.txn.service.TransactionManagerService;
-import org.jboss.as.txn.service.UserTransactionService;
+import org.jboss.as.weld.ServiceNames;
 import org.jboss.as.weld.services.bootstrap.WeldTransactionServices;
 import org.jboss.as.weld.spi.BootstrapDependencyInstaller;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 
+import java.util.function.Consumer;
+
 /**
- *
  * @author Martin Kouba
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class TransactionsBootstrapDependencyInstaller implements BootstrapDependencyInstaller {
 
     @Override
     public ServiceName install(ServiceTarget serviceTarget, DeploymentUnit deploymentUnit, boolean jtsEnabled) {
-        final WeldTransactionServices weldTransactionServices = new WeldTransactionServices(jtsEnabled);
-
         final ServiceName weldTransactionServiceName = deploymentUnit.getServiceName().append(WeldTransactionServices.SERVICE_NAME);
-
-        serviceTarget.addService(weldTransactionServiceName, weldTransactionServices)
-                .addDependency(TransactionManagerService.SERVICE_NAME, TransactionManager.class, weldTransactionServices.getInjectedTransactionManager())
-                .addDependency(UserTransactionService.SERVICE_NAME, UserTransaction.class, weldTransactionServices.getInjectedTransaction()).install();
+        final ServiceBuilder<?> sb = serviceTarget.addService(weldTransactionServiceName);
+        final Consumer<WeldTransactionServices> weldTransactionServicesConsumer = sb.provides(weldTransactionServiceName);
+        // Ensure the local transaction provider is started before we start
+        sb.requires(ServiceNames.capabilityServiceName(deploymentUnit, "org.wildfly.transactions.global-default-local-provider"));
+        sb.setInstance(new WeldTransactionServices(jtsEnabled, weldTransactionServicesConsumer));
+        sb.install();
 
         return weldTransactionServiceName;
     }

@@ -23,7 +23,6 @@
 package org.wildfly.test.integration.microprofile.config.smallrye.app;
 
 import static org.wildfly.test.integration.microprofile.config.smallrye.AssertUtils.assertTextContainsProperty;
-import static org.wildfly.test.integration.microprofile.config.smallrye.HttpUtils.getContent;
 
 import java.net.URL;
 import java.util.Arrays;
@@ -36,11 +35,13 @@ import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
+import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -48,6 +49,7 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.integration.microprofile.config.smallrye.AbstractMicroProfileConfigTestCase;
 import org.wildfly.test.integration.microprofile.config.smallrye.SubsystemConfigSourceTask;
 
 /**
@@ -57,15 +59,68 @@ import org.wildfly.test.integration.microprofile.config.smallrye.SubsystemConfig
 @RunWith(Arquillian.class)
 @RunAsClient
 @ServerSetup(SubsystemConfigSourceTask.class)
-public class MicroProfileConfigTestCase {
+public class MicroProfileConfigTestCase extends AbstractMicroProfileConfigTestCase {
 
     @Deployment
     public static Archive<?> deploy() {
         WebArchive war = ShrinkWrap.create(WebArchive.class, "MicroProfileConfigTestCase.war")
-                .addClasses(TestApplication.class)
+                .addClasses(TestApplication.class, AbstractMicroProfileConfigTestCase.class)
                 .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml")
                 .addAsManifestResource(MicroProfileConfigTestCase.class.getPackage(),
-                        "microprofile-config.properties", "microprofile-config.properties");
+                        "microprofile-config.properties", "microprofile-config.properties")
+                .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(createPermissions(
+                        "my.prop",
+                        "my.other.prop",
+                        SubsystemConfigSourceTask.MY_PROP_FROM_SUBSYSTEM_PROP_NAME,
+                        "optional.injected.prop.that.is.not.configured",
+                        "my.prop.from.meta",
+                        "node0",
+                        "MPCONFIG_TEST_ENV_VAR",
+                        "boolTrue",
+                        "bool1",
+                        "boolYes",
+                        "boolY",
+                        "boolOn",
+                        "boolDefault",
+                        SubsystemConfigSourceTask.BOOL_OVERRIDDEN_PROP_NAME,
+                        "booleanDefault",
+                        SubsystemConfigSourceTask.BOOLEAN_OVERRIDDEN_PROP_NAME,
+                        "intDefault",
+                        SubsystemConfigSourceTask.INT_OVERRIDDEN_PROP_NAME,
+                        "integerDefault",
+                        SubsystemConfigSourceTask.INTEGER_OVERRIDDEN_PROP_NAME,
+                        "intBadValue",
+                        "integerBadValue",
+                        "longDefault",
+                        SubsystemConfigSourceTask.LONG_OVERRIDDEN_PROP_NAME,
+                        "longClassDefault",
+                        SubsystemConfigSourceTask.LONG_CLASS_OVERRIDDEN_PROP_NAME,
+                        "longBadValue",
+                        "longClassBadValue",
+                        "floatDefault",
+                        SubsystemConfigSourceTask.FLOAT_OVERRIDDEN_PROP_NAME,
+                        "floatClassDefault",
+                        SubsystemConfigSourceTask.FLOAT_CLASS_OVERRIDDEN_PROP_NAME,
+                        "floatBadValue",
+                        "floatClassBadValue",
+                        "doubleDefault",
+                        SubsystemConfigSourceTask.DOUBLE_OVERRIDDEN_PROP_NAME,
+                        "doubleClassDefault",
+                        SubsystemConfigSourceTask.DOUBLE_CLASS_OVERRIDDEN_PROP_NAME,
+                        "doubleBadValue",
+                        "doubleClassBadValue",
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME0,
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME1,
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME2,
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME3,
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME4,
+                        SubsystemConfigSourceTask.PROPERTIES_PROP_NAME5,
+                        "myPets",
+                        "my.prop.never.defined",
+                        "my_prop_never_defined",
+                        "myPetsOverridden"
+                )), "permissions.xml");
+
         return war;
     }
 
@@ -85,7 +140,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "my.prop.never.defined", Optional.empty().toString());
             assertTextContainsProperty(text, "my.prop", "BAR");
@@ -111,7 +166,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.BOOLEAN_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "boolTrue", true);
             assertTextContainsProperty(text, "bool1", true);
@@ -138,7 +193,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.INTEGER_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "intDefault", -42);
             assertTextContainsProperty(text, SubsystemConfigSourceTask.INT_OVERRIDDEN_PROP_NAME,
@@ -164,7 +219,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.LONG_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "longDefault", -42);
             assertTextContainsProperty(text, SubsystemConfigSourceTask.LONG_OVERRIDDEN_PROP_NAME, SubsystemConfigSourceTask.LONG_OVERRIDDEN_PROP_VALUE);
@@ -188,7 +243,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.FLOAT_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "floatDefault", -3.14);
             assertTextContainsProperty(text, SubsystemConfigSourceTask.FLOAT_OVERRIDDEN_PROP_NAME, SubsystemConfigSourceTask.FLOAT_OVERRIDDEN_PROP_VALUE);
@@ -212,7 +267,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.DOUBLE_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             assertTextContainsProperty(text, "doubleDefault", -3.14);
             assertTextContainsProperty(text, SubsystemConfigSourceTask.DOUBLE_OVERRIDDEN_PROP_NAME, SubsystemConfigSourceTask.DOUBLE_OVERRIDDEN_PROP_VALUE);
@@ -235,7 +290,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.ARRAY_SET_LIST_DEFAULT_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             LinkedList<String> petsList = new LinkedList<>();
             petsList.add("cat");
@@ -261,7 +316,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.ARRAY_SET_LIST_OVERRIDE_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             LinkedList<String> petsList = new LinkedList<>();
             petsList.add("donkey");
@@ -288,7 +343,7 @@ public class MicroProfileConfigTestCase {
         try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
             HttpResponse response = client.execute(new HttpGet(url + appContext + TestApplication.PRIORITY_APP_PATH));
             Assert.assertEquals(200, response.getStatusLine().getStatusCode());
-            String text = getContent(response);
+            String text = EntityUtils.toString(response.getEntity());
 
             // Values from META-INF
             assertTextContainsProperty(text, SubsystemConfigSourceTask.PROPERTIES_PROP_NAME0, "Value prop0 from META-INF/microprofile-config.properties");

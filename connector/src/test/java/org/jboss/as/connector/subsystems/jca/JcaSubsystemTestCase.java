@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.jboss.as.connector.logging.ConnectorLogger;
+import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
@@ -39,6 +40,7 @@ import org.jboss.as.model.test.ModelFixer;
 import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.model.test.SingleClassFilter;
+import org.jboss.as.naming.service.NamingService;
 import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
 import org.jboss.as.subsystem.test.AdditionalInitialization;
 import org.jboss.as.subsystem.test.KernelServices;
@@ -83,7 +85,13 @@ public class JcaSubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Override
     protected AdditionalInitialization createAdditionalInitialization() {
-        return AdditionalInitialization.withCapabilities(ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getName());
+        return AdditionalInitialization.withCapabilities(
+                ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getName(),
+                ConnectorServices.LOCAL_TRANSACTION_PROVIDER_CAPABILITY,
+                ConnectorServices.TRANSACTION_XA_RESOURCE_RECOVERY_REGISTRY_CAPABILITY,
+                ConnectorServices.TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY,
+                NamingService.CAPABILITY_NAME,
+                "org.wildfly.threads.thread-factory.string");
     }
 
     @Test

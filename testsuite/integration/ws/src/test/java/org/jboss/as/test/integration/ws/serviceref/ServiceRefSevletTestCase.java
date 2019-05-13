@@ -22,11 +22,11 @@
 package org.jboss.as.test.integration.ws.serviceref;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FilePermission;
 import java.io.InputStreamReader;
 import java.net.SocketPermission;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.Properties;
 import java.util.PropertyPermission;
 
@@ -81,7 +81,7 @@ public class ServiceRefSevletTestCase {
         // and CXF guys are not willing to add more privileged blocks into their code, thus deployments need to have
         // the following permissions (note that the wsdl.properties permission is needed by wsdl4j)
         war.addAsManifestResource(createPermissionsXmlAsset(
-                new FilePermission(System.getProperty("java.home") + File.separator + "lib" + File.separator + "wsdl.properties", "read"),
+                new FilePermission("<<ALL FILES>>", "read"),
                 new PropertyPermission("user.dir", "read"),
                 new RuntimePermission("getClassLoader"),
                 new RuntimePermission("org.apache.cxf.permission", "resolveUri"),
@@ -126,11 +126,8 @@ public class ServiceRefSevletTestCase {
     }
 
     private String receiveFirstLineFromUrl(URL url) throws Exception {
-        BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream()));
-        try {
+        try (BufferedReader br = new BufferedReader(new InputStreamReader(url.openStream(), StandardCharsets.UTF_8))) {
             return br.readLine();
-        } finally {
-            br.close();
         }
     }
 }

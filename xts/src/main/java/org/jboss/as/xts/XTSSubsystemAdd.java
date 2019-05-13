@@ -55,6 +55,7 @@ import com.arjuna.webservices11.wscoor.sei.CoordinationFaultPortTypeImpl;
 import com.arjuna.webservices11.wscoor.sei.RegistrationPortTypeImpl;
 import com.arjuna.webservices11.wscoor.sei.RegistrationResponsePortTypeImpl;
 
+import org.jboss.as.compensations.CompensationsDependenciesDeploymentProcessor;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -236,6 +237,7 @@ class XTSSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 processorTarget.addDeploymentProcessor(XTSExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_XTS_SOAP_HANDLERS, new XTSHandlerDeploymentProcessor());
                 processorTarget.addDeploymentProcessor(XTSExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES, Phase.DEPENDENCIES_XTS, new XTSDependenciesDeploymentProcessor());
                 processorTarget.addDeploymentProcessor(XTSExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_XTS_PORTABLE_EXTENSIONS, new GracefulShutdownDeploymentProcessor());
+                processorTarget.addDeploymentProcessor(XTSExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES, Phase.DEPENDENCIES_TRANSACTIONS, new CompensationsDependenciesDeploymentProcessor());
             }
         }, OperationContext.Stage.RUNTIME);
 
@@ -283,16 +285,15 @@ class XTSSubsystemAdd extends AbstractBoottimeAddStepHandler {
         // service has initialised the orb layer
 
         ServiceBuilder<?> xtsServiceBuilder = target.addService(XTSServices.JBOSS_XTS_MAIN, xtsService);
-        xtsServiceBuilder
-                .addDependency(TxnServices.JBOSS_TXN_ARJUNA_TRANSACTION_MANAGER);
+        xtsServiceBuilder.requires(TxnServices.JBOSS_TXN_ARJUNA_TRANSACTION_MANAGER);
 
         // this service needs to depend on JBossWS Config Service to be notified of the JBoss WS config (bind address, port etc)
         xtsServiceBuilder.addDependency(WSServices.CONFIG_SERVICE, ServerConfig.class, xtsService.getWSServerConfig());
-        xtsServiceBuilder.addDependency(WSServices.XTS_CLIENT_INTEGRATION_SERVICE);
+        xtsServiceBuilder.requires(WSServices.XTS_CLIENT_INTEGRATION_SERVICE);
 
         // the service also needs to depend on the endpoint services
         for (ServiceController<Context> controller : controllers) {
-            xtsServiceBuilder.addDependency(controller.getName());
+            xtsServiceBuilder.requires(controller.getName());
         }
 
         xtsServiceBuilder
@@ -304,14 +305,14 @@ class XTSSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final TxBridgeInboundRecoveryService txBridgeInboundRecoveryService = new TxBridgeInboundRecoveryService();
         ServiceBuilder<?> txBridgeInboundRecoveryServiceBuilder =
                 target.addService(XTSServices.JBOSS_XTS_TXBRIDGE_INBOUND_RECOVERY, txBridgeInboundRecoveryService);
-        txBridgeInboundRecoveryServiceBuilder.addDependency(XTSServices.JBOSS_XTS_MAIN);
+        txBridgeInboundRecoveryServiceBuilder.requires(XTSServices.JBOSS_XTS_MAIN);
 
         txBridgeInboundRecoveryServiceBuilder.setInitialMode(Mode.ACTIVE).install();
 
         final TxBridgeOutboundRecoveryService txBridgeOutboundRecoveryService = new TxBridgeOutboundRecoveryService();
         ServiceBuilder<?> txBridgeOutboundRecoveryServiceBuilder =
                 target.addService(XTSServices.JBOSS_XTS_TXBRIDGE_OUTBOUND_RECOVERY, txBridgeOutboundRecoveryService);
-        txBridgeOutboundRecoveryServiceBuilder.addDependency(XTSServices.JBOSS_XTS_MAIN);
+        txBridgeOutboundRecoveryServiceBuilder.requires(XTSServices.JBOSS_XTS_MAIN);
 
         txBridgeOutboundRecoveryServiceBuilder.setInitialMode(Mode.ACTIVE).install();
 

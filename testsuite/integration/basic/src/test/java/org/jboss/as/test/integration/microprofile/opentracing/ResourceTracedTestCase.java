@@ -1,5 +1,7 @@
 package org.jboss.as.test.integration.microprofile.opentracing;
 
+import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
+
 import io.opentracing.Tracer;
 import io.opentracing.contrib.tracerresolver.TracerFactory;
 import io.opentracing.mock.MockTracer;
@@ -10,6 +12,7 @@ import org.jboss.as.test.integration.common.HttpRequest;
 import org.jboss.as.test.integration.microprofile.opentracing.application.MockTracerFactory;
 import org.jboss.as.test.integration.microprofile.opentracing.application.OpenTracingApplication;
 import org.jboss.as.test.integration.microprofile.opentracing.application.TracedEndpoint;
+import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -17,10 +20,10 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.wildfly.microprofile.opentracing.smallrye.TracerInitializer;
 
 import javax.inject.Inject;
 import javax.servlet.ServletContext;
+import java.net.SocketPermission;
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
 
@@ -51,6 +54,13 @@ public class ResourceTracedTestCase {
 
         war.addClass(HttpRequest.class);
 
+        war.addAsManifestResource(createPermissionsXmlAsset(
+                // Required for the HttpRequest.get()
+                new RuntimePermission("modifyThread"),
+                // Required for the HttpRequest.get()
+                new SocketPermission(TestSuiteEnvironment.getHttpAddress() + ":" + TestSuiteEnvironment.getHttpPort(), "connect,resolve")
+        ), "permissions.xml");
+
         return war;
     }
 
@@ -64,7 +74,7 @@ public class ResourceTracedTestCase {
         Assert.assertEquals(1, mockTracer.finishedSpans().size());
         Assert.assertEquals(
                 (servletContext.getContextPath() + ".war").substring(1),
-                servletContext.getInitParameter(TracerInitializer.SMALLRYE_OPENTRACING_SERVICE_NAME)
+                servletContext.getInitParameter("smallrye.opentracing.serviceName")
         );
     }
 

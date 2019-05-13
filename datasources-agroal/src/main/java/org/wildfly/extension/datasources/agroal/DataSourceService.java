@@ -28,7 +28,6 @@ import io.agroal.api.transaction.TransactionIntegration;
 import io.agroal.narayana.NarayanaTransactionIntegration;
 import org.ietf.jgss.GSSException;
 import org.jboss.as.naming.ImmediateManagedReferenceFactory;
-import org.jboss.as.naming.ManagedReferenceFactory;
 import org.jboss.as.naming.ServiceBasedNamingStore;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.service.BinderService;
@@ -36,7 +35,6 @@ import org.jboss.msc.service.Service;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.ImmediateValue;
 import org.jboss.msc.value.InjectedValue;
 import org.wildfly.common.function.ExceptionSupplier;
 import org.wildfly.extension.datasources.agroal.logging.AgroalLogger;
@@ -51,7 +49,6 @@ import org.wildfly.security.credential.PasswordCredential;
 import org.wildfly.security.credential.source.CredentialSource;
 import org.wildfly.security.password.interfaces.ClearPassword;
 import org.wildfly.transaction.client.ContextTransactionManager;
-import org.wildfly.transaction.client.ContextTransactionSynchronizationRegistry;
 
 import javax.security.auth.callback.Callback;
 import javax.security.auth.callback.NameCallback;
@@ -90,6 +87,7 @@ public class DataSourceService implements Service<AgroalDataSource>, Supplier<Ag
     private InjectedValue<Class> driverInjector = new InjectedValue<>();
     private InjectedValue<AuthenticationContext> authenticationContextInjector = new InjectedValue<>();
     private InjectedValue<ExceptionSupplier<CredentialSource, Exception>> credentialSourceSupplierInjector = new InjectedValue<>();
+    private InjectedValue<TransactionSynchronizationRegistry> transactionSynchronizationRegistryInjector = new InjectedValue<>();
 
     public DataSourceService(String dataSourceName, String jndiName, boolean jta, boolean connectable, boolean xa, AgroalDataSourceConfigurationSupplier dataSourceConfiguration) {
         this.dataSourceName = dataSourceName;
@@ -117,7 +115,7 @@ public class DataSourceService implements Service<AgroalDataSource>, Supplier<Ag
 
         if (jta || xa) {
             TransactionManager transactionManager = ContextTransactionManager.getInstance();
-            TransactionSynchronizationRegistry transactionSynchronizationRegistry = ContextTransactionSynchronizationRegistry.getInstance();
+            TransactionSynchronizationRegistry transactionSynchronizationRegistry = transactionSynchronizationRegistryInjector.getValue();
 
             if (transactionManager == null || transactionSynchronizationRegistry == null) {
                 throw AgroalLogger.SERVICE_LOGGER.missingTransactionManager();
@@ -180,9 +178,8 @@ public class DataSourceService implements Service<AgroalDataSource>, Supplier<Ag
 
             ContextNames.BindInfo bindInfo = ContextNames.bindInfoFor(jndiName);
             BinderService binderService = new BinderService(bindInfo.getBindName());
-            ImmediateManagedReferenceFactory managedReferenceFactory = new ImmediateManagedReferenceFactory(agroalDataSource);
+            binderService.getManagedObjectInjector().inject(new ImmediateManagedReferenceFactory(agroalDataSource));
             context.getChildTarget().addService(bindInfo.getBinderServiceName(), binderService)
-                   .addInjectionValue(binderService.getManagedObjectInjector(), new ImmediateValue<ManagedReferenceFactory>(managedReferenceFactory))
                    .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binderService.getNamingStoreInjector())
                    .install();
 
@@ -233,5 +230,9 @@ public class DataSourceService implements Service<AgroalDataSource>, Supplier<Ag
 
     public InjectedValue<ExceptionSupplier<CredentialSource, Exception>> getCredentialSourceSupplierInjector() {
         return credentialSourceSupplierInjector;
+    }
+
+     InjectedValue<TransactionSynchronizationRegistry> getTransactionSynchronizationRegistryInjector() {
+        return transactionSynchronizationRegistryInjector;
     }
 }

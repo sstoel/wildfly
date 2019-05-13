@@ -25,28 +25,16 @@ package org.wildfly.clustering.web.infinispan;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
-import java.util.ServiceLoader;
 import java.util.function.Function;
 
 import org.wildfly.clustering.infinispan.spi.distribution.Key;
 import org.wildfly.clustering.marshalling.Externalizer;
-import org.wildfly.clustering.marshalling.spi.Serializer;
-import org.wildfly.clustering.web.IdentifierSerializerProvider;
 
 /**
  * Base externalizer for cache keys containing session identifiers.
  * @author Paul Ferraro
  */
 public class SessionKeyExternalizer<K extends Key<String>> implements Externalizer<K> {
-
-    static final Serializer<String> SESSION_ID_SERIALIZER = loadIdentifierSerializer(IdentifierSerializerProvider.class.getClassLoader());
-
-    private static Serializer<String> loadIdentifierSerializer(ClassLoader loader) {
-        for (IdentifierSerializerProvider provider : ServiceLoader.load(IdentifierSerializerProvider.class, loader)) {
-            return provider.getSerializer();
-        }
-        throw new IllegalStateException();
-    }
 
     private final Class<K> targetClass;
     private final Function<String, K> resolver;
@@ -58,12 +46,12 @@ public class SessionKeyExternalizer<K extends Key<String>> implements Externaliz
 
     @Override
     public void writeObject(ObjectOutput output, K key) throws IOException {
-        SESSION_ID_SERIALIZER.write(output, key.getValue());
+        SessionIdentifierSerializer.INSTANCE.write(output, key.getValue());
     }
 
     @Override
     public K readObject(ObjectInput input) throws IOException {
-        return this.resolver.apply(SESSION_ID_SERIALIZER.read(input));
+        return this.resolver.apply(SessionIdentifierSerializer.INSTANCE.read(input));
     }
 
     @Override

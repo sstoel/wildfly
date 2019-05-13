@@ -174,7 +174,7 @@ public class EJBClientDescriptorMetaDataProcessor implements DeploymentUnitProce
                         profileService);
                 if (ejbClientDescriptorMetaData.isLocalReceiverExcluded() != Boolean.TRUE) {
                     final Boolean passByValue = ejbClientDescriptorMetaData.isLocalReceiverPassByValue();
-                    profileServiceBuilder.addDependency(passByValue == Boolean.TRUE ? LocalTransportProvider.BY_VALUE_SERVICE_NAME : LocalTransportProvider.BY_REFERENCE_SERVICE_NAME, EJBTransportProvider.class, profileService.getLocalTransportProviderInjector());
+                    profileServiceBuilder.addDependency(passByValue == Boolean.FALSE ? LocalTransportProvider.BY_REFERENCE_SERVICE_NAME : LocalTransportProvider.BY_VALUE_SERVICE_NAME, EJBTransportProvider.class, profileService.getLocalTransportProviderInjector());
                 }
                 final Collection<EJBClientDescriptorMetaData.RemotingReceiverConfiguration> receiverConfigurations = ejbClientDescriptorMetaData.getRemotingReceiverConfigurations();
                 for (EJBClientDescriptorMetaData.RemotingReceiverConfiguration receiverConfiguration : receiverConfigurations) {
@@ -355,22 +355,20 @@ public class EJBClientDescriptorMetaDataProcessor implements DeploymentUnitProce
             if (resources.hasMoreElements()) {
                 do {
                     final URL url = resources.nextElement();
-                    try (InputStream st = url.openStream()) {
-                        try (InputStreamReader isr = new InputStreamReader(st, StandardCharsets.UTF_8)) {
-                            try (BufferedReader r = new BufferedReader(isr)) {
-                                String line;
-                                while ((line = r.readLine()) != null) {
-                                    line = line.trim();
-                                    if (line.isEmpty() || line.charAt(0) == '#') {
-                                        continue;
-                                    }
-                                    try {
-                                        final EJBClientInterceptor interceptor = Class.forName(line, true, classLoader).asSubclass(EJBClientInterceptor.class).getConstructor().newInstance();
-                                        interceptors.add(interceptor);
-                                    } catch (Exception e) {
-                                        throw EjbLogger.ROOT_LOGGER.failedToCreateEJBClientInterceptor(e, line);
-                                    }
-                                }
+                    try (InputStream st = url.openStream();
+                         InputStreamReader isr = new InputStreamReader(st, StandardCharsets.UTF_8);
+                         BufferedReader r = new BufferedReader(isr)) {
+                        String line;
+                        while ((line = r.readLine()) != null) {
+                            line = line.trim();
+                            if (line.isEmpty() || line.charAt(0) == '#') {
+                                continue;
+                            }
+                            try {
+                                final EJBClientInterceptor interceptor = Class.forName(line, true, classLoader).asSubclass(EJBClientInterceptor.class).getConstructor().newInstance();
+                                interceptors.add(interceptor);
+                            } catch (Exception e) {
+                                throw EjbLogger.ROOT_LOGGER.failedToCreateEJBClientInterceptor(e, line);
                             }
                         }
                     }

@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -16,9 +17,11 @@ import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.test.integration.security.common.Utils;
 import org.jboss.as.test.integration.security.jacc.propagation.Manage;
+import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -54,6 +57,11 @@ public class EESecurityAuthMechanismTestCase {
 
     }
 
+    @BeforeClass
+    public static void skipSecurityManager() {
+        AssumeTestGroupUtil.assumeSecurityManagerDisabled();
+    }
+
     @Test
     public void testRequiresAuthentication(@ArquillianResource URL webAppURL) throws Exception {
         DefaultHttpClient httpClient = new DefaultHttpClient();
@@ -75,7 +83,7 @@ public class EESecurityAuthMechanismTestCase {
 
         httpResponse.getEntity().writeTo(bos);
 
-        assertTrue(new String(bos.toByteArray()).contains("Unsecured"));
+        assertTrue(new String(bos.toByteArray(), StandardCharsets.UTF_8).contains("Unsecured"));
     }
 
     @Test
@@ -90,7 +98,7 @@ public class EESecurityAuthMechanismTestCase {
 
         httpResponse.getEntity().writeTo(bos);
 
-        assertTrue(new String(bos.toByteArray()).contains("Welcome"));
+        assertTrue(new String(bos.toByteArray(), StandardCharsets.UTF_8).contains("Welcome"));
     }
 
     @Test

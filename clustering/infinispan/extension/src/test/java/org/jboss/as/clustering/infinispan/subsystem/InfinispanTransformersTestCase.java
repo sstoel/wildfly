@@ -29,7 +29,6 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.STEPS;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,7 +41,6 @@ import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.model.test.FailedOperationTransformationConfig;
-import org.jboss.as.model.test.ModelFixer;
 import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.server.ServerEnvironment;
@@ -50,7 +48,7 @@ import org.jboss.as.subsystem.test.AdditionalInitialization;
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.as.subsystem.test.KernelServicesBuilder;
 import org.jboss.dmr.ModelNode;
-import org.jboss.dmr.Property;
+import org.jgroups.conf.ClassConfigurator;
 import org.junit.Assert;
 import org.junit.Test;
 import org.wildfly.clustering.jgroups.spi.JGroupsDefaultRequirement;
@@ -83,11 +81,6 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
         return String.format(pattern, version.getMavenGavVersion());
     }
 
-    @Override
-    protected String getSubsystemXml() throws IOException {
-        return readResource("infinispan-transformer.xml");
-    }
-
     private static InfinispanModel getModelVersion(ModelTestControllerVersion controllerVersion) {
         switch (controllerVersion) {
             case EAP_6_4_0:
@@ -97,6 +90,8 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
                 return InfinispanModel.VERSION_4_0_0;
             case EAP_7_1_0:
                 return InfinispanModel.VERSION_5_0_0;
+            case EAP_7_2_0:
+                return InfinispanModel.VERSION_8_0_0;
             default:
                 throw new IllegalArgumentException();
         }
@@ -112,36 +107,23 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
                         "org.infinispan:infinispan-cachestore-jdbc:5.2.11.Final-redhat-2",
                 };
             case EAP_7_0_0:
-                return new String[] {
-                        formatEAP7SubsystemArtifact(version),
-                        "org.infinispan:infinispan-core:8.1.2.Final-redhat-1",
-                        "org.infinispan:infinispan-cachestore-jdbc:8.1.2.Final-redhat-1",
-                        formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-spi:%s", version),
-                        // Following are needed for InfinispanSubsystemInitialization
-                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-extension:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-connector:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-infinispan-spi:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-spi:%s", version),
-                };
             case EAP_7_1_0:
+            case EAP_7_2_0:
                 return new String[] {
                         formatEAP7SubsystemArtifact(version),
-                        "org.infinispan:infinispan-core:8.2.8.Final-redhat-1",
-                        "org.infinispan:infinispan-cachestore-jdbc:8.2.8.Final-redhat-1",
-                        formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-spi:%s", version),
                         // Following are needed for InfinispanSubsystemInitialization
-                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-extension:%s", version),
-                        formatArtifact("org.jboss.eap:wildfly-connector:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-clustering-common:%s", version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-infinispan-spi:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-extension:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-clustering-jgroups-spi:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-clustering-service:%s", version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-singleton-api:%s", version),
                         formatArtifact("org.jboss.eap:wildfly-clustering-spi:%s", version),
+                        formatArtifact("org.jboss.eap:wildfly-connector:%s", version),
                 };
-            default:
+            default: {
                 throw new IllegalArgumentException();
+            }
         }
     }
 
@@ -154,6 +136,8 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
                 .require(CommonUnaryRequirement.DATA_SOURCE, "ExampleDS")
                 .require(JGroupsRequirement.CHANNEL_FACTORY, "maximal-channel")
                 .require(JGroupsDefaultRequirement.CHANNEL_FACTORY)
+                .require(CommonRequirement.LOCAL_TRANSACTION_PROVIDER)
+                .require(TransactionResourceDefinition.TransactionRequirement.XA_RESOURCE_RECOVERY_REGISTRY)
                 ;
     }
 
@@ -172,6 +156,11 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
         testTransformation(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testTransformerEAP720() throws Exception {
+        testTransformation(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     private KernelServices buildKernelServices(ModelTestControllerVersion controllerVersion, ModelVersion version, String... mavenResourceURLs) throws Exception {
         return this.buildKernelServices(this.getSubsystemXml(), controllerVersion, version, mavenResourceURLs);
     }
@@ -184,6 +173,7 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
                 .addSingleChildFirstClass(InfinispanSubsystemInitialization.class)
                 .addSingleChildFirstClass(JGroupsSubsystemInitialization.class)
                 .addSingleChildFirstClass(org.jboss.as.clustering.subsystem.AdditionalInitialization.class)
+                .addSingleChildFirstClass(ClassConfigurator.class)
                 .skipReverseControllerCheck()
                 .dontPersistXml();
 
@@ -197,11 +187,12 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
     private void testTransformation(final ModelTestControllerVersion controller) throws Exception {
         final ModelVersion version = getModelVersion(controller).getVersion();
         final String[] dependencies = getDependencies(controller);
+        final String subsystemXmlResource = String.format("subsystem-infinispan-transform-%d_%d_%d.xml", version.getMajor(), version.getMinor(), version.getMicro());
 
-        KernelServices services = this.buildKernelServices(controller, version, dependencies);
+        KernelServices services = this.buildKernelServices(readResource(subsystemXmlResource), controller, version, dependencies);
 
         // check that both versions of the legacy model are the same and valid
-        checkSubsystemModelTransformation(services, version, createModelFixer(version), false);
+        checkSubsystemModelTransformation(services, version, null, false);
 
         ModelNode transformed = services.readTransformedModel(version);
 
@@ -218,33 +209,6 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
             // Test properties operations
             propertiesMapOperationsTest(services, version);
         }
-    }
-
-    private static ModelFixer createModelFixer(ModelVersion version) {
-        return model -> {
-            final ModelNode maximal = model.get("cache-container", "maximal");
-            maximal.asPropertyList().stream().filter(caches -> caches.getName().equals("distributed-cache") || caches.getName().equals("replicated-cache")).forEach(p -> {
-                ModelNode caches = maximal.get(p.getName());
-                final List<Property> cachesModel = caches.asPropertyList();
-                for (Property cacheName : cachesModel) {
-                    final ModelNode cache = caches.get(cacheName.getName());
-                    if (cache.hasDefined("component")) {
-                        cache.get("component", "backups").set(new ModelNode());
-                    }
-                }
-            });
-            if (InfinispanModel.VERSION_4_0_0.requiresTransformation(version)) {
-                // Fix the legacy model to expect new default values applied in StateTransferResourceDefinition#buildTransformation
-                Arrays.asList("cache-with-string-keyed-store", "cache-with-binary-keyed-store").forEach(cacheName -> {
-                    ModelNode cache = model.get("cache-container", "maximal", "replicated-cache", cacheName);
-                    Assert.assertFalse(cache.hasDefined(StateTransferResourceDefinition.LEGACY_PATH.getKeyValuePair()));
-                    ModelNode stateTransfer = cache.get(StateTransferResourceDefinition.LEGACY_PATH.getKeyValuePair());
-                    stateTransfer.get(StateTransferResourceDefinition.Attribute.CHUNK_SIZE.getDefinition().getName()).set(StateTransferResourceDefinition.Attribute.CHUNK_SIZE.getDefinition().getDefaultValue());
-                    stateTransfer.get(StateTransferResourceDefinition.Attribute.TIMEOUT.getDefinition().getName()).set(StateTransferResourceDefinition.Attribute.TIMEOUT.getDefinition().getDefaultValue());
-                });
-            }
-            return model;
-        };
     }
 
     private static void propertiesMapOperationsTest(KernelServices services, ModelVersion version) throws Exception {
@@ -374,6 +338,11 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
         testRejections(ModelTestControllerVersion.EAP_7_1_0);
     }
 
+    @Test
+    public void testRejectionsEAP720() throws Exception {
+        testRejections(ModelTestControllerVersion.EAP_7_2_0);
+    }
+
     private void testRejections(final ModelTestControllerVersion controller) throws Exception {
         final ModelVersion version = getModelVersion(controller).getVersion();
         final String[] dependencies = getDependencies(controller);
@@ -386,6 +355,7 @@ public class InfinispanTransformersTestCase extends OperationTestCaseBase {
                 .addSingleChildFirstClass(InfinispanSubsystemInitialization.class)
                 .addSingleChildFirstClass(JGroupsSubsystemInitialization.class)
                 .addSingleChildFirstClass(org.jboss.as.clustering.subsystem.AdditionalInitialization.class)
+                .addSingleChildFirstClass(ClassConfigurator.class)
                 .addMavenResourceURL(dependencies)
                 //TODO storing the model triggers the weirdness mentioned in SubsystemTestDelegate.LegacyKernelServiceInitializerImpl.install()
                 //which is strange since it should be loading it all from the current jboss modules

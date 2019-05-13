@@ -35,7 +35,6 @@ import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.service.NamingService;
 import org.jboss.as.security.service.SimpleSecurityManagerService;
 import org.jboss.as.security.service.SubjectFactoryService;
-import org.jboss.as.txn.service.TxnServices;
 import org.jboss.jca.common.api.metadata.Defaults;
 import org.jboss.jca.common.api.metadata.common.Pool;
 import org.jboss.jca.common.api.metadata.common.TransactionSupportEnum;
@@ -245,11 +244,11 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
                             JcaSubsystemConfiguration.class, activator.getConfigInjector())
                     .addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class,
                             activator.getCcmInjector())
-                    .addDependency(NamingService.SERVICE_NAME)
-                    .addDependency(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE, TransactionIntegration.class,
-                            activator.getTxIntegrationInjector())
-                    .addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER)
-                    .addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append("default"));
+                    .addDependency(ConnectorServices.getCachedCapabilityServiceName(ConnectorServices.TRANSACTION_INTEGRATION_CAPABILITY_NAME), TransactionIntegration.class,
+                            activator.getTxIntegrationInjector());
+            connectionFactoryServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(NamingService.CAPABILITY_NAME));
+            connectionFactoryServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(ConnectorServices.LOCAL_TRANSACTION_PROVIDER_CAPABILITY));
+            connectionFactoryServiceBuilder.requires(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append("default"));
 
             if (ActivationSecurityUtil.isLegacySecurityRequired(security)) {
                 connectionFactoryServiceBuilder

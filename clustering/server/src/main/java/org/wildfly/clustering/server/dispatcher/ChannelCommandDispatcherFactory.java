@@ -103,7 +103,7 @@ public class ChannelCommandDispatcherFactory implements AutoCloseableCommandDisp
         this.marshallingContext = config.getMarshallingContext();
         this.timeout = config.getTimeout();
         JChannel channel = config.getChannel();
-        RequestCorrelator correlator = new RequestCorrelator(channel.getProtocolStack().getTransport(), this, channel.getAddress()).setMarshaller(new CommandResponseMarshaller(config));
+        RequestCorrelator correlator = new RequestCorrelator(channel.getProtocolStack(), this, channel.getAddress()).setMarshaller(new CommandResponseMarshaller(config));
         this.dispatcher = new MessageDispatcher()
                 .setChannel(channel)
                 .setRequestHandler(this)
@@ -187,7 +187,7 @@ public class ChannelCommandDispatcherFactory implements AutoCloseableCommandDisp
             throw ClusteringServerLogger.ROOT_LOGGER.commandDispatcherAlreadyExists(id);
         }
         CommandMarshaller<C> marshaller = new CommandDispatcherMarshaller<>(this.marshallingContext, id);
-        CommandDispatcher<C> localDispatcher = new LocalCommandDispatcher<>(this.getLocalMember(), context, this.executorService);
+        CommandDispatcher<C> localDispatcher = new LocalCommandDispatcher<>(this.getLocalMember(), context);
         return new ChannelCommandDispatcher<>(this.dispatcher, marshaller, this, this.timeout, localDispatcher, () -> {
             localDispatcher.close();
             this.contexts.remove(id);
@@ -264,7 +264,7 @@ public class ChannelCommandDispatcherFactory implements AutoCloseableCommandDisp
                 this.members.keySet().removeAll(leftMembers);
             }
 
-            if (this.listeners.isEmpty()) {
+            if (!this.listeners.isEmpty()) {
                 Address localAddress = this.dispatcher.getChannel().getAddress();
                 ViewMembership oldMembership = new ViewMembership(localAddress, oldView, this);
                 ViewMembership membership = new ViewMembership(localAddress, view, this);

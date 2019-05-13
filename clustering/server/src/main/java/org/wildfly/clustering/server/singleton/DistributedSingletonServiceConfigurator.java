@@ -36,10 +36,13 @@ import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 import org.wildfly.clustering.dispatcher.CommandDispatcherFactory;
+import org.wildfly.clustering.group.Group;
 import org.wildfly.clustering.provider.ServiceProviderRegistry;
 import org.wildfly.clustering.service.CompositeDependency;
 import org.wildfly.clustering.service.SimpleServiceNameProvider;
 import org.wildfly.clustering.service.SupplierDependency;
+import org.wildfly.clustering.singleton.Singleton;
+import org.wildfly.clustering.singleton.SingletonElectionListener;
 import org.wildfly.clustering.singleton.SingletonElectionPolicy;
 import org.wildfly.clustering.singleton.election.SimpleSingletonElectionPolicy;
 import org.wildfly.clustering.singleton.service.SingletonServiceBuilder;
@@ -49,24 +52,33 @@ import org.wildfly.clustering.singleton.service.SingletonServiceConfigurator;
  * Distributed {@link SingletonServiceConfigurator} implementation that uses JBoss MSC 1.4.x service installation.
  * @author Paul Ferraro
  */
-public class DistributedSingletonServiceConfigurator extends SimpleServiceNameProvider implements SingletonServiceConfigurator, DistributedSingletonServiceContext {
+public class DistributedSingletonServiceConfigurator extends SimpleServiceNameProvider implements SingletonServiceConfigurator, DistributedSingletonServiceContext, Supplier<Group> {
 
     private final SupplierDependency<ServiceProviderRegistry<ServiceName>> registry;
     private final SupplierDependency<CommandDispatcherFactory> dispatcherFactory;
 
     private volatile SingletonElectionPolicy electionPolicy = new SimpleSingletonElectionPolicy();
+    private volatile SingletonElectionListener electionListener;
     private volatile int quorum = 1;
 
-    public DistributedSingletonServiceConfigurator(DistributedSingletonServiceConfiguratorContext context, ServiceName name) {
+    public DistributedSingletonServiceConfigurator(ServiceName name, DistributedSingletonServiceConfiguratorContext context) {
         super(name);
         this.registry = context.getServiceProviderRegistryDependency();
         this.dispatcherFactory = context.getCommandDispatcherFactoryDependency();
+        this.electionListener = new DefaultSingletonElectionListener(name, this);
+    }
+
+    @Override
+    public Group get() {
+        return this.registry.get().getGroup();
     }
 
     @Override
     public SingletonServiceBuilder<?> build(ServiceTarget target) {
-        ServiceBuilder<?> builder = target.addService(this.getServiceName().append("singleton"));
-        return new DistributedSingletonServiceBuilder<>(this, new CompositeDependency(this.registry, this.dispatcherFactory).register(builder));
+        ServiceName name = this.getServiceName().append("singleton");
+        ServiceBuilder<?> builder = target.addService(name);
+        Consumer<Singleton> singleton = builder.provides(name);
+        return new DistributedSingletonServiceBuilder<>(this, new CompositeDependency(this.registry, this.dispatcherFactory).register(builder), singleton);
     }
 
     @Override
@@ -78,6 +90,12 @@ public class DistributedSingletonServiceConfigurator extends SimpleServiceNamePr
     @Override
     public SingletonServiceConfigurator electionPolicy(SingletonElectionPolicy policy) {
         this.electionPolicy = policy;
+        return this;
+    }
+
+    @Override
+    public SingletonServiceConfigurator electionListener(SingletonElectionListener listener) {
+        this.electionListener = listener;
         return this;
     }
 
@@ -97,6 +115,11 @@ public class DistributedSingletonServiceConfigurator extends SimpleServiceNamePr
     }
 
     @Override
+    public SingletonElectionListener getElectionListener() {
+        return this.electionListener;
+    }
+
+    @Override
     public int getQuorum() {
         return this.quorum;
     }
@@ -104,12 +127,14 @@ public class DistributedSingletonServiceConfigurator extends SimpleServiceNamePr
     private static class DistributedSingletonServiceBuilder<T> extends DelegatingServiceBuilder<T> implements SingletonServiceBuilder<T> {
 
         private final DistributedSingletonServiceContext context;
+        private final Consumer<Singleton> singleton;
         private final List<Map.Entry<ServiceName[], DeferredInjector<?>>> injectors = new LinkedList<>();
         private Service service = Service.NULL;
 
-        DistributedSingletonServiceBuilder(DistributedSingletonServiceContext context, ServiceBuilder<T> builder) {
+        DistributedSingletonServiceBuilder(DistributedSingletonServiceContext context, ServiceBuilder<T> builder, Consumer<Singleton> singleton) {
             super(builder);
             this.context = context;
+            this.singleton = singleton;
         }
 
         @Override
@@ -127,7 +152,7 @@ public class DistributedSingletonServiceConfigurator extends SimpleServiceNamePr
 
         @Override
         public ServiceController<T> install() {
-            return this.getDelegate().setInstance(new DistributedSingletonService(this.context, this.service, this.injectors)).install();
+            return this.getDelegate().setInstance(new DistributedSingletonService(this.context, this.service, this.singleton, this.injectors)).install();
         }
     }
 }

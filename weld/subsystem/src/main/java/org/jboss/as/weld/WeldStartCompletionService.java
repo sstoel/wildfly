@@ -25,15 +25,17 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
-import org.jboss.msc.service.Service;
+import org.jboss.as.server.deployment.SetupAction;
+import org.jboss.as.weld.logging.WeldLogger;
+import org.jboss.msc.Service;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StabilityMonitor;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.InjectedValue;
 import org.jboss.weld.bootstrap.api.Bootstrap;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
@@ -46,21 +48,28 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  *
  * @author Martin Kouba
  * @author Matej Novotny
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  * @see WeldStartService
  */
-public class WeldStartCompletionService implements Service<WeldStartCompletionService> {
+public class WeldStartCompletionService implements Service {
 
     public static final ServiceName SERVICE_NAME = ServiceNames.WELD_START_COMPLETION_SERVICE_NAME;
 
-    private final InjectedValue<WeldBootstrapService> bootstrap = new InjectedValue<WeldBootstrapService>();
-    private final InjectedValue<ExecutorService> executorService = new InjectedValue<ExecutorService>();
-
+    private final Supplier<WeldBootstrapService> bootstrapSupplier;
+    private final Supplier<ExecutorService> executorServiceSupplier;
+    private final List<SetupAction> setupActions;
     private final ClassLoader classLoader;
     private final List<ServiceController> serviceControllers;
 
     private final AtomicBoolean runOnce = new AtomicBoolean();
 
-    public WeldStartCompletionService(ClassLoader classLoader, List<ServiceController> serviceControllers) {
+    public WeldStartCompletionService(final Supplier<WeldBootstrapService> bootstrapSupplier,
+                                      final Supplier<ExecutorService> executorServiceSupplier,
+                                      final List<SetupAction> setupActions,
+                                      final ClassLoader classLoader, final List<ServiceController> serviceControllers) {
+        this.bootstrapSupplier = bootstrapSupplier;
+        this.executorServiceSupplier = executorServiceSupplier;
+        this.setupActions = setupActions;
         this.classLoader = classLoader;
         this.serviceControllers = serviceControllers;
     }
@@ -72,7 +81,7 @@ public class WeldStartCompletionService implements Service<WeldStartCompletionSe
             return;
         }
 
-        final ExecutorService executor = executorService.getValue();
+        final ExecutorService executor = executorServiceSupplier.get();
         final Runnable task = new Runnable() {
             // we want to execute StabilityMonitor.awaitStability() in a different thread so that this is non-blocking
             @Override
@@ -92,9 +101,19 @@ public class WeldStartCompletionService implements Service<WeldStartCompletionSe
                 }
                 ClassLoader oldTccl = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
                 try {
+                    for (SetupAction action : setupActions) {
+                        action.setup(null);
+                    }
                     WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(classLoader);
-                    bootstrap.getValue().getBootstrap().endInitialization();
+                    bootstrapSupplier.get().getBootstrap().endInitialization();
                 } finally {
+                    for (SetupAction action : setupActions) {
+                        try {
+                            action.teardown(null);
+                        } catch (Exception e) {
+                            WeldLogger.DEPLOYMENT_LOGGER.exceptionClearingThreadState(e);
+                        }
+                    }
                     WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(oldTccl);
                     context.complete();
                 }
@@ -112,19 +131,6 @@ public class WeldStartCompletionService implements Service<WeldStartCompletionSe
     @Override
     public void stop(StopContext context) {
         // No-op
-    }
-
-    @Override
-    public WeldStartCompletionService getValue() throws IllegalStateException, IllegalArgumentException {
-        return this;
-    }
-
-    public InjectedValue<WeldBootstrapService> getBootstrap() {
-        return bootstrap;
-    }
-
-    public InjectedValue<ExecutorService> getServerExecutor() {
-        return executorService;
     }
 
 }

@@ -4,7 +4,7 @@
 Support for https://microprofile.io/project/eclipse/microprofile-health[Eclipse MicroProfile Health] is provided by
  the _microprofile-health-smallrye_ subsystem.
 
-[[required-extension]]
+[[required-extension-microprofile-health-smallrye]]
 == Required Extension
 
 This extension is included in the standalone configurations included in the
@@ -14,7 +14,7 @@ You can also add the extension to a configuration without it either by adding
 an `<extension module="org.wildfly.extension.microprofile.health-smallrye"/>`
 element to the xml or by using the following CLI operation:
 
-[source,ruby]
+[source,options="nowrap"]
 ----
 [standalone@localhost:9990 /]/extension=org.wildfly.extension.microprofile.health-smallrye:add
 ----
@@ -23,7 +23,7 @@ element to the xml or by using the following CLI operation:
 
 The healthiness of the application server can be queried by calling the `check`:
 
-[source]
+[source,options="nowrap"]
 ----
 [standalone@localhost:9990 /] /subsystem=microprofile-health-smallrye:check
 {

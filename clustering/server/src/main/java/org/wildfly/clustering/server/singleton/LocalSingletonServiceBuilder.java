@@ -22,11 +22,16 @@
 
 package org.wildfly.clustering.server.singleton;
 
+import java.util.function.Supplier;
+
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
+import org.wildfly.clustering.group.Group;
 import org.wildfly.clustering.service.SimpleServiceNameProvider;
+import org.wildfly.clustering.service.SupplierDependency;
+import org.wildfly.clustering.singleton.SingletonElectionListener;
 import org.wildfly.clustering.singleton.SingletonElectionPolicy;
 import org.wildfly.clustering.singleton.SingletonService;
 import org.wildfly.clustering.singleton.SingletonServiceBuilder;
@@ -37,13 +42,17 @@ import org.wildfly.clustering.singleton.service.SingletonServiceConfigurator;
  * @author Paul Ferraro
  */
 @Deprecated
-public class LocalSingletonServiceBuilder<T> extends SimpleServiceNameProvider implements SingletonServiceBuilder<T> {
+public class LocalSingletonServiceBuilder<T> extends SimpleServiceNameProvider implements SingletonServiceBuilder<T>, LocalSingletonServiceContext {
 
     private final Service<T> service;
+    private final SupplierDependency<Group> group;
+    private volatile SingletonElectionListener listener;
 
-    public LocalSingletonServiceBuilder(ServiceName name, Service<T> service) {
+    public LocalSingletonServiceBuilder(ServiceName name, Service<T> service, LocalSingletonServiceConfiguratorContext context) {
         super(name);
         this.service = service;
+        this.group = context.getGroupDependency();
+        this.listener = new DefaultSingletonElectionListener(name, this.group);
     }
 
     @Override
@@ -59,8 +68,24 @@ public class LocalSingletonServiceBuilder<T> extends SimpleServiceNameProvider i
     }
 
     @Override
+    public SingletonServiceBuilder<T> electionListener(SingletonElectionListener listener) {
+        this.listener = listener;
+        return this;
+    }
+
+    @Override
     public ServiceBuilder<T> build(ServiceTarget target) {
-        SingletonService<T> service = new LocalLegacySingletonService<>(this.service);
-        return target.addService(this.getServiceName(), service);
+        SingletonService<T> service = new LocalLegacySingletonService<>(this.service, this);
+        return this.group.register(target.addService(this.getServiceName(), service));
+    }
+
+    @Override
+    public Supplier<Group> getGroup() {
+        return this.group;
+    }
+
+    @Override
+    public SingletonElectionListener getElectionListener() {
+        return this.listener;
     }
 }

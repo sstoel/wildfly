@@ -145,17 +145,6 @@
       </licenses>
     </dependency>
     <dependency>
-      <groupId>com.github.relaxng</groupId>
-      <artifactId>relaxngDatatype</artifactId>
-      <licenses>
-        <license>
-          <name>BSD 3-Clause "New" or "Revised" License</name>
-          <url>http://www.opensource.org/licenses/BSD-3-Clause</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
-    </dependency>
-    <dependency>
       <groupId>com.github.spullara.mustache.java</groupId>
       <artifactId>compiler</artifactId>
       <licenses>
@@ -314,7 +303,7 @@
     </dependency>
     <dependency>
       <groupId>com.sun.xml.bind.external</groupId>
-      <artifactId>rngom</artifactId>
+      <artifactId>relaxng-datatype</artifactId>
       <licenses>
         <license>
           <name>Common Development and Distribution License 1.1</name>
@@ -324,6 +313,17 @@
         <license>
           <name>GNU General Public License v2.0 only, with Classpath exception</name>
           <url>http://openjdk.java.net/legal/gplv2+ce.html</url>
+          <distribution>repo</distribution>
+        </license>
+      </licenses>
+    </dependency>
+    <dependency>
+      <groupId>com.sun.xml.bind.external</groupId>
+      <artifactId>rngom</artifactId>
+      <licenses>
+        <license>
+          <name>MIT License</name>
+          <url>http://www.opensource.org/licenses/MIT</url>
           <distribution>repo</distribution>
         </license>
       </licenses>
@@ -422,7 +422,7 @@
       </licenses>
     </dependency>
     <dependency>
-      <groupId>dom4j</groupId>
+      <groupId>org.dom4j</groupId>
       <artifactId>dom4j</artifactId>
       <licenses>
         <license>
@@ -872,7 +872,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.activemq</groupId>
-      <artifactId>artemis-native</artifactId>
+      <artifactId>activemq-artemis-native</artifactId>
       <licenses>
         <license>
           <name>Apache License 2.0</name>
@@ -1837,22 +1837,6 @@
     </dependency>
     <dependency>
       <groupId>org.glassfish.jaxb</groupId>
-      <artifactId>jaxb-core</artifactId>
-      <licenses>
-        <license>
-          <name>Common Development and Distribution License 1.1</name>
-          <url>https://javaee.github.io/glassfish/LICENSE</url>
-          <distribution>repo</distribution>
-        </license>
-        <license>
-          <name>GNU General Public License v2.0 only, with Classpath exception</name>
-          <url>http://openjdk.java.net/legal/gplv2+ce.html</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jaxb</groupId>
       <artifactId>jaxb-jxc</artifactId>
       <licenses>
         <license>
@@ -2717,22 +2701,6 @@
         <license>
           <name>GNU Lesser General Public License v2.1 or later</name>
           <url>http://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
-    </dependency>
-    <dependency>
-      <groupId>org.wildfly.core</groupId>
-      <artifactId>wildfly-core-galleon-pack</artifactId>
-      <licenses>
-        <license>
-          <name>GNU Lesser General Public License v2.1 or later</name>
-          <url>http://www.gnu.org/licenses/old-licenses/lgpl-2.1-standalone.html</url>
-          <distribution>repo</distribution>
-        </license>
-        <license>
-          <name>Apache License 2.0</name>
-          <url>http://www.apache.org/licenses/LICENSE-2.0</url>
           <distribution>repo</distribution>
         </license>
       </licenses>
@@ -4137,17 +4105,6 @@
     <dependency>
       <groupId>org.jboss.xnio.netty</groupId>
       <artifactId>netty-xnio-transport</artifactId>
-      <licenses>
-        <license>
-          <name>Apache License 2.0</name>
-          <url>http://www.apache.org/licenses/LICENSE-2.0</url>
-          <distribution>repo</distribution>
-        </license>
-      </licenses>
-    </dependency>
-    <dependency>
-      <groupId>org.jdom</groupId>
-      <artifactId>jdom</artifactId>
       <licenses>
         <license>
           <name>Apache License 2.0</name>

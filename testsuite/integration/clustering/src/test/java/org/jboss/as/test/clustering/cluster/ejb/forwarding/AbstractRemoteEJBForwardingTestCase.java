@@ -35,7 +35,7 @@ import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.arquillian.api.ServerSetup;
-import org.jboss.as.test.clustering.CLIServerSetupTask;
+import org.jboss.as.test.shared.CLIServerSetupTask;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.cluster.ejb.forwarding.bean.common.CommonStatefulSB;
 import org.jboss.as.test.clustering.cluster.ejb.forwarding.bean.forwarding.AbstractForwardingStatefulSBImpl;
@@ -77,7 +77,7 @@ public abstract class AbstractRemoteEJBForwardingTestCase extends AbstractCluste
 
     @BeforeClass
     public static void beforeClass() {
-        thisTestIsFailingIntermittently("WFLY-6224/JBEAP-3432, WFLY-9447/JBEAP-13511, etc.");
+        thisTestIsFailingIntermittently("https://issues.jboss.org/browse/WFLY-10607");
     }
 
     private static long FAILURE_FREE_TIME = TimeoutUtil.adjust(5000);

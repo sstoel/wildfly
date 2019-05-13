@@ -26,6 +26,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,10 +41,10 @@ import org.apache.directory.server.kerberos.shared.keytab.Keytab;
 import org.apache.directory.shared.kerberos.KerberosTime;
 import org.apache.directory.shared.kerberos.codec.types.EncryptionType;
 import org.apache.directory.shared.kerberos.components.EncryptionKey;
-import org.apache.log4j.Logger;
 import org.jboss.as.arquillian.api.ServerSetupTask;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.network.NetworkUtils;
+import org.jboss.logging.Logger;
 
 /**
  * This server setup task creates a krb5.conf file and generates KeyTab files for the HTTP server and users hnelson and jduke.
@@ -93,8 +94,8 @@ public abstract class AbstractKrb5ConfServerSetupTask implements ServerSetupTask
         FileUtils.write(
                 KRB5_CONF_FILE,
                 StrSubstitutor.replace(
-                        IOUtils.toString(AbstractKrb5ConfServerSetupTask.class.getResourceAsStream(KRB5_CONF), "UTF-8"), map),
-                "UTF-8");
+                        IOUtils.toString(AbstractKrb5ConfServerSetupTask.class.getResourceAsStream(KRB5_CONF), StandardCharsets.UTF_8), map),
+                StandardCharsets.UTF_8);
         createServerKeytab(cannonicalHost);
         final List<UserForKeyTab> kerberosUsers = kerberosUsers();
         if (kerberosUsers != null) {

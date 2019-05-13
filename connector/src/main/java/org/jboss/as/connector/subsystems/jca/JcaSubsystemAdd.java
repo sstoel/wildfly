@@ -23,7 +23,12 @@
 
 package org.jboss.as.connector.subsystems.jca;
 
-import javax.transaction.TransactionManager;
+import static org.jboss.as.connector.subsystems.jca.JcaSubsystemRootDefinition.TRANSACTION_INTEGRATION_CAPABILITY;
+import static org.jboss.as.connector.util.ConnectorServices.LOCAL_TRANSACTION_PROVIDER_CAPABILITY;
+import static org.jboss.as.connector.util.ConnectorServices.TRANSACTION_INTEGRATION_CAPABILITY_NAME;
+import static org.jboss.as.connector.util.ConnectorServices.TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY;
+import static org.jboss.as.connector.util.ConnectorServices.TRANSACTION_XA_RESOURCE_RECOVERY_REGISTRY_CAPABILITY;
+
 import javax.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.connector.deployers.ra.RaDeploymentActivator;
@@ -31,8 +36,11 @@ import org.jboss.as.connector.services.driver.registry.DriverRegistryService;
 import org.jboss.as.connector.services.transactionintegration.TransactionIntegrationService;
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
+import org.jboss.as.controller.CapabilityServiceTarget;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.ProcessType;
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
+import org.jboss.as.naming.service.NamingService;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.txn.integration.JBossContextXATerminator;
@@ -40,7 +48,6 @@ import org.jboss.as.txn.service.TxnServices;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceController.Mode;
-import org.jboss.msc.service.ServiceTarget;
 import org.jboss.tm.XAResourceRecoveryRegistry;
 
 /**
@@ -68,19 +75,27 @@ class JcaSubsystemAdd extends AbstractBoottimeAddStepHandler {
         }, OperationContext.Stage.RUNTIME);
 
 
-        ServiceTarget serviceTarget = context.getServiceTarget();
+        CapabilityServiceTarget serviceTarget = context.getCapabilityServiceTarget();
 
         TransactionIntegrationService tiService = new TransactionIntegrationService();
 
         serviceTarget
-                .addService(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE, tiService)
-                .addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER, TransactionManager.class, tiService.getTmInjector())
-                .addDependency(TxnServices.JBOSS_TXN_SYNCHRONIZATION_REGISTRY, TransactionSynchronizationRegistry.class, tiService.getTsrInjector())
+                .addCapability(TRANSACTION_INTEGRATION_CAPABILITY, tiService)
+                // Ensure the local transaction provider is started
+                .addCapabilityRequirement(LOCAL_TRANSACTION_PROVIDER_CAPABILITY, Void.class)
+                .addCapabilityRequirement(TRANSACTION_XA_RESOURCE_RECOVERY_REGISTRY_CAPABILITY, XAResourceRecoveryRegistry.class, tiService.getRrInjector())
+                .addCapabilityRequirement(TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY, TransactionSynchronizationRegistry.class, tiService.getTsrInjector())
                 .addDependency(TxnServices.JBOSS_TXN_USER_TRANSACTION_REGISTRY, org.jboss.tm.usertx.UserTransactionRegistry.class, tiService.getUtrInjector())
                 .addDependency(TxnServices.JBOSS_TXN_CONTEXT_XA_TERMINATOR, JBossContextXATerminator.class, tiService.getTerminatorInjector())
-                .addDependency(TxnServices.JBOSS_TXN_ARJUNA_RECOVERY_MANAGER, XAResourceRecoveryRegistry.class, tiService.getRrInjector())
                 .setInitialMode(ServiceController.Mode.ACTIVE)
+                .addAliases(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE)
                 .install();
+
+        // Cache the some capability service names for use by our runtime services
+        final CapabilityServiceSupport support = context.getCapabilityServiceSupport();
+        ConnectorServices.registerCapabilityServiceName(LOCAL_TRANSACTION_PROVIDER_CAPABILITY, support.getCapabilityServiceName(LOCAL_TRANSACTION_PROVIDER_CAPABILITY));
+        ConnectorServices.registerCapabilityServiceName(NamingService.CAPABILITY_NAME, support.getCapabilityServiceName(NamingService.CAPABILITY_NAME));
+        ConnectorServices.registerCapabilityServiceName(TRANSACTION_INTEGRATION_CAPABILITY_NAME, support.getCapabilityServiceName(TRANSACTION_INTEGRATION_CAPABILITY_NAME));
 
         final JcaSubsystemConfiguration config = new JcaSubsystemConfiguration();
 

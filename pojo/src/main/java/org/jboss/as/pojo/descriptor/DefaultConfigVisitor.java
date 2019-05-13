@@ -87,25 +87,25 @@ public class DefaultConfigVisitor extends AbstractConfigVisitor {
 
     @Override
     public void addDependency(ServiceName name) {
-        builder.addDependency(name);
+        builder.requires(name);
     }
 
     @Override
     public void addDependency(ServiceName name, Injector injector) {
-        builder.addDependency(name, injector);
+        builder.addDependency(name, Object.class, injector);
     }
 
     @Override
     public void addDependency(String bean, BeanState state) {
         if (state != BeanState.DESCRIBED)
-            builder.addDependency(BeanMetaDataConfig.toBeanName(bean, BeanState.DESCRIBED));
-        builder.addDependency(BeanMetaDataConfig.toBeanName(bean, state));
+            builder.requires(BeanMetaDataConfig.toBeanName(bean, BeanState.DESCRIBED));
+        builder.requires(BeanMetaDataConfig.toBeanName(bean, state));
     }
 
     @Override
     public void addDependency(String bean, BeanState state, Injector injector) {
         if (state != BeanState.DESCRIBED)
-            builder.addDependency(BeanMetaDataConfig.toBeanName(bean, BeanState.DESCRIBED));
-        builder.addDependency(BeanMetaDataConfig.toBeanName(bean, state), injector);
+            builder.requires(BeanMetaDataConfig.toBeanName(bean, BeanState.DESCRIBED));
+        builder.addDependency(BeanMetaDataConfig.toBeanName(bean, state), Object.class, injector);
     }
 }

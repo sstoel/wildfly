@@ -38,6 +38,7 @@ import org.jboss.as.controller.access.constraint.SensitivityClassification;
 import org.jboss.as.controller.access.management.SensitiveTargetAccessConstraintDefinition;
 import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.RuntimePackageDependency;
 import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.naming.ServiceBasedNamingStore;
 import org.jboss.as.naming.deployment.ContextNames;
@@ -60,6 +61,7 @@ import org.jboss.as.server.moduleservice.ServiceModuleLoader;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.msc.service.Service;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
@@ -119,11 +121,6 @@ public class SecuritySubsystemRootResourceDefinition extends SimpleResourceDefin
         resourceRegistration.registerReadWriteAttribute(INITIALIZE_JACC, null, new ReloadRequiredWriteAttributeHandler(INITIALIZE_JACC));
     }
 
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        resourceRegistration.registerCapability(SECURITY_SUBSYSTEM);
-    }
-
     private static class SecuritySubsystemAdd extends AbstractBoottimeAddStepHandler {
         private static final String AUTHENTICATION_MANAGER = ModuleName.PICKETBOX.getName() + ":" + ModuleName.PICKETBOX.getSlot()
                 + ":" + JBossCachedAuthenticationManager.class.getName();
@@ -172,21 +169,21 @@ public class SecuritySubsystemRootResourceDefinition extends SimpleResourceDefin
             // add service to bind SecurityDomainJndiInjectable to JNDI
             final SecurityDomainJndiInjectable securityDomainJndiInjectable = new SecurityDomainJndiInjectable();
             final BinderService binderService = new BinderService("jaas");
+            binderService.getManagedObjectInjector().inject(securityDomainJndiInjectable);
             target.addService(ContextNames.JBOSS_CONTEXT_SERVICE_NAME.append("jaas"), binderService)
-                .addInjection(binderService.getManagedObjectInjector(), securityDomainJndiInjectable)
                 .addDependency(ContextNames.JBOSS_CONTEXT_SERVICE_NAME, ServiceBasedNamingStore.class, binderService.getNamingStoreInjector())
                 .addDependency(SecurityManagementService.SERVICE_NAME, ISecurityManagement.class, securityDomainJndiInjectable.getSecurityManagementInjector())
-                .setInitialMode(ServiceController.Mode.ACTIVE).install();
+                .install();
 
             // add security management service
             ModelNode modelNode = SecuritySubsystemRootResourceDefinition.DEEP_COPY_SUBJECT_MODE.resolveModelAttribute(context,model);
             final SecurityManagementService securityManagementService = new SecurityManagementService(
                 AUTHENTICATION_MANAGER, modelNode.isDefined() && modelNode.asBoolean(), CALLBACK_HANDLER,
                 AUTHORIZATION_MANAGER, AUDIT_MANAGER, IDENTITY_TRUST_MANAGER, MAPPING_MANAGER);
-            target.addService(SecurityManagementService.SERVICE_NAME, securityManagementService)
-                    .addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ServiceModuleLoader.class, securityManagementService.getServiceModuleLoaderInjectedValue())
-                    .addDependency(JaasConfigurationService.SERVICE_NAME) // We need to ensure the global JAAS Configuration has been set.
-                    .setInitialMode(ServiceController.Mode.ACTIVE).install();
+            final ServiceBuilder securityManagementServiceSB = target.addService(SecurityManagementService.SERVICE_NAME, securityManagementService);
+            securityManagementServiceSB.addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ServiceModuleLoader.class, securityManagementService.getServiceModuleLoaderInjectedValue());
+            securityManagementServiceSB.requires(JaasConfigurationService.SERVICE_NAME); // We need to ensure the global JAAS Configuration has been set.
+            securityManagementServiceSB.setInitialMode(ServiceController.Mode.ACTIVE).install();
 
             // add subject factory service
             final SubjectFactoryService subjectFactoryService = new SubjectFactoryService(SUBJECT_FACTORY);
@@ -216,10 +213,10 @@ public class SecuritySubsystemRootResourceDefinition extends SimpleResourceDefin
             //add Simple Security Manager Service
             final SimpleSecurityManagerService simpleSecurityManagerService = new SimpleSecurityManagerService();
 
-            target.addService(SERVER_SECURITY_MANAGER.getCapabilityServiceName(), simpleSecurityManagerService)
-                .addAliases(SimpleSecurityManagerService.SERVICE_NAME)
-                .addDependency(SecurityManagementService.SERVICE_NAME)
-                .install();
+            final ServiceBuilder simpleSecurityManagerServiceSB = target.addService(SERVER_SECURITY_MANAGER.getCapabilityServiceName(), simpleSecurityManagerService);
+            simpleSecurityManagerServiceSB.addAliases(SimpleSecurityManagerService.SERVICE_NAME);
+            simpleSecurityManagerServiceSB.requires(SecurityManagementService.SERVICE_NAME);
+            simpleSecurityManagerServiceSB.install();
 
             context.addStep(new AbstractDeploymentChainStep() {
                 @Override
@@ -234,5 +231,10 @@ public class SecuritySubsystemRootResourceDefinition extends SimpleResourceDefin
                 }
             }, OperationContext.Stage.RUNTIME);
         }
+    }
+
+    @Override
+    public void registerAdditionalRuntimePackages(ManagementResourceRegistration resourceRegistration) {
+        resourceRegistration.registerAdditionalRuntimePackages(RuntimePackageDependency.required("javax.security.auth.message.api"));
     }
 }

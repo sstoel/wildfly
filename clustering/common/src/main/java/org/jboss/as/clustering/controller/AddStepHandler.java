@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
@@ -121,6 +122,30 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
     }
 
     @Override
+    protected Resource createResource(OperationContext context) {
+        Resource resource = Resource.Factory.create(context.getResourceRegistration().isRuntimeOnly());
+        if (context.isDefaultRequiresRuntime()) {
+            resource = this.descriptor.getResourceTransformation().apply(resource);
+        }
+        context.addResource(PathAddress.EMPTY_ADDRESS, resource);
+        return resource;
+    }
+
+    @Override
+    protected Resource createResource(OperationContext context, ModelNode operation) {
+        UnaryOperator<Resource> transformation = context.isDefaultRequiresRuntime() ? this.descriptor.getResourceTransformation() : UnaryOperator.identity();
+        ImmutableManagementResourceRegistration registration = context.getResourceRegistration();
+        Resource resource = transformation.apply(Resource.Factory.create(registration.isRuntimeOnly(), registration.getOrderedChildTypes()));
+        Integer index = registration.isOrderedChildResource() && operation.hasDefined(ModelDescriptionConstants.ADD_INDEX) ? operation.get(ModelDescriptionConstants.ADD_INDEX).asIntOrNull() : null;
+        if (index == null) {
+            context.addResource(PathAddress.EMPTY_ADDRESS, resource);
+        } else {
+            context.addResource(PathAddress.EMPTY_ADDRESS, index.intValue(), resource);
+        }
+        return resource;
+    }
+
+    @Override
     protected void populateModel(OperationContext context, ModelNode operation, Resource resource) throws OperationFailedException {
         // Validate extra add operation parameters
         for (AttributeDefinition definition : this.descriptor.getExtraParameters()) {
@@ -166,6 +191,11 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
         // Auto-create required child resources as necessary
         addRequiredChildren(context, this.descriptor.getRequiredChildren(), (Resource parent, PathElement path) -> parent.hasChild(path));
         addRequiredChildren(context, this.descriptor.getRequiredSingletonChildren(), (Resource parent, PathElement path) -> parent.hasChildren(path.getKey()));
+
+        // Don't leave model undefined
+        if (!model.isDefined()) {
+            model.setEmptyObject();
+        }
     }
 
     private static void addRequiredChildren(OperationContext context, Collection<PathElement> paths, BiPredicate<Resource, PathElement> present) {

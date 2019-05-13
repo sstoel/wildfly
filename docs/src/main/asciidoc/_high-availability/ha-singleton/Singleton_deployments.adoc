@@ -11,7 +11,7 @@ a.k.a. "
 https://docs.jboss.org/jbossclustering/cluster_guide/5.1/html/deployment.chapt.html#d0e1220[deploy-hasingleton]",
 feature of AS6 and earlier.
 
-[[usage]]
+[[usage-singleton-deployments]]
 == Usage
 
 A deployment indicates that it should be deployed as a singleton via a
@@ -22,7 +22,7 @@ deployment type, e.g. JAR, WAR, EAR, etc., with the exception of a
 subdeployment within an EAR. +
 e.g.
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <singleton-deployment xmlns="urn:jboss:singleton-deployment:1.0" policy="foo"/>
 ----
@@ -36,7 +36,23 @@ Using a standalone descriptor is often preferable, since it may be
 overlaid onto an existing deployment archive. +
 e.g.
 
-[source]
+[source,options="nowrap"]
 ----
 deployment-overlay add --name=singleton-policy-foo --content=/META-INF/singleton-deployment.xml=/path/to/singleton-deployment.xml --deployments=my-app.jar --redeploy-affected
+----
+
+
+[[singleton-deployment-metrics]]
+== Singleton Deployment metrics ==
+
+The singleton subsystem registers a set of runtime metrics for each singleton deployment installed on the server.
+
+is-primary:: Indicates whether the node on which the operation was performed is the primary provider of the given singleton deployment
+primary-provider:: Identifies the node currently operating as the primary provider for the given singleton deployment
+providers:: Identifies the set of nodes on which the given singleton deployment is installed.
+
+e.g.
+
+----
+/subsystem=singleton/singleton-policy=foo/deployment=bar.ear:read-attribute(name=primary-provider)
 ----

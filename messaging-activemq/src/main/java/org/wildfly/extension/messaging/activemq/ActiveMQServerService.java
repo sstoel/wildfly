@@ -49,8 +49,8 @@ import org.apache.activemq.artemis.core.io.aio.AIOSequentialFileFactory;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.core.server.JournalType;
 import org.apache.activemq.artemis.core.server.impl.ActiveMQServerImpl;
+import org.apache.activemq.artemis.jdbc.store.sql.PropertySQLProvider;
 import org.apache.activemq.artemis.spi.core.security.ActiveMQSecurityManager;
-import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.services.path.AbsolutePathService;
 import org.jboss.as.controller.services.path.PathManager;
 import org.jboss.as.network.ManagedBinding;
@@ -58,8 +58,6 @@ import org.jboss.as.network.OutboundSocketBinding;
 import org.jboss.as.network.SocketBinding;
 import org.jboss.as.security.plugins.SecurityDomainContext;
 import org.jboss.msc.service.Service;
-import org.jboss.msc.service.ServiceController;
-import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
@@ -154,6 +152,7 @@ class ActiveMQServerService implements Service<ActiveMQServer> {
         }
     }
 
+    @Override
     public synchronized void start(final StartContext context) throws StartException {
         ClassLoader origTCCL = org.wildfly.security.manager.WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
         // Validate whether the AIO native layer can be used
@@ -267,8 +266,8 @@ class ActiveMQServerService implements Service<ActiveMQServer> {
                 dbConfiguration.setDataSource(ds);
                 // inject the datasource into the PropertySQLProviderFactory to be able to determine the
                 // type of database for the datasource metadata
-                PropertySQLProviderFactory sqlProviderFactory = (PropertySQLProviderFactory)dbConfiguration.getSqlProviderFactory();
-                sqlProviderFactory.investigateDialect(ds);
+                PropertySQLProvider.Factory sqlProviderFactory = new PropertySQLProvider.Factory(ds);
+                dbConfiguration.setSqlProvider(sqlProviderFactory);
                 configuration.setStoreConfiguration(dbConfiguration);
                 ROOT_LOGGER.infof("use JDBC store for Artemis server, bindingsTable:%s",
                         dbConfiguration.getBindingsTableName());
@@ -329,23 +328,6 @@ class ActiveMQServerService implements Service<ActiveMQServer> {
         return server;
     }
 
-    /**
-     * Returns true if a {@link ServiceController} for this service has been {@link org.jboss.msc.service.ServiceBuilder#install() installed}
-     * in MSC under the
-     * {@link MessagingServices#getActiveMQServiceName(org.jboss.as.controller.PathAddress) service name appropriate to the given operation}.
-     *
-     * @param context the operation context
-     * @return {@code true} if a {@link ServiceController} is installed
-     */
-    static boolean isServiceInstalled(final OperationContext context) {
-        if (context.isNormalServer()) {
-            final ServiceName serviceName = MessagingServices.getActiveMQServiceName(context.getCurrentAddress());
-            if (serviceName != null) {
-                return context.getServiceRegistry(false).getService(serviceName) != null;
-            }
-        }
-        return false;
-    }
 
     CommandDispatcherFactory getCommandDispatcherFactory(String key) {
         return commandDispatcherFactories.get(key).get();

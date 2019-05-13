@@ -63,11 +63,9 @@ public class BinderServiceUtil {
                                                  final Object obj) {
         final BindInfo bindInfo = ContextNames.bindInfoFor(name);
         final BinderService binderService = new BinderService(bindInfo.getBindName());
-
+        binderService.getManagedObjectInjector().inject(new ValueManagedReferenceFactory(Values.immediateValue(obj)));
         serviceTarget.addService(bindInfo.getBinderServiceName(), binderService)
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binderService.getNamingStoreInjector())
-                .addInjection(binderService.getManagedObjectInjector(), new ValueManagedReferenceFactory(Values.immediateValue(obj)))
-                .setInitialMode(ServiceController.Mode.ACTIVE)
                 .install();
     }
 
@@ -81,19 +79,18 @@ public class BinderServiceUtil {
     public static void installBinderService(final ServiceTarget serviceTarget,
                                             final String name,
                                             final Service<?> service,
-                                            final ServiceName... dependencies) {
+                                            final ServiceName dependency) {
         final BindInfo bindInfo = ContextNames.bindInfoFor(name);
         final BinderService binderService = new BinderService(bindInfo.getBindName());
-
+        binderService.getManagedObjectInjector().inject(new ValueManagedReferenceFactory(service));
         final ServiceBuilder serviceBuilder = serviceTarget.addService(bindInfo.getBinderServiceName(), binderService)
                 .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, binderService.getNamingStoreInjector())
-                .addInjection(binderService.getManagedObjectInjector(), new ValueManagedReferenceFactory(service))
                 // we set it in passive mode so that missing dependencies (which is possible/valid when it's a backup HornetQ server and the services
                 // haven't been activated on it due to the presence of a different live server) don't cause jms-topic/jms-queue add operations
                 // to fail
                 .setInitialMode(ServiceController.Mode.PASSIVE);
-        if (dependencies != null && dependencies.length > 0) {
-            serviceBuilder.addDependencies(dependencies);
+        if (dependency != null) {
+            serviceBuilder.requires(dependency);
         }
         serviceBuilder.install();
     }
@@ -105,20 +102,23 @@ public class BinderServiceUtil {
 
         final BinderService aliasBinderService = new BinderService(alias);
         aliasBinderService.getManagedObjectInjector().inject(new AliasManagedReferenceFactory(bindInfo.getAbsoluteJndiName()));
-
-        serviceTarget.addService(aliasBindInfo.getBinderServiceName(), aliasBinderService)
-                .addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, aliasBinderService.getNamingStoreInjector())
-                .addDependency(bindInfo.getBinderServiceName())
-                .addListener(new LifecycleListener() {
+        final ServiceBuilder sb = serviceTarget.addService(aliasBindInfo.getBinderServiceName(), aliasBinderService);
+        sb.addDependency(bindInfo.getParentContextServiceName(), ServiceBasedNamingStore.class, aliasBinderService.getNamingStoreInjector());
+        sb.requires(bindInfo.getBinderServiceName());
+        sb.addListener(new LifecycleListener() {
+                    private volatile boolean bound;
                     @Override
                     public void handleEvent(ServiceController<?> controller, LifecycleEvent event) {
                         switch (event) {
                             case UP: {
                                 ROOT_LOGGER.boundJndiName(alias);
+                                bound = true;
                                 break;
                             }
                             case DOWN: {
-                                ROOT_LOGGER.unboundJndiName(alias);
+                                if (bound) {
+                                    ROOT_LOGGER.unboundJndiName(alias);
+                                }
                                 break;
                             }
                             case REMOVED: {
@@ -127,8 +127,8 @@ public class BinderServiceUtil {
                             }
                         }
                     }
-                })
-                .install();
+                });
+        sb.install();
     }
 
     private static final class AliasManagedReferenceFactory implements ContextListAndJndiViewManagedReferenceFactory {

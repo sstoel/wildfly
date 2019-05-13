@@ -9,6 +9,7 @@
         <param name="default-singleton-bean-access-timeout" value="5000"/>
         <param name="default-missing-method-permissions-deny-access" value="true"/>
         <param name="log-system-exceptions" value="true"/>
+        <param name="statistics-enabled" value="${wildfly.ejb3.statistics-enabled:${wildfly.statistics-enabled:false}}"/>
         <feature spec="subsystem.ejb3.cache">
             <param name="cache" value="simple"/>
         </feature>
@@ -40,11 +41,6 @@
         <feature spec="subsystem.ejb3.service.remote">
             <param name="connector-ref" value="http-remoting-connector"/>
             <param name="thread-pool-name" value="default"/>
-            <feature spec="subsystem.ejb3.service.remote.channel-creation-options">
-                <param name="channel-creation-options" value="READ_TIMEOUT"/>
-                <param name="value" value="${prop.remoting-connector.read.timeout:20}"/>
-                <param name="type" value="xnio"/>
-            </feature>
             <feature spec="subsystem.ejb3.service.remote.channel-creation-options">
                 <param name="channel-creation-options" value="MAX_OUTBOUND_MESSAGES"/>
                 <param name="value" value="1234"/>

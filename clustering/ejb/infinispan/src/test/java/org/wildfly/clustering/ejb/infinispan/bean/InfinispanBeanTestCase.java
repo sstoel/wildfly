@@ -28,8 +28,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
-import java.util.Date;
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
+import java.time.Instant;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -39,7 +39,6 @@ import org.wildfly.clustering.ee.Mutator;
 import org.wildfly.clustering.ejb.Bean;
 import org.wildfly.clustering.ejb.PassivationListener;
 import org.wildfly.clustering.ejb.RemoveListener;
-import org.wildfly.clustering.ejb.Time;
 import org.wildfly.clustering.ejb.infinispan.BeanEntry;
 import org.wildfly.clustering.ejb.infinispan.BeanGroup;
 import org.wildfly.clustering.ejb.infinispan.BeanRemover;
@@ -51,7 +50,7 @@ public class InfinispanBeanTestCase {
     private final BeanGroup<String, Object> group = mock(BeanGroup.class);
     private final Mutator mutator = mock(Mutator.class);
     private final BeanRemover<String, Object> remover = mock(BeanRemover.class);
-    private final Time timeout = new Time(1, TimeUnit.MINUTES);
+    private final Duration timeout = Duration.ofMinutes(1L);
     private final PassivationListener<Object> listener = mock(PassivationListener.class);
 
     private final Bean<String, Object> bean = new InfinispanBean<>(this.id, this.entry, this.group, this.mutator, this.remover, this.timeout, this.listener);
@@ -94,11 +93,11 @@ public class InfinispanBeanTestCase {
         when(this.entry.getLastAccessedTime()).thenReturn(null);
         Assert.assertFalse(this.bean.isExpired());
 
-        long now = System.currentTimeMillis();
-        when(this.entry.getLastAccessedTime()).thenReturn(new Date(now));
+        Instant now = Instant.now();
+        when(this.entry.getLastAccessedTime()).thenReturn(now);
         Assert.assertFalse(this.bean.isExpired());
 
-        when(this.entry.getLastAccessedTime()).thenReturn(new Date(now - this.timeout.convert(TimeUnit.MILLISECONDS) - 1));
+        when(this.entry.getLastAccessedTime()).thenReturn(now.minus(this.timeout));
         Assert.assertTrue(this.bean.isExpired());
     }
 
@@ -124,18 +123,18 @@ public class InfinispanBeanTestCase {
 
         this.bean.close();
 
-        verify(this.entry).setLastAccessedTime(ArgumentMatchers.<Date>any());
+        verify(this.entry).setLastAccessedTime(ArgumentMatchers.<Instant>any());
         verify(this.mutator, never()).mutate();
         verify(this.group, never()).close();
 
         reset(this.entry, this.mutator, this.group);
 
-        when(this.entry.getLastAccessedTime()).thenReturn(new Date());
+        when(this.entry.getLastAccessedTime()).thenReturn(Instant.now());
         when(this.group.isCloseable()).thenReturn(true);
 
         this.bean.close();
 
-        verify(this.entry).setLastAccessedTime(ArgumentMatchers.<Date>any());
+        verify(this.entry).setLastAccessedTime(ArgumentMatchers.<Instant>any());
         verify(this.mutator).mutate();
         verify(this.group).close();
     }

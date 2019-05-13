@@ -69,7 +69,7 @@ public interface JMSOperations {
 
     void removeJmsBridge(String name);
 
-    void addCoreQueue(final String queueName, final String queueAddress, boolean durable);
+    void addCoreQueue(final String queueName, final String queueAddress, boolean durable, String routing);
 
     void removeCoreQueue(final String queueName);
 
@@ -91,7 +91,7 @@ public interface JMSOperations {
 
     void close();
 
-    void addHttpConnector(String connectorName, String socketBinding, String endpoint);
+    void addHttpConnector(String connectorName, String socketBinding, String endpoint, Map<String, String> parameters);
 
     void removeHttpConnector(String connectorName);
 

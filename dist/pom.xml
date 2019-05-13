@@ -34,7 +34,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>15.0.0.Alpha1-SNAPSHOT</version>
+        <version>17.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-dist</artifactId>
@@ -85,8 +85,11 @@
                         <phase>compile</phase>
                         <configuration>
                             <install-dir>${basedir}/target/${project.build.finalName}</install-dir>
+                            <record-state>false</record-state>
+                            <log-time>${galleon.log.time}</log-time>
+                            <offline>true</offline>
                             <plugin-options>
-                                <jboss-fork-embedded/>
+                                <jboss-fork-embedded>${galleon.fork.embedded}</jboss-fork-embedded>
                             </plugin-options>
                             <feature-packs>
                                 <feature-pack>
@@ -170,6 +173,7 @@
                     <!-- Parameters to test cases. -->
                     <systemPropertyVariables combine.children="append">
                         <jboss.dist>${basedir}/target/xml-validation</jboss.dist>
+                        <jboss.actual.dist>${basedir}/target/wildfly-${project.version}</jboss.actual.dist>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>
@@ -187,6 +191,24 @@
             </activation>
             <build>
                 <plugins>
+                    <plugin>
+                        <groupId>org.wildfly.galleon-plugins</groupId>
+                        <artifactId>wildfly-galleon-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>wildfly-generate-all-artifacts-list</id>
+                                <goals>
+                                    <goal>generate-all-artifacts-list</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <fpGroupId>org.wildfly</fpGroupId>
+                                    <fpArtifactId>wildfly-galleon-pack</fpArtifactId>
+                                    <fpVersion>${project.version}</fpVersion>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-assembly-plugin</artifactId>

@@ -28,12 +28,15 @@ import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.operations.validation.EnumValidator;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.RuntimePackageDependency;
 import org.jboss.as.jpa.config.ExtendedPersistenceInheritance;
+import org.jboss.as.jpa.util.JPAServiceNames;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
@@ -43,16 +46,31 @@ import org.jboss.dmr.ModelType;
  */
 public class JPADefinition extends SimpleResourceDefinition {
 
+    // This a private capability. Its runtime API or capability service tyoe are subject to change.
+    // See WFLY-7521
+    // Currently it exists to indicate a model dependency from the jpa subsystem to the transactions subsystem
+    private static final RuntimeCapability<Void> JPA_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.jpa")
+            .addRequirements(JPAServiceNames.LOCAL_TRANSACTION_PROVIDER_CAPABILITY)
+            .build();
+
     public static final JPADefinition INSTANCE = new JPADefinition(true);
     public static final JPADefinition DEPLOYMENT_INSTANCE = new JPADefinition(false);
 
-
     private JPADefinition(boolean feature) {
-        super(new Parameters(PathElement.pathElement(ModelDescriptionConstants.SUBSYSTEM, JPAExtension.SUBSYSTEM_NAME),
+        super(getParameters(feature));
+    }
+
+    private static Parameters getParameters(boolean feature) {
+        Parameters result = new Parameters(PathElement.pathElement(ModelDescriptionConstants.SUBSYSTEM, JPAExtension.SUBSYSTEM_NAME),
                 JPAExtension.getResourceDescriptionResolver())
-                .setAddHandler(JPASubSystemAdd.INSTANCE)
-                .setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE)
-                .setFeature(feature));
+                .setFeature(feature);
+        if (feature) {
+            result = result.setCapabilities(JPA_CAPABILITY);
+        }
+        // TODO WFLY-11173 add/remove handlers don't make sense on the deployment resource
+        result = result.setAddHandler(JPASubSystemAdd.INSTANCE).setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE);
+
+        return result;
     }
 
     protected static final SimpleAttributeDefinition DEFAULT_DATASOURCE =
@@ -77,5 +95,15 @@ public class JPADefinition extends SimpleResourceDefinition {
     public void registerAttributes(ManagementResourceRegistration registration) {
         registration.registerReadWriteAttribute(DEFAULT_DATASOURCE, null, new ReloadRequiredWriteAttributeHandler(DEFAULT_DATASOURCE));
         registration.registerReadWriteAttribute(DEFAULT_EXTENDEDPERSISTENCE_INHERITANCE, null, new ReloadRequiredWriteAttributeHandler(DEFAULT_EXTENDEDPERSISTENCE_INHERITANCE));
+    }
+
+    @Override
+    public void registerAdditionalRuntimePackages(final ManagementResourceRegistration resourceRegistration) {
+        resourceRegistration.registerAdditionalRuntimePackages(
+                // Only if annotation is in use.
+                RuntimePackageDependency.optional("org.hibernate.search.orm"),
+                RuntimePackageDependency.required("org.hibernate"),
+                // An alias to org.hibernate module.
+                RuntimePackageDependency.optional("org.hibernate.envers"));
     }
 }

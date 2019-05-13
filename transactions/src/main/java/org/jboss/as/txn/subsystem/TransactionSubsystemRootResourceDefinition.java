@@ -28,6 +28,8 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import javax.transaction.TransactionSynchronizationRegistry;
+
 import org.jboss.as.controller.AbstractWriteAttributeHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.ModelVersion;
@@ -49,11 +51,11 @@ import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ImmutableManagementResourceRegistration;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.registry.OperationEntry;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.txn.logging.TransactionLogger;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
+import org.jboss.tm.XAResourceRecoveryRegistry;
 import org.wildfly.transaction.client.ContextTransactionManager;
 
 import com.arjuna.ats.arjuna.common.CoordinatorEnvironmentBean;
@@ -67,8 +69,22 @@ import com.arjuna.ats.arjuna.coordinator.TxControl;
  */
 public class TransactionSubsystemRootResourceDefinition extends SimpleResourceDefinition {
 
-    public static final RuntimeCapability<Void> TRANSACTION_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.transactions")
+    static final RuntimeCapability<Void> TRANSACTION_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.transactions")
             .build();
+
+    /** Capability that indicates a local TransactionManager provider is present. */
+    public static final RuntimeCapability<Void> LOCAL_PROVIDER_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.transactions.global-default-local-provider", Void.class)
+            .build();
+    /**
+     * Provides access to the special TransactionSynchronizationRegistry impl that ensures proper ordering between
+     * JCA and other synchronizations.
+     */
+    public static final RuntimeCapability<Void> TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY =
+            RuntimeCapability.Builder.of("org.wildfly.transactions.transaction-synchronization-registry", TransactionSynchronizationRegistry.class)
+                    .build();
+    static final RuntimeCapability<Void> XA_RESOURCE_RECOVERY_REGISTRY_CAPABILITY =
+            RuntimeCapability.Builder.of("org.wildfly.transactions.xa-resource-recovery-registry", XAResourceRecoveryRegistry.class)
+                    .build();
 
     //recovery environment
     public static final SimpleAttributeDefinition BINDING = new SimpleAttributeDefinitionBuilder(CommonAttributes.BINDING, ModelType.STRING, false)
@@ -255,10 +271,16 @@ public class TransactionSubsystemRootResourceDefinition extends SimpleResourceDe
     private final boolean registerRuntimeOnly;
 
     TransactionSubsystemRootResourceDefinition(boolean registerRuntimeOnly) {
-        super(TransactionExtension.SUBSYSTEM_PATH,
-                TransactionExtension.getResourceDescriptionResolver(),
-                TransactionSubsystemAdd.INSTANCE, TransactionSubsystemRemove.INSTANCE,
-                OperationEntry.Flag.RESTART_ALL_SERVICES, OperationEntry.Flag.RESTART_ALL_SERVICES);
+        super(new Parameters(TransactionExtension.SUBSYSTEM_PATH,
+                TransactionExtension.getResourceDescriptionResolver())
+                .setAddHandler(TransactionSubsystemAdd.INSTANCE)
+                .setRemoveHandler(TransactionSubsystemRemove.INSTANCE)
+                .setCapabilities(TRANSACTION_CAPABILITY, LOCAL_PROVIDER_CAPABILITY,
+                        TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY,
+                        XA_RESOURCE_RECOVERY_REGISTRY_CAPABILITY)
+                // Configuring these is not required as these are defaulted based on our add/remove handler types
+                //OperationEntry.Flag.RESTART_ALL_SERVICES, OperationEntry.Flag.RESTART_ALL_SERVICES
+        );
         this.registerRuntimeOnly = registerRuntimeOnly;
     }
 
@@ -332,11 +354,6 @@ public class TransactionSubsystemRootResourceDefinition extends SimpleResourceDe
         if (registerRuntimeOnly) {
             TxStatsHandler.INSTANCE.registerMetrics(resourceRegistration);
         }
-    }
-
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        resourceRegistration.registerCapability(TRANSACTION_CAPABILITY);
     }
 
     private static class AliasedHandler implements OperationStepHandler {
@@ -504,6 +521,8 @@ public class TransactionSubsystemRootResourceDefinition extends SimpleResourceDe
             throws OperationFailedException {
             int timeout = resolvedValue.asInt();
 
+            // TxControl allow timeout to be set to 0 with meaning of no timeout at all
+            arjPropertyManager.getCoordinatorEnvironmentBean().setDefaultTimeout(timeout);
             TxControl.setDefaultTimeout(timeout);
             if (timeout == 0) {
                 ModelNode model = context.readResource(PathAddress.EMPTY_ADDRESS).getModel();
@@ -519,6 +538,7 @@ public class TransactionSubsystemRootResourceDefinition extends SimpleResourceDe
                                              final String attributeName, final ModelNode valueToRestore,
                                              final ModelNode valueToRevert, final Void handback)
             throws OperationFailedException {
+            arjPropertyManager.getCoordinatorEnvironmentBean().setDefaultTimeout(valueToRestore.asInt());
             TxControl.setDefaultTimeout(valueToRestore.asInt());
             ContextTransactionManager.setGlobalDefaultTransactionTimeout(valueToRestore.asInt());
         }

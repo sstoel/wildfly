@@ -28,7 +28,6 @@
     <dependencies>
         <module name="nu.xom"/>
         <module name="org.dom4j"/>
-        <module name="org.jdom"/>
         <module name="javax.api"/>
     </dependencies>
 

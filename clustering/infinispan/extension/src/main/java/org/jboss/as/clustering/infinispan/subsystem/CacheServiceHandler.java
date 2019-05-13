@@ -26,6 +26,7 @@ import static org.jboss.as.clustering.infinispan.subsystem.CacheResourceDefiniti
 import static org.jboss.as.clustering.infinispan.subsystem.CacheResourceDefinition.Attribute.MODULE;
 import static org.jboss.as.clustering.infinispan.subsystem.CacheResourceDefinition.Capability.CACHE;
 import static org.jboss.as.clustering.infinispan.subsystem.CacheResourceDefinition.Capability.CONFIGURATION;
+import static org.jboss.as.clustering.infinispan.subsystem.TransactionResourceDefinition.TransactionRequirement.XA_RESOURCE_RECOVERY_REGISTRY;
 
 import java.util.EnumSet;
 import java.util.ServiceLoader;
@@ -46,10 +47,10 @@ import org.jboss.msc.service.ServiceTarget;
 import org.wildfly.clustering.infinispan.spi.service.CacheServiceConfigurator;
 import org.wildfly.clustering.service.IdentityServiceConfigurator;
 import org.wildfly.clustering.service.ServiceNameProvider;
+import org.wildfly.clustering.service.ServiceNameRegistry;
 import org.wildfly.clustering.spi.CacheServiceConfiguratorProvider;
 import org.wildfly.clustering.spi.CapabilityServiceNameRegistry;
 import org.wildfly.clustering.spi.ClusteringCacheRequirement;
-import org.wildfly.clustering.spi.ServiceNameRegistry;
 
 /**
  * @author Paul Ferraro
@@ -84,7 +85,9 @@ public class CacheServiceHandler implements ResourceServiceHandler {
         this.configuratorFactory.createServiceConfigurator(cacheAddress).configure(context, model).build(target).install();
 
         new CacheServiceConfigurator<>(CACHE.getServiceName(cacheAddress), containerName, cacheName).configure(context).build(target).install();
-        new XAResourceRecoveryServiceConfigurator(cacheAddress).build(target).install();
+        if (context.hasOptionalCapability(XA_RESOURCE_RECOVERY_REGISTRY.getName(), null, null)) {
+            new XAResourceRecoveryServiceConfigurator(cacheAddress).configure(context).build(target).install();
+        }
 
         new BinderServiceConfigurator(InfinispanBindingFactory.createCacheConfigurationBinding(containerName, cacheName), CONFIGURATION.getServiceName(cacheAddress)).build(target).install();
         new BinderServiceConfigurator(InfinispanBindingFactory.createCacheBinding(containerName, cacheName), CACHE.getServiceName(cacheAddress)).build(target).install();

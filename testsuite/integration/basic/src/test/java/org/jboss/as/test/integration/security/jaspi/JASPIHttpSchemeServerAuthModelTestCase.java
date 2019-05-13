@@ -17,18 +17,16 @@ import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.wildfly.extension.undertow.security.jaspi.modules.HTTPSchemeServerAuthModule;
 
 import java.io.ByteArrayOutputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /**
  * <p>Tests the JASPI support by deploying a web application that uses a security domain configured with JASPI authentication.</p>
- *
- * <p>The security domain is configured with the {@link HTTPSchemeServerAuthModule} to provide HTTP BASIC authentication.</p>
  *
  * @author Pedro Igor
  */
@@ -81,7 +79,7 @@ public class JASPIHttpSchemeServerAuthModelTestCase {
 
         httpResponse.getEntity().writeTo(bos);
 
-        assertTrue(new String(bos.toByteArray()).contains("Unsecured"));
+        assertTrue(new String(bos.toByteArray(), StandardCharsets.UTF_8).contains("Unsecured"));
     }
 
     @Test
@@ -96,7 +94,7 @@ public class JASPIHttpSchemeServerAuthModelTestCase {
 
         httpResponse.getEntity().writeTo(bos);
 
-        assertTrue(new String(bos.toByteArray()).contains("Welcome"));
+        assertTrue(new String(bos.toByteArray(), StandardCharsets.UTF_8).contains("Welcome"));
     }
 
     @Test

@@ -22,8 +22,8 @@
 
 package org.wildfly.extension.batch.jberet.deployment;
 
-import javax.enterprise.inject.spi.BeanManager;
-import javax.transaction.TransactionManager;
+import static org.jboss.as.server.deployment.Attachments.DEPLOYMENT_COMPLETE_SERVICES;
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
 
 import org.jberet.repository.JobRepository;
 import org.jberet.spi.ArtifactFactory;
@@ -33,7 +33,6 @@ import org.jberet.spi.JobOperatorContext;
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.structure.DeploymentType;
 import org.jboss.as.ee.structure.DeploymentTypeMarker;
-import org.jboss.as.ee.weld.WeldDeploymentMarker;
 import org.jboss.as.server.Services;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -41,7 +40,7 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.suspend.SuspendController;
-import org.jboss.as.txn.service.TxnServices;
+import org.jboss.as.weld.WeldCapability;
 import org.jboss.modules.Module;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
@@ -122,22 +121,25 @@ public class BatchEnvironmentProcessor implements DeploymentUnitProcessor {
             // Add a dependency to the thread-pool
             if (jobExecutorName != null) {
                 // Register the named thread-pool capability
-                serviceBuilder.addDependency(support.getCapabilityServiceName(Capabilities.THREAD_POOL_CAPABILITY.getName(), jobExecutorName), JobExecutor.class, service.getJobExecutorInjector());
+                serviceBuilder.addDependency(Capabilities.THREAD_POOL_CAPABILITY.getCapabilityServiceName(jobExecutorName), JobExecutor.class, service.getJobExecutorInjector());
             }
 
             // Register the required services
-            serviceBuilder.addDependency(support.getCapabilityServiceName(Capabilities.BATCH_CONFIGURATION_CAPABILITY.getName()), BatchConfiguration.class, service.getBatchConfigurationInjector());
-            serviceBuilder.addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER, TransactionManager.class, service.getTransactionManagerInjector());
+            serviceBuilder.addDependency(Capabilities.BATCH_CONFIGURATION_CAPABILITY.getCapabilityServiceName(), BatchConfiguration.class, service.getBatchConfigurationInjector());
+            // Ensure local transaction support is started
+            serviceBuilder.requires(support.getCapabilityServiceName(Capabilities.LOCAL_TRANSACTION_PROVIDER_CAPABILITY));
 
             final ServiceName artifactFactoryServiceName = BatchServiceNames.batchArtifactFactoryServiceName(deploymentUnit);
             final ArtifactFactoryService artifactFactoryService = new ArtifactFactoryService();
             final ServiceBuilder<ArtifactFactory> artifactFactoryServiceBuilder = serviceTarget.addService(artifactFactoryServiceName, artifactFactoryService);
 
             // Register the bean manager if this is a CDI deployment
-            if (WeldDeploymentMarker.isPartOfWeldDeployment(deploymentUnit)) {
-                BatchLogger.LOGGER.tracef("Adding BeanManager service dependency for deployment %s", deploymentUnit.getName());
-                artifactFactoryServiceBuilder.addDependency(BatchServiceNames.beanManagerServiceName(deploymentUnit), BeanManager.class,
-                        artifactFactoryService.getBeanManagerInjector());
+            if (support.hasCapability(WELD_CAPABILITY_NAME)) {
+                final WeldCapability api = support.getOptionalCapabilityRuntimeAPI(WELD_CAPABILITY_NAME, WeldCapability.class).get();
+                if (api.isPartOfWeldDeployment(deploymentUnit)) {
+                    BatchLogger.LOGGER.tracef("Adding BeanManager service dependency for deployment %s", deploymentUnit.getName());
+                    api.addBeanManagerService(deploymentUnit, artifactFactoryServiceBuilder, artifactFactoryService.getBeanManagerInjector());
+                }
             }
             artifactFactoryServiceBuilder.install();
             serviceBuilder.addDependency(artifactFactoryServiceName, WildFlyArtifactFactory.class, service.getArtifactFactoryInjector());
@@ -159,7 +161,8 @@ public class BatchEnvironmentProcessor implements DeploymentUnitProcessor {
             serviceBuilder.install();
 
             // Install the JobOperatorService
-            Services.addServerExecutorDependency(serviceTarget.addService(BatchServiceNames.jobOperatorServiceName(deploymentUnit), jobOperatorService)
+            ServiceName jobOperatorServiceName = BatchServiceNames.jobOperatorServiceName(deploymentUnit);
+            Services.addServerExecutorDependency(serviceTarget.addService(jobOperatorServiceName, jobOperatorService)
                             .addDependency(support.getCapabilityServiceName(Capabilities.BATCH_CONFIGURATION_CAPABILITY.getName()), BatchConfiguration.class, jobOperatorService.getBatchConfigurationInjector())
                             .addDependency(SuspendController.SERVICE_NAME, SuspendController.class, jobOperatorService.getSuspendControllerInjector())
                             .addDependency(BatchServiceNames.batchEnvironmentServiceName(deploymentUnit), SecurityAwareBatchEnvironment.class, jobOperatorService.getBatchEnvironmentInjector()),
@@ -168,6 +171,7 @@ public class BatchEnvironmentProcessor implements DeploymentUnitProcessor {
 
             // Add the JobOperatorService to the deployment unit
             deploymentUnit.putAttachment(BatchAttachments.JOB_OPERATOR, jobOperatorService);
+            deploymentUnit.addToAttachmentList(DEPLOYMENT_COMPLETE_SERVICES, jobOperatorServiceName);
 
             // Add the JobOperator to the context selector
             selector.registerContext(moduleClassLoader, JobOperatorContext.create(jobOperatorService));

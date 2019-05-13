@@ -150,12 +150,12 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
             // and this should be changed to use a proper capability in the future.
             if (elytronEnabled) {
                 if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT.getName())) {
-                    cdServiceBuilder.addDependency(context.getCapabilityServiceName(
+                    cdServiceBuilder.requires(context.getCapabilityServiceName(
                             Capabilities.AUTHENTICATION_CONTEXT_CAPABILITY,
                             AUTHENTICATION_CONTEXT.resolveModelAttribute(context, resourceModel).asString(),
                             AuthenticationContext.class));
                 } else if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName())) {
-                    cdServiceBuilder.addDependency(context.getCapabilityServiceName(
+                    cdServiceBuilder.requires(context.getCapabilityServiceName(
                             Capabilities.AUTHENTICATION_CONTEXT_CAPABILITY,
                             AUTHENTICATION_CONTEXT_AND_APPLICATION.resolveModelAttribute(context, resourceModel).asString(),
                             AuthenticationContext.class));
@@ -164,7 +164,7 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
 
             if (elytronRecoveryEnabled) {
                 if (resourceModel.hasDefined(RECOVERY_AUTHENTICATION_CONTEXT.getName())) {
-                    cdServiceBuilder.addDependency(context.getCapabilityServiceName(
+                    cdServiceBuilder.requires(context.getCapabilityServiceName(
                             Capabilities.AUTHENTICATION_CONTEXT_CAPABILITY,
                             RECOVERY_AUTHENTICATION_CONTEXT.resolveModelAttribute(context, resourceModel).asString(),
                             AuthenticationContext.class));
@@ -202,8 +202,8 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
             ConnectionDefinitionStatisticsService connectionDefinitionStatisticsService = new ConnectionDefinitionStatisticsService(context.getResourceRegistrationForUpdate(), jndiName, poolName, statsEnabled);
 
             ServiceBuilder statsServiceBuilder = serviceTarget.addService(serviceName.append(ConnectorServices.STATISTICS_SUFFIX), connectionDefinitionStatisticsService);
-            statsServiceBuilder.addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append(bootStrapCtxName), connectionDefinitionStatisticsService.getBootstrapContextInjector())
-                    .addDependency(deploymentServiceName, connectionDefinitionStatisticsService.getResourceAdapterDeploymentInjector())
+            statsServiceBuilder.addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append(bootStrapCtxName), Object.class, connectionDefinitionStatisticsService.getBootstrapContextInjector())
+                    .addDependency(deploymentServiceName, Object.class, connectionDefinitionStatisticsService.getResourceAdapterDeploymentInjector())
                     .setInitialMode(ServiceController.Mode.PASSIVE)
                     .install();
 

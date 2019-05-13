@@ -130,15 +130,17 @@ public class DeploymentRepositoryProcessor implements DeploymentUnitProcessor {
         ServiceName moduleDeploymentService = deploymentUnit.getServiceName().append(ModuleDeployment.SERVICE_NAME);
         final ServiceBuilder<ModuleDeployment> builder = phaseContext.getServiceTarget().addService(moduleDeploymentService, deployment);
         for (Map.Entry<ServiceName, InjectedValue<?>> entry : injectedValues.entrySet()) {
-            builder.addDependency(entry.getKey(), (InjectedValue<Object>) entry.getValue());
+            builder.addDependency(entry.getKey(), Object.class, (InjectedValue<Object>) entry.getValue());
         }
         builder.addDependency(DeploymentRepositoryService.SERVICE_NAME, DeploymentRepository.class, deployment.getDeploymentRepository());
         builder.install();
 
         final ModuleDeployment.ModuleDeploymentStartService deploymentStart = new ModuleDeployment.ModuleDeploymentStartService(identifier, countdown);
         final ServiceBuilder<Void> startBuilder = phaseContext.getServiceTarget().addService(deploymentUnit.getServiceName().append(ModuleDeployment.START_SERVICE_NAME), deploymentStart);
-        startBuilder.addDependencies(componentStartServices);
-        startBuilder.addDependency(moduleDeploymentService);
+        for (final ServiceName componentStartService : componentStartServices) {
+            startBuilder.requires(componentStartService);
+        }
+        startBuilder.requires(moduleDeploymentService);
         startBuilder.addDependency(DeploymentRepositoryService.SERVICE_NAME, DeploymentRepository.class, deploymentStart.getDeploymentRepository());
         startBuilder.install();
     }

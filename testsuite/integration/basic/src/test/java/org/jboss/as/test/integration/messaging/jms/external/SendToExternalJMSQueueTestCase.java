@@ -25,6 +25,7 @@ package org.jboss.as.test.integration.messaging.jms.external;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.net.SocketPermission;
 import javax.annotation.Resource;
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -41,10 +42,12 @@ import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
+import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
+import org.jboss.remoting3.security.RemotingPermission;
 import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
@@ -70,6 +73,7 @@ public class SendToExternalJMSQueueTestCase {
 
         @Override
         public void doSetup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
+            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
             JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
             ops.addExternalHttpConnector("http-test-connector", "http", "http-acceptor");
             ops.createJmsQueue("myAwesomeQueue", "/queue/myAwesomeQueue");
@@ -138,6 +142,10 @@ public class SendToExternalJMSQueueTestCase {
         return ShrinkWrap.create(JavaArchive.class, "test.jar")
                 .addPackage(JMSOperations.class.getPackage())
                 .addClass(SendToExternalJMSQueueTestCase.SetupTask.class)
+                .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
+                        RemotingPermission.CREATE_ENDPOINT,
+                        RemotingPermission.CONNECT,
+                        new SocketPermission("localhost", "resolve")), "permissions.xml")
                 .addAsManifestResource(
                         EmptyAsset.INSTANCE,
                         ArchivePaths.create("beans.xml"));

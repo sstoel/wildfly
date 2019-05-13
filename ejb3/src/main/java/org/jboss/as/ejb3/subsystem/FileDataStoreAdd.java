@@ -24,7 +24,6 @@ package org.jboss.as.ejb3.subsystem;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 
-import javax.transaction.TransactionManager;
 import javax.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.controller.AbstractAddStepHandler;
@@ -37,10 +36,9 @@ import org.jboss.as.controller.services.path.PathManagerService;
 import org.jboss.as.ejb3.timerservice.persistence.TimerPersistence;
 import org.jboss.as.ejb3.timerservice.persistence.filestore.FileTimerPersistence;
 import org.jboss.as.server.Services;
-import org.jboss.as.txn.service.TransactionManagerService;
-import org.jboss.as.txn.service.TransactionSynchronizationRegistryService;
 import org.jboss.dmr.ModelNode;
 import org.jboss.modules.ModuleLoader;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 
 /**
@@ -53,31 +51,26 @@ public class FileDataStoreAdd extends AbstractAddStepHandler {
     public static final FileDataStoreAdd INSTANCE = new FileDataStoreAdd();
 
     protected void populateModel(ModelNode operation, ModelNode timerServiceModel) throws OperationFailedException {
-
         for (AttributeDefinition attr : FileDataStoreResourceDefinition.ATTRIBUTES.values()) {
             attr.validateAndSet(operation, timerServiceModel);
         }
     }
 
-
     protected void performRuntime(final OperationContext context, ModelNode operation, final ModelNode model) throws OperationFailedException {
-
         final ModelNode pathNode = FileDataStoreResourceDefinition.PATH.resolveModelAttribute(context, model);
         final String path = pathNode.isDefined() ? pathNode.asString() : null;
         final ModelNode relativeToNode = FileDataStoreResourceDefinition.RELATIVE_TO.resolveModelAttribute(context, model);
         final String relativeTo = relativeToNode.isDefined() ? relativeToNode.asString() : null;
 
-
         final FileTimerPersistence fileTimerPersistence = new FileTimerPersistence(true, path, relativeTo);
         final PathAddress address = PathAddress.pathAddress(operation.get(OP_ADDR));
         final ServiceName serviceName = TimerPersistence.SERVICE_NAME.append(address.getLastElement().getValue());
-        context.getServiceTarget().addService(serviceName, fileTimerPersistence)
-                .addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ModuleLoader.class, fileTimerPersistence.getModuleLoader())
-                .addDependency(PathManagerService.SERVICE_NAME, PathManager.class, fileTimerPersistence.getPathManager())
-                .addDependency(TransactionManagerService.SERVICE_NAME, TransactionManager.class, fileTimerPersistence.getTransactionManager())
-                .addDependency(TransactionSynchronizationRegistryService.SERVICE_NAME, TransactionSynchronizationRegistry.class, fileTimerPersistence.getTransactionSynchronizationRegistry())
-                .install();
-
+        final ServiceBuilder sb = context.getServiceTarget().addService(serviceName, fileTimerPersistence);
+        sb.addDependency(Services.JBOSS_SERVICE_MODULE_LOADER, ModuleLoader.class, fileTimerPersistence.getModuleLoader());
+        sb.addDependency(PathManagerService.SERVICE_NAME, PathManager.class, fileTimerPersistence.getPathManager());
+        sb.requires(context.getCapabilityServiceName("org.wildfly.transactions.global-default-local-provider", null));
+        sb.addDependency(context.getCapabilityServiceName("org.wildfly.transactions.transaction-synchronization-registry", null), TransactionSynchronizationRegistry.class, fileTimerPersistence.getTransactionSynchronizationRegistry());
+        sb.install();
     }
 
 }

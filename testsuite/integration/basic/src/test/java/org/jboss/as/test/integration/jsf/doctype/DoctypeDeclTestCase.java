@@ -25,6 +25,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -48,7 +49,6 @@ import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.helpers.ClientConstants;
 import org.jboss.as.controller.client.helpers.Operations;
-import org.jboss.as.jsf.subsystem.JSFExtension;
 import org.jboss.as.test.integration.management.ManagementOperations;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.dmr.ModelNode;
@@ -113,7 +113,7 @@ public class DoctypeDeclTestCase {
             HttpResponse response = client.execute(getRequest);
             try {
                 // Get the JSF view state
-                String responseString = IOUtils.toString(response.getEntity().getContent(), "UTF-8");
+                String responseString = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
                 Matcher jsfViewMatcher = viewStatePattern.matcher(responseString);
                 if (jsfViewMatcher.find()) {
                     jsfViewState = jsfViewMatcher.group(1);
@@ -129,12 +129,12 @@ public class DoctypeDeclTestCase {
             list.add(new BasicNameValuePair("register", "register"));
             list.add(new BasicNameValuePair("register:inputName", name));
             list.add(new BasicNameValuePair("register:registerButton", "Register"));
-            post.setEntity(new StringEntity(URLEncodedUtils.format(list, "UTF-8"), ContentType.APPLICATION_FORM_URLENCODED));
+            post.setEntity(new StringEntity(URLEncodedUtils.format(list, StandardCharsets.UTF_8), ContentType.APPLICATION_FORM_URLENCODED));
             response = client.execute(post);
 
             try {
                 assertEquals(expectedStatusCode, response.getStatusLine().getStatusCode());
-                return IOUtils.toString(response.getEntity().getContent(), "UTF-8");
+                return IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
             } finally {
                 HttpClientUtils.closeQuietly(response);
             }
@@ -144,14 +144,14 @@ public class DoctypeDeclTestCase {
     }
 
     private void writeDisallowDoctypeDeclAttributeAndReload(boolean value) throws Exception {
-        final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, JSFExtension.SUBSYSTEM_NAME);
+        final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, "jsf");
         final ModelNode op = Operations.createWriteAttributeOperation(address, "disallow-doctype-decl", value);
         ManagementOperations.executeOperation(managementClient.getControllerClient(), op);
         ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
     }
 
     private void undefineDisallowDoctypeDeclAttributeAndReload() throws Exception {
-        final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, JSFExtension.SUBSYSTEM_NAME);
+        final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, "jsf");
         final ModelNode op = Operations.createUndefineAttributeOperation(address, "disallow-doctype-decl");
         ManagementOperations.executeOperation(managementClient.getControllerClient(), op);
         ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());

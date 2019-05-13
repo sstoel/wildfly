@@ -22,13 +22,20 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
 
+import javax.transaction.TransactionSynchronizationRegistry;
+
 import org.infinispan.transaction.LockingMode;
+import org.jboss.as.clustering.controller.BinaryCapabilityNameResolver;
+import org.jboss.as.clustering.controller.BinaryRequirementCapability;
+import org.jboss.as.clustering.controller.Capability;
+import org.jboss.as.clustering.controller.CommonRequirement;
 import org.jboss.as.clustering.controller.ManagementResourceRegistration;
 import org.jboss.as.clustering.controller.MetricHandler;
 import org.jboss.as.clustering.controller.Operations;
@@ -61,6 +68,9 @@ import org.jboss.as.controller.transform.description.AttributeConverter.DefaultV
 import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
+import org.jboss.tm.XAResourceRecoveryRegistry;
+import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
+import org.wildfly.clustering.service.Requirement;
 
 /**
  * Resource description for the addressable resource and its alias
@@ -109,6 +119,29 @@ public class TransactionResourceDefinition extends ComponentResourceDefinition {
         @Override
         public AttributeDefinition getDefinition() {
             return this.definition;
+        }
+    }
+
+    enum TransactionRequirement implements Requirement {
+        TRANSACTION_SYNCHRONIZATION_REGISTRY("org.wildfly.transactions.transaction-synchronization-registry", TransactionSynchronizationRegistry.class),
+        XA_RESOURCE_RECOVERY_REGISTRY("org.wildfly.transactions.xa-resource-recovery-registry", XAResourceRecoveryRegistry.class);
+
+        private final String name;
+        private final Class<?> type;
+
+        TransactionRequirement(String name, Class<?> type) {
+            this.name = name;
+            this.type = type;
+        }
+
+        @Override
+        public String getName() {
+            return this.name;
+        }
+
+        @Override
+        public Class<?> getType() {
+            return this.type;
         }
     }
 
@@ -244,7 +277,15 @@ public class TransactionResourceDefinition extends ComponentResourceDefinition {
         ManagementResourceRegistration registration = parent.registerSubModel(this);
         parent.registerAlias(LEGACY_PATH, new SimpleAliasEntry(registration));
 
-        ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver()).addAttributes(Attribute.class);
+        Capability dependentCapability = new BinaryRequirementCapability(InfinispanCacheRequirement.CACHE, BinaryCapabilityNameResolver.GRANDPARENT_PARENT);
+        ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver())
+                .addAttributes(Attribute.class)
+                // Add a requirement on the tm capability to the parent cache capability
+                .addResourceCapabilityReference(new TransactionResourceCapabilityReference(dependentCapability, CommonRequirement.LOCAL_TRANSACTION_PROVIDER, Attribute.MODE, EnumSet.of(TransactionMode.NONE, TransactionMode.BATCH)))
+                // Add a requirement on the XAResourceRecoveryRegistry capability to the parent cache capability
+                .addResourceCapabilityReference(new TransactionResourceCapabilityReference(dependentCapability, TransactionRequirement.TRANSACTION_SYNCHRONIZATION_REGISTRY, Attribute.MODE, EnumSet.complementOf(EnumSet.of(TransactionMode.NON_XA))))
+                // Add a requirement on the XAResourceRecoveryRegistry capability to the parent cache capability
+                .addResourceCapabilityReference(new TransactionResourceCapabilityReference(dependentCapability, TransactionRequirement.XA_RESOURCE_RECOVERY_REGISTRY, Attribute.MODE, EnumSet.complementOf(EnumSet.of(TransactionMode.FULL_XA))));
         ResourceServiceHandler handler = new SimpleResourceServiceHandler(TransactionServiceConfigurator::new);
         new SimpleResourceRegistration(descriptor, handler).register(registration);
 

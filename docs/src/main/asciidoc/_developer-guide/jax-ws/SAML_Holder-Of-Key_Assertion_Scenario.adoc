@@ -41,7 +41,7 @@ policy is used. The token is declared to be signed and endorsed,
 sp:SignedEndorsingSupportingTokens. A detailed explanation of the
 security settings are provided in the comments in the listing below.
 
-[source,xml]
+[source,xml,options="nowrap"]
 ----
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <definitions targetNamespace="http://www.jboss.org/jbossws/ws-extensions/holderofkeywssecuritypolicy"
@@ -239,7 +239,7 @@ security settings are provided in the comments in the listing below.
 </definitions>
 ----
 
-[[ssl-configuration]]
+[[ssl-configuration-saml-holder]]
 === SSL configuration
 
 https://docs.jboss.org/author/display/JBWS/WS-Trust+and+STS#WS-TrustandSTS-SSLconfiguration
@@ -258,7 +258,7 @@ Guide|../../../../../../../../../../display/WFLY8/SSL+setup+guide|||\].
 
 Here is an example of an SSL connector declaration.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 <subsystem xmlns="urn:jboss:domain:web:1.4" default-virtual-server="default-host" native="false">
 .....
@@ -268,13 +268,13 @@ Here is an example of an SSL connector declaration.
 ...
 ----
 
-[[web-service-interface]]
+[[web-service-interface-saml-holder]]
 === Web service Interface
 
 The web service provider interface class, HolderOfKeyIface, is a simple
 straight forward web service definition.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 package org.jboss.test.ws.jaxws.samples.wsse.policy.trust.holderofkey;
  
@@ -291,7 +291,7 @@ public interface HolderOfKeyIface {
 }
 ----
 
-[[web-service-implementation]]
+[[web-service-implementation-saml-holder]]
 === Web service Implementation
 
 The web service provider implementation class, HolderOfKeyImpl, is a
@@ -321,7 +321,7 @@ EndpointProperty statement declares the STSHolderOfKeyCallbackHandler
 implementation class. It is used to obtain the user's password for the
 certificates in the keystore file.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 package org.jboss.test.ws.jaxws.samples.wsse.policy.trust.holderofkey;
  
@@ -352,7 +352,7 @@ public class HolderOfKeyImpl implements HolderOfKeyIface
 }
 ----
 
-[[crypto-properties-and-keystore-files]]
+[[crypto-properties-and-keystore-files-saml-holder]]
 === Crypto properties and keystore files
 
 WSS4J's Crypto implementation is loaded and configured via a Java
@@ -374,7 +374,7 @@ org.apache.ws.security.crypto.merlin.keystore.alias=myservicekey
 org.apache.ws.security.crypto.merlin.keystore.file=servicestore.jks
 ....
 
-[[manifest.mf]]
+[[manifest-mf-saml-holder]]
 === MANIFEST.MF
 
 https://docs.jboss.org/author/display/JBWS/WS-Trust+and+STS#WS-TrustandSTS-MANIFEST.MF
@@ -390,7 +390,7 @@ Created-By:1.7.0_25-b15 (Oracle Corporation)
 Dependencies: org.jboss.ws.cxf.jbossws-cxf-client
 ....
 
-[[security-token-service]]
+[[security-token-service-saml-holder]]
 == Security Token Service
 
 This section examines the crucial elements in providing the Security
@@ -404,7 +404,7 @@ The components that will be discussed are.
 * Crypto properties and keystore files
 * MANIFEST.MF
 
-[[security-domain]]
+[[security-domain-saml-holder]]
 === Security Domain
 
 The STS requires a JBoss security domain be configured. The
@@ -421,7 +421,7 @@ following XML must be added to the JBoss security subsystem in the
 server configuration file. Replace " *SOME_PATH*" with appropriate
 information.
 
-[source,xml]
+[source,xml,options="nowrap"]
 ----
 <security-domain name="JBossWS-trust-sts">
   <authentication>
@@ -436,7 +436,7 @@ information.
 
 jboss-web.xml
 
-[source,xml]
+[source,xml,options="nowrap"]
 ----
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE jboss-web PUBLIC"-//JBoss//DTD Web Application 2.4//EN" ">
@@ -469,10 +469,10 @@ jbossws-roles.properties
 alice=friend
 ....
 
-[[stss-wsdl]]
+[[stss-wsdl-saml-holder]]
 === STS's WSDL
 
-[source,xml]
+[source,xml,options="nowrap"]
 ----
 <?xml version="1.0" encoding="UTF-8"?>
 <wsdl:definitions
@@ -809,7 +809,7 @@ alice=friend
 </wsdl:definitions>
 ----
 
-[[stss-implementation-class]]
+[[stss-implementation-class-saml-holder]]
 === STS's implementation class
 
 The Apache CXF's STS, SecurityTokenServiceProvider, is a web service
@@ -871,7 +871,7 @@ a SAMLTokenProvider which we are using rather than writing our own.
 Learn more about the SAMLTokenProvider
 http://coheigea.blogspot.it/2011/10/apache-cxf-sts-documentation-part-iv.html[here].
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 package org.jboss.test.ws.jaxws.samples.wsse.policy.trust.stsholderofkey;
  
@@ -937,7 +937,7 @@ public class SampleSTSHolderOfKey extends SecurityTokenServiceProvider
 }
 ----
 
-[[holderofkeycallbackhandler]]
+[[holderofkeycallbackhandler-saml-holder]]
 === HolderOfKeyCallbackHandler
 
 STSHolderOfKeyCallbackHandler is a callback handler for the WSS4J Crypto
@@ -945,7 +945,7 @@ API. It is used to obtain the password for the private key in the
 keystore. This class enables CXF to retrieve the password of the user
 name to use for the message signature.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 package org.jboss.test.ws.jaxws.samples.wsse.policy.trust.stsholderofkey;
  
@@ -975,7 +975,7 @@ public class STSHolderOfKeyCallbackHandler extends PasswordCallbackHandler
 }
 ----
 
-[[crypto-properties-and-keystore-files-1]]
+[[crypto-properties-and-keystore-files-saml-holder-1]]
 === Crypto properties and keystore files
 
 WSS4J's Crypto implementation is loaded and configured via a Java
@@ -996,7 +996,7 @@ org.apache.ws.security.crypto.merlin.keystore.password=stsspass
 org.apache.ws.security.crypto.merlin.keystore.file=stsstore.jks
 ....
 
-[[manifest.mf-1]]
+[[manifest-mf-saml-holder-1]]
 === MANIFEST.MF
 
 When deployed on WildFly, this application requires access to the
@@ -1013,7 +1013,7 @@ Created-By:1.7.0_25-b15 (Oracle Corporation)
 Dependencies: org.jboss.ws.cxf.jbossws-cxf-client,org.apache.cxf.impl
 ....
 
-[[web-service-requester]]
+[[web-service-requester-saml-holder]]
 == Web service requester
 
 This section examines the crucial elements in calling a web service that
@@ -1024,7 +1024,7 @@ scenario. The components that will be discussed are.
 * ClientCallbackHandler
 * Crypto properties and keystore files
 
-[[web-service-requester-implementation]]
+[[web-service-requester-implementation-saml-holder]]
 === Web service requester Implementation
 
 The ws-requester, the client, uses standard procedures for creating a
@@ -1044,7 +1044,7 @@ way, the user must provide a org.apache.cxf.Bus for it and the
 configuration keys must not have the ".it" suffix. This is used in the
 ActAs and OnBehalfOf examples.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 String serviceURL = "https://" + getServerHost() + ":8443/jaxws-samples-wsse-policy-trust-holderofkey/HolderOfKeyService";
  
@@ -1084,7 +1084,7 @@ ctx.put(SecurityConstants.STS_TOKEN_USE_CERT_FOR_KEYINFO + ".it", "true");
 proxy.sayHello();
 ----
 
-[[clientcallbackhandler]]
+[[clientcallbackhandler-saml-holder]]
 === ClientCallbackHandler
 
 ClientCallbackHandler is a callback handler for the WSS4J Crypto API. It
@@ -1095,7 +1095,7 @@ provided here. This information is not in the (JKS) keystore but
 provided in the WildFly security domain. It was declared in file
 jbossws-users.properties.
 
-[source, java]
+[source,java,options="nowrap"]
 ----
 package org.jboss.test.ws.jaxws.samples.wsse.policy.trust.shared;
  
@@ -1131,7 +1131,7 @@ public class ClientCallbackHandler implements CallbackHandler {
 }
 ----
 
-[[crypto-properties-and-keystore-files-2]]
+[[crypto-properties-and-keystore-files-saml-holder-2]]
 === Crypto properties and keystore files
 
 WSS4J's Crypto implementation is loaded and configured via a Java

@@ -28,9 +28,12 @@ import static org.jboss.as.clustering.jgroups.subsystem.TransportResourceDefinit
 import static org.jboss.as.clustering.jgroups.subsystem.TransportResourceDefinition.Attribute.SITE;
 import static org.jboss.as.clustering.jgroups.subsystem.TransportResourceDefinition.Attribute.SOCKET_BINDING;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.jboss.as.clustering.controller.CommonUnaryRequirement;
@@ -39,6 +42,7 @@ import org.jboss.as.clustering.jgroups.JChannelFactory;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
+import org.jboss.as.network.ClientMapping;
 import org.jboss.as.network.SocketBinding;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceBuilder;
@@ -50,6 +54,7 @@ import org.wildfly.clustering.service.CompositeDependency;
 import org.wildfly.clustering.service.ServiceConfigurator;
 import org.wildfly.clustering.service.ServiceNameProvider;
 import org.wildfly.clustering.service.ServiceSupplierDependency;
+import org.wildfly.clustering.service.SimpleSupplierDependency;
 import org.wildfly.clustering.service.SupplierDependency;
 
 /**
@@ -89,7 +94,7 @@ public class TransportConfigurationServiceConfigurator<T extends TP> extends Abs
     public ServiceConfigurator configure(OperationContext context, ModelNode model) throws OperationFailedException {
         this.socketBinding = new ServiceSupplierDependency<>(CommonUnaryRequirement.SOCKET_BINDING.getServiceName(context, SOCKET_BINDING.resolveModelAttribute(context, model).asString()));
         String diagnosticsSocketBinding = DIAGNOSTICS_SOCKET_BINDING.resolveModelAttribute(context, model).asStringOrNull();
-        this.diagnosticsSocketBinding = (diagnosticsSocketBinding != null) ? new ServiceSupplierDependency<>(CommonUnaryRequirement.SOCKET_BINDING.getServiceName(context, diagnosticsSocketBinding)) : null;
+        this.diagnosticsSocketBinding = (diagnosticsSocketBinding != null) ? new ServiceSupplierDependency<>(CommonUnaryRequirement.SOCKET_BINDING.getServiceName(context, diagnosticsSocketBinding)) : new SimpleSupplierDependency<>(null);
 
         ModelNode machine = MACHINE.resolveModelAttribute(context, model);
         ModelNode rack = RACK.resolveModelAttribute(context, model);
@@ -123,17 +128,28 @@ public class TransportConfigurationServiceConfigurator<T extends TP> extends Abs
         for (String serviceName : Arrays.asList("jgroups.udp.mcast_sock", "jgroups.udp.sock", "jgroups.tcp.server", "jgroups.nio.server", "jgroups.tunnel.ucast_sock")) {
             bindings.put(serviceName, binding);
         }
-        if (this.diagnosticsSocketBinding != null) {
-            bindings.put("jgroups.tp.diag.mcast_sock", this.diagnosticsSocketBinding.get());
-        }
+        bindings.put("jgroups.tp.diag.mcast_sock", this.diagnosticsSocketBinding.get());
         return bindings;
     }
 
     @Override
     public void accept(T protocol) {
-        InetSocketAddress socketAddress = this.getSocketBinding().getSocketAddress();
+        SocketBinding binding = this.getSocketBinding();
+        InetSocketAddress socketAddress = binding.getSocketAddress();
         protocol.setBindAddress(socketAddress.getAddress());
         protocol.setBindPort(socketAddress.getPort());
+
+        List<ClientMapping> clientMappings = binding.getClientMappings();
+        if (!clientMappings.isEmpty()) {
+            // JGroups cannot select a client mapping based on the source address, so just use the first one
+            ClientMapping mapping = clientMappings.get(0);
+            try {
+                this.setValue(protocol, "external_addr", InetAddress.getByName(mapping.getDestinationAddress()));
+                this.setValue(protocol, "external_port", mapping.getDestinationPort());
+            } catch (UnknownHostException e) {
+                throw new IllegalArgumentException(e);
+            }
+        }
 
         protocol.setThreadFactory(new ClassLoaderThreadFactory(new DefaultThreadFactory("jgroups", false, true), JChannelFactory.class.getClassLoader()));
         protocol.setThreadPool(this.threadPoolFactory.get().apply(protocol.getThreadFactory()));
@@ -147,11 +163,12 @@ public class TransportConfigurationServiceConfigurator<T extends TP> extends Abs
                 ;
         protocol.setInternalThreadPool(factory.apply(protocol.getInternalThreadPoolThreadFactory()));
 
-        protocol.setValue("enable_diagnostics", this.diagnosticsSocketBinding != null);
-        if (this.diagnosticsSocketBinding != null) {
-            InetSocketAddress address = this.diagnosticsSocketBinding.get().getSocketAddress();
-            protocol.setValue("diagnostics_addr", address.getAddress());
-            protocol.setValue("diagnostics_port", address.getPort());
+        SocketBinding diagnosticsBinging = this.diagnosticsSocketBinding.get();
+        this.setValue(protocol, "enable_diagnostics", diagnosticsBinging != null);
+        if (diagnosticsBinging != null) {
+            InetSocketAddress address = diagnosticsBinging.getSocketAddress();
+            this.setValue(protocol, "diagnostics_addr", address.getAddress());
+            this.setValue(protocol, "diagnostics_port", address.getPort());
         }
     }
 

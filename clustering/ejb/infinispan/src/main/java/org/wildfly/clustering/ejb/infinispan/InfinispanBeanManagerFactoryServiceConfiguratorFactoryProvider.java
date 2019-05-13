@@ -21,7 +21,6 @@
  */
 package org.wildfly.clustering.ejb.infinispan;
 
-import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.kohsuke.MetaInfServices;
 import org.wildfly.clustering.ejb.BeanManagerFactoryServiceConfiguratorFactory;
 import org.wildfly.clustering.ejb.BeanManagerFactoryServiceConfiguratorConfiguration;
@@ -34,7 +33,7 @@ import org.wildfly.clustering.ejb.BeanManagerFactoryServiceConfiguratorFactoryPr
 public class InfinispanBeanManagerFactoryServiceConfiguratorFactoryProvider implements BeanManagerFactoryServiceConfiguratorFactoryProvider {
 
     @Override
-    public BeanManagerFactoryServiceConfiguratorFactory getBeanManagerFactoryBuilder(CapabilityServiceSupport support, String name, BeanManagerFactoryServiceConfiguratorConfiguration config) {
-        return new InfinispanBeanManagerFactoryServiceConfiguratorFactory<>(support, name, config);
+    public BeanManagerFactoryServiceConfiguratorFactory getBeanManagerFactoryBuilder(String name, BeanManagerFactoryServiceConfiguratorConfiguration config) {
+        return new InfinispanBeanManagerFactoryServiceConfiguratorFactory<>(name, config);
     }
 }

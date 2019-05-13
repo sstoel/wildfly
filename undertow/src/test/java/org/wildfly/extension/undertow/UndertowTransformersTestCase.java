@@ -55,6 +55,7 @@ import org.wildfly.extension.undertow.handlers.ReverseProxyHandler;
 public class UndertowTransformersTestCase extends AbstractSubsystemTest {
     private static final ModelVersion EAP7_0_0 = ModelVersion.create(3, 1, 0);
     private static final ModelVersion EAP7_1_0 = ModelVersion.create(4, 0, 0);
+    private static final ModelVersion EAP7_2_0 = ModelVersion.create(7, 0, 0);
 
     public UndertowTransformersTestCase() {
         super(UndertowExtension.SUBSYSTEM_NAME, new UndertowExtension());
@@ -68,6 +69,12 @@ public class UndertowTransformersTestCase extends AbstractSubsystemTest {
     @Test
     public void testTransformersEAP_7_1_0() throws Exception {
         testTransformers(ModelTestControllerVersion.EAP_7_1_0, EAP7_1_0);
+    }
+
+    @Test
+    public void testTransformersEAP_7_2_0() throws Exception {
+        // TODO Enable once we can transform to 7.2
+        //testTransformers(ModelTestControllerVersion.EAP_7_1_0, "7.2", EAP7_2_0);
     }
 
     @Test
@@ -169,6 +176,13 @@ public class UndertowTransformersTestCase extends AbstractSubsystemTest {
     }
 
     @Test
+    public void testRejectTransformersEAP_7_2_0() throws Exception {
+        // TODO Enable once we can transform to 7.2
+        //doRejectTest(ModelTestControllerVersion.EAP_7_1_0, EAP7_2_0, new FailedOperationTransformationConfig()
+        //        );
+    }
+
+    @Test
     public void testConvertTransformersEAP_7_1_0() throws Exception {
         // https://issues.jboss.org/browse/WFLY-9675 Fix max-post-size LongRangeValidator min to 0.
         // Test Listener attribute max-post-size value 0 is converted to Long.MAX
@@ -193,6 +207,17 @@ public class UndertowTransformersTestCase extends AbstractSubsystemTest {
         Assert.assertNotNull(legacyServices);
 
         List<ModelNode> ops = builder.parseXmlResource("undertow-reject.xml");
+
+        if (controllerVersion == ModelTestControllerVersion.EAP_7_1_0) {
+            // The EAP 7.1 tests load a legacy version of undertow in the child first classloader
+            // But the current version is in the parent. PredicateValidator's use of PredicateParser
+            // fails in this situation as it results in ServiceLoader trying to load classes from both
+            // jars. So just disable testing of params that involve PredicateValidator.
+            for (ModelNode op : ops) {
+                op.remove(Constants.PREDICATE);
+                op.remove(Constants.MANAGEMENT_ACCESS_PREDICATE);
+            }
+        }
 
         ModelTestUtils.checkFailedTransformedBootOperations(mainServices, targetVersion, ops, config);
     }
@@ -237,6 +262,11 @@ public class UndertowTransformersTestCase extends AbstractSubsystemTest {
                 Assert.fail(controllerVersion + " not yet configured");
                 return;
         }
+
+        testTransformers(controllerVersion, eapVersion, undertowVersion);
+    }
+
+    private void testTransformers(ModelTestControllerVersion controllerVersion, String eapVersion,  ModelVersion undertowVersion) throws Exception {
         KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization())
                 .setSubsystemXmlResource(String.format("undertow-%s-transformers.xml", eapVersion));
         LegacyKernelServicesInitializer init = builder.createLegacyKernelServicesBuilder(createAdditionalInitialization(), controllerVersion, undertowVersion)
@@ -266,4 +296,5 @@ public class UndertowTransformersTestCase extends AbstractSubsystemTest {
             init.addMavenResourceURL("io.undertow:undertow-core:2.0.4.Final");
         }
     }
+
 }

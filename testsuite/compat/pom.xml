@@ -33,7 +33,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>15.0.0.Alpha1-SNAPSHOT</version>
+        <version>17.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-testsuite-compat</artifactId>
@@ -54,6 +54,11 @@
     	Compile-time dependencies upon anything in the WildFly runtime are allowed in this section.
     -->
     <dependencies>
+        <dependency>
+            <groupId>org.dom4j</groupId>
+            <artifactId>dom4j</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.eclipse.persistence</groupId>
             <artifactId>eclipselink</artifactId>
@@ -130,6 +135,10 @@
                     <groupId>com.fasterxml</groupId>
                 </exclusion>
                 <exclusion>
+                    <artifactId>dom4j</artifactId>
+                    <groupId>dom4j</groupId>
+                </exclusion>
+                <exclusion>
                     <artifactId>javassist</artifactId>
                     <groupId>javassist</groupId>
                 </exclusion>
@@ -164,6 +173,10 @@
                 <exclusion>
                     <artifactId>ejb3-persistence</artifactId>
                     <groupId>org.hibernate</groupId>
+                </exclusion>
+                <exclusion>
+                    <artifactId>dom4j</artifactId>
+                    <groupId>dom4j</groupId>
                 </exclusion>
                 <exclusion>
                     <artifactId>hibernate-java8</artifactId>

@@ -15,6 +15,9 @@ modules directory or the system packages.
 You can also set a hint to indicate which log manager is being used. The hint attempts to ensure that JBoss Logging
 will bind to the correct log manager. It also adds the hinted logging package to the modules system packages.
 
+IMPORTANT: If using the embedded API with Java 11 you'll need to add `--add-module=java.se` to your JVM arguments. See
+https://issues.jboss.org/browse/MODULES-372[MODULES-372] for details.
+
 == Standalone API
 
 A standalone server allows you to manage the lifecycle of a server within the currently running process. The server
@@ -23,7 +26,7 @@ can be configured in admin-only mode or fully started and applications can be de
 === Examples
 
 .Simple Example
-[source,java]
+[source,java,options="nowrap"]
 ----
 final StandaloneServer server = EmbeddedProcessFactory.createStandaloneServer(Configuration.Builder.of(jbossHome).build());
 server.start();
@@ -45,7 +48,7 @@ try {
 ----
 
 .Server in admin-only Example
-[source,java]
+[source,java,options="nowrap"]
 ----
 final StandaloneServer server = EmbeddedProcessFactory.createStandaloneServer(
     Configuration.Builder.of(jbossHome)
@@ -70,7 +73,7 @@ try {
 ----
 
 .log4j2 Hint
-[source,java]
+[source,java,options="nowrap"]
 ----
 final StandaloneServer server = EmbeddedProcessFactory.createStandaloneServer(Configuration.Builder.of(jbossHome)
         .setLoggerHint(Configuration.LoggerHint.LOG4J2)
@@ -103,7 +106,7 @@ management operations.
 === Example
 
 .Simple Example
-[source,java]
+[source,java,options="nowrap"]
 ----
 final HostController server = EmbeddedProcessFactory.createHostController(Configuration.Builder.of(jbossHome).build());
 server.start();

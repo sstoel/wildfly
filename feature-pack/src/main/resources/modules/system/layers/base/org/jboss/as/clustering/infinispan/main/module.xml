@@ -38,6 +38,8 @@
     <dependencies>
         <module name="javax.api"/>
         <module name="javax.transaction.api"/>
+        <!-- The io.netty module is only require to initialize Netty's InternalLoggingFactory -->
+        <module name="io.netty"/>
         <module name="io.reactivex.rxjava2.rxjava"/>
         <module name="net.jcip"/>
         <module name="org.infinispan" services="import"/>
@@ -51,8 +53,6 @@
         <module name="org.jboss.as.naming"/>
         <module name="org.jboss.as.network"/>
         <module name="org.jboss.as.server"/>
-        <module name="org.jboss.as.threads"/>
-        <module name="org.jboss.as.transactions"/>
         <module name="org.jboss.jboss-transaction-spi"/>
         <module name="org.jboss.logging"/>
         <module name="org.jboss.marshalling"/>
@@ -62,6 +62,7 @@
         <module name="org.jboss.threads"/>
         <module name="org.jgroups"/>
         <module name="org.reactivestreams"/>
+        <module name="org.wildfly.clustering.api"/>
         <module name="org.wildfly.clustering.ee.infinispan"/>
         <module name="org.wildfly.clustering.ee.spi"/>
         <module name="org.wildfly.clustering.infinispan.spi"/>
@@ -74,5 +75,6 @@
         <module name="org.wildfly.clustering.spi"/>
         <module name="org.wildfly.common"/>
         <module name="org.wildfly.security.elytron-private"/>
+        <module name="org.wildfly.transaction.client"/>
     </dependencies>
 </module>

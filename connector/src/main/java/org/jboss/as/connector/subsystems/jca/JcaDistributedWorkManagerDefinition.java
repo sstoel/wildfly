@@ -85,6 +85,7 @@ public class JcaDistributedWorkManagerDefinition extends SimpleResourceDefinitio
 
     @Override
     public void registerCapabilities(ManagementResourceRegistration registration) {
+        super.registerCapabilities(registration);
         for (DWmCapabilities capability : EnumSet.allOf(DWmCapabilities.class)) {
             registration.registerCapability(capability.getRuntimeCapability());
         }
@@ -169,7 +170,7 @@ public class JcaDistributedWorkManagerDefinition extends SimpleResourceDefinitio
     }
 
     enum DWmCapabilities {
-        CHANNEL_FACTORY(RuntimeCapability.Builder.of("org.wildfly.connector.workmanager").addRequirements(ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getName()).build());
+        CHANNEL_FACTORY(RuntimeCapability.Builder.of("org.wildfly.connector.workmanager", true).addRequirements(ClusteringDefaultRequirement.COMMAND_DISPATCHER_FACTORY.getName()).build());
 
         private final RuntimeCapability<Void> capability;
 

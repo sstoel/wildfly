@@ -43,7 +43,7 @@ import javax.ejb.EJBLocalObject;
 import javax.ejb.TimerService;
 import javax.ejb.TransactionAttributeType;
 import javax.ejb.TransactionManagementType;
-import javax.transaction.UserTransaction;
+import javax.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.core.security.ServerSecurityManager;
@@ -361,7 +361,9 @@ public abstract class EJBComponentDescription extends ComponentDescription {
                         @Override
                         public void configureDependency(final ServiceBuilder<?> serviceBuilder, final ComponentStartService service) throws DeploymentUnitProcessingException {
                             for (final SetupAction setupAction : ejbSetupActions) {
-                                serviceBuilder.addDependencies(setupAction.dependencies());
+                                for (final ServiceName setupActionDependency : setupAction.dependencies()) {
+                                    serviceBuilder.requires(setupActionDependency);
+                                }
                             }
                         }
                     });
@@ -528,7 +530,7 @@ public abstract class EJBComponentDescription extends ComponentDescription {
             public void configure(DeploymentPhaseContext context, ComponentDescription description, ComponentConfiguration componentConfiguration) throws DeploymentUnitProcessingException {
                 if (this.hasRemoteView((EJBComponentDescription) description)) {
                     // add a dependency on local transaction service
-                    componentConfiguration.getCreateDependencies().add((sb, cs) -> sb.addDependency(TxnServices.JBOSS_TXN_REMOTE_TRANSACTION_SERVICE));
+                    componentConfiguration.getCreateDependencies().add((sb, cs) -> sb.requires(TxnServices.JBOSS_TXN_REMOTE_TRANSACTION_SERVICE));
                 }
             }
 
@@ -563,12 +565,11 @@ public abstract class EJBComponentDescription extends ComponentDescription {
                 componentConfiguration.getCreateDependencies().add(new DependencyConfigurator<EJBComponentCreateService>() {
                     @Override
                     public void configureDependency(final ServiceBuilder<?> serviceBuilder, final EJBComponentCreateService ejbComponentCreateService) throws DeploymentUnitProcessingException {
-                        // add dependency on transaction manager
-                        serviceBuilder.addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER);
-                        // add dependency on UserTransaction
-                        serviceBuilder.addDependency(TxnServices.JBOSS_TXN_USER_TRANSACTION, UserTransaction.class, ejbComponentCreateService.getUserTransactionInjector());
+                        CapabilityServiceSupport support = context.getDeploymentUnit().getAttachment(org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT);
+                        // add dependency on the local transaction provider
+                        serviceBuilder.requires(support.getCapabilityServiceName("org.wildfly.transactions.global-default-local-provider"));
                         // add dependency on TransactionSynchronizationRegistry
-                        serviceBuilder.addDependency(TxnServices.JBOSS_TXN_SYNCHRONIZATION_REGISTRY);
+                        serviceBuilder.addDependency(support.getCapabilityServiceName("org.wildfly.transactions.transaction-synchronization-registry"), TransactionSynchronizationRegistry.class, ejbComponentCreateService.getTransactionSynchronizationRegistryInjector());
                     }
                 });
 
@@ -818,7 +819,7 @@ public abstract class EJBComponentDescription extends ComponentDescription {
                     @Override
                     public void configureDependency(final ServiceBuilder<?> serviceBuilder, final ViewService service) throws DeploymentUnitProcessingException {
                         CapabilityServiceSupport support = context.getDeploymentUnit().getAttachment(org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT);
-                        serviceBuilder.addDependency(support.getCapabilityServiceName(EJB3RemoteResourceDefinition.EJB_REMOTE_CAPABILITY_NAME));
+                        serviceBuilder.requires(support.getCapabilityServiceName(EJB3RemoteResourceDefinition.EJB_REMOTE_CAPABILITY_NAME));
                     }
                 });
             }
@@ -933,9 +934,9 @@ public abstract class EJBComponentDescription extends ComponentDescription {
                     } else {
                         if (securityDomainName != null && !securityDomainName.isEmpty()) {
                             final ServiceName securityDomainServiceName = SecurityDomainService.SERVICE_NAME.append(securityDomainName);
-                            serviceBuilder.addDependency(securityDomainServiceName);
+                            serviceBuilder.requires(securityDomainServiceName);
                         }
-                        serviceBuilder.addDependency(SecurityDomainService.SERVICE_NAME.append(SecurityConstants.DEFAULT_EJB_APPLICATION_POLICY));
+                        serviceBuilder.requires(SecurityDomainService.SERVICE_NAME.append(SecurityConstants.DEFAULT_EJB_APPLICATION_POLICY));
                     }
                 }
             });

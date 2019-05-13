@@ -22,12 +22,15 @@
 
 package org.wildfly.extension.microprofile.health;
 
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
+
 import java.util.Arrays;
 import java.util.Collection;
 
 import io.smallrye.health.SmallRyeHealthReporter;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.PersistentResourceDefinition;
+import org.jboss.as.controller.ServiceRemoveStepHandler;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
@@ -41,16 +44,19 @@ import org.jboss.msc.service.ServiceName;
 public class MicroProfileHealthSubsystemDefinition extends PersistentResourceDefinition {
 
     static final String HEALTH_REPORTER_CAPABILITY = "org.wildlfy.microprofile.health.reporter";
+
     static final RuntimeCapability<Void> HEALTH_REPORTER_RUNTIME_CAPABILITY =
             RuntimeCapability.Builder.of(HEALTH_REPORTER_CAPABILITY, SmallRyeHealthReporter.class)
+                    .addRequirements(WELD_CAPABILITY_NAME)
                     .build();
 
     public static final ServiceName HEALTH_REPORTER_SERVICE = ServiceName.parse(HEALTH_REPORTER_CAPABILITY);
 
     static final String HTTP_EXTENSIBILITY_CAPABILITY = "org.wildfly.management.http.extensible";
-    static final RuntimeCapability<Void> EXTENSION_CAPABILITY = RuntimeCapability.Builder.of(MicroProfileHealthExtension.EXTENSION_NAME)
+    static final RuntimeCapability<Void> HTTP_CONTEXT_CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.extension.microprofile.health.http-context", HealthContextService.class)
             .addRequirements(HTTP_EXTENSIBILITY_CAPABILITY)
             .build();
+    static final ServiceName HTTP_CONTEXT_SERVICE = HTTP_CONTEXT_CAPABILITY.getCapabilityServiceName();
 
     static final AttributeDefinition SECURITY_ENABLED = SimpleAttributeDefinitionBuilder.create("security-enabled", ModelType.BOOLEAN)
             .setDefaultValue(new ModelNode(true))
@@ -59,13 +65,15 @@ public class MicroProfileHealthSubsystemDefinition extends PersistentResourceDef
             .setAllowExpression(true)
             .build();
     static final AttributeDefinition[] ATTRIBUTES = { SECURITY_ENABLED };
+    private boolean registerRuntimeOperations;
 
-    protected MicroProfileHealthSubsystemDefinition() {
+    protected MicroProfileHealthSubsystemDefinition(boolean registerRuntimeOperations) {
         super(new Parameters(MicroProfileHealthExtension.SUBSYSTEM_PATH,
                 MicroProfileHealthExtension.getResourceDescriptionResolver(MicroProfileHealthExtension.SUBSYSTEM_NAME))
-                .setAddHandler(new MicroProfileHealthSubsystemAdd())
-                .setRemoveHandler(new MicroProfileHealthSubsystemRemove())
-                .setCapabilities(HEALTH_REPORTER_RUNTIME_CAPABILITY, EXTENSION_CAPABILITY));
+                .setAddHandler(MicroProfileHealthSubsystemAdd.INSTANCE)
+                .setRemoveHandler(new ServiceRemoveStepHandler(MicroProfileHealthSubsystemAdd.INSTANCE))
+                .setCapabilities(HEALTH_REPORTER_RUNTIME_CAPABILITY, HTTP_CONTEXT_CAPABILITY));
+        this.registerRuntimeOperations = registerRuntimeOperations;
     }
 
     @Override
@@ -77,7 +85,9 @@ public class MicroProfileHealthSubsystemDefinition extends PersistentResourceDef
     public void registerOperations(ManagementResourceRegistration resourceRegistration) {
         super.registerOperations(resourceRegistration);
 
-        CheckOperation.register(resourceRegistration);
+        if (registerRuntimeOperations) {
+            CheckOperation.register(resourceRegistration);
+        }
     }
 
 

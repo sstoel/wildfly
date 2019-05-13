@@ -144,7 +144,9 @@ public class HostExcludesTestCase extends BuildConfigurationTestBase {
                 "org.wildfly.extension.microprofile.health-smallrye",
                 "org.wildfly.extension.microprofile.opentracing-smallrye"
         )),
-
+        WILDFLY_15_0("WildFly15.0", WILDFLY_14_0, Arrays.asList(
+                "org.wildfly.extension.clustering.web"
+        )),
 
         EAP62("EAP62", Arrays.asList(
                 "org.jboss.as.appclient",
@@ -204,6 +206,13 @@ public class HostExcludesTestCase extends BuildConfigurationTestBase {
                 "org.wildfly.extension.core-management",
                 "org.wildfly.extension.discovery",
                 "org.wildfly.extension.elytron"
+        )),
+        EAP72("EAP72", EAP71, Arrays.asList(
+                "org.wildfly.extension.datasources-agroal",
+                "org.wildfly.extension.microprofile.opentracing-smallrye",
+                "org.wildfly.extension.microprofile.health-smallrye",
+                "org.wildfly.extension.microprofile.config-smallrye",
+                "org.wildfly.extension.ee-security"
         ));
 
         private final String name;
@@ -312,8 +321,9 @@ public class HostExcludesTestCase extends BuildConfigurationTestBase {
         for (Property prop : result.asPropertyList()) {
             String name = prop.getName();
 
+            ModelNode value = prop.getValue();
             List<String> excludedExtensions = prop.getValue().get(EXCLUDED_EXTENSIONS)
-                    .asList()
+                    .asListOrEmpty()
                     .stream()
                     .map(p -> p.asString())
                     .collect(Collectors.toList());

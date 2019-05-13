@@ -21,12 +21,14 @@
  */
 package org.jboss.as.jsf.deployment;
 
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
+
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.structure.DeploymentType;
 import org.jboss.as.ee.structure.DeploymentTypeMarker;
-import org.jboss.as.ee.weld.WeldDeploymentMarker;
 import org.jboss.as.jsf.logging.JSFLogger;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -36,6 +38,7 @@ import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.module.ModuleDependency;
 import org.jboss.as.server.deployment.module.ModuleSpecification;
 import org.jboss.as.web.common.WarMetaData;
+import org.jboss.as.weld.WeldCapability;
 import org.jboss.metadata.javaee.spec.ParamValueMetaData;
 import org.jboss.metadata.web.jboss.JBossWebMetaData;
 import org.jboss.modules.Module;
@@ -58,7 +61,6 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
-        final DeploymentUnit tl = deploymentUnit.getParent() == null ? deploymentUnit : deploymentUnit.getParent();
 
         final ModuleSpecification moduleSpecification = deploymentUnit.getAttachment(Attachments.MODULE_SPECIFICATION);
         final ModuleLoader moduleLoader = Module.getBootModuleLoader();
@@ -69,7 +71,7 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
         if (!DeploymentTypeMarker.isType(DeploymentType.WAR, deploymentUnit) && !DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit)) {
             return;
         }
-        String jsfVersion = JsfVersionMarker.getVersion(tl);
+        String jsfVersion = JsfVersionMarker.getVersion(deploymentUnit);
         if (jsfVersion.equals(JsfVersionMarker.WAR_BUNDLES_JSF_IMPL)) {
             //if JSF is provided by the application we leave it alone
             return;
@@ -178,7 +180,13 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
             contextParams = new ArrayList<ParamValueMetaData>();
         }
 
-        boolean isCDI = WeldDeploymentMarker.isPartOfWeldDeployment(deploymentUnit);
+        boolean isCDI = false;
+        final CapabilityServiceSupport support = deploymentUnit.getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT);
+        if (support.hasCapability(WELD_CAPABILITY_NAME)) {
+            isCDI = support.getOptionalCapabilityRuntimeAPI(WELD_CAPABILITY_NAME, WeldCapability.class).get()
+                    .isPartOfWeldDeployment(deploymentUnit);
+        }
+
         ParamValueMetaData param = new ParamValueMetaData();
         param.setParamName(IS_CDI_PARAM);
         param.setParamValue(Boolean.toString(isCDI));

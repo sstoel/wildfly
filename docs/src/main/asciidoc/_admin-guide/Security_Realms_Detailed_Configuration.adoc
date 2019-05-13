@@ -23,7 +23,7 @@ for both inbound and outbound SSL connections.
 [[ssl]]
 === <ssl />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <server-identities>
   <ssl protocol="...">
@@ -50,17 +50,17 @@ is used but this should not be relied on and the alias should be set to
 guarantee which entry is used.
 * *key-password* (optional) - The password to load the key entry, if
 omitted the keystore-password will be used instead.
-
++
 [TIP]
-
+====
 If you see the error `UnrecoverableKeyException: Cannot recover key` the
 most likely cause that you need to specify a `key-password` and possible
 even an `alias` as well to ensure only one key is loaded.
-
+====
 
 === <secret />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <server-identities>
   <secret value="..." />
@@ -84,7 +84,7 @@ is one exception and that is if a trust store is defined - on
 negotiating an outbound SSL connection the trust store will be used to
 verify the remote server.
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <truststore />
@@ -107,7 +107,7 @@ store can be defined.
 [[truststore]]
 === <truststore />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <truststore path="..." relative-to="..." keystore-password="..."/>
@@ -135,7 +135,7 @@ being opened is still a key store.
 [[local]]
 === <local />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <local default-user="..." allowed-users="..." />
@@ -158,7 +158,7 @@ to be specified.
 [[jaas]]
 === <jaas />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <jaas name="..." />
@@ -183,7 +183,7 @@ without SSL enabled will reveal the users password.
 [[ldap]]
 === <ldap />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <ldap connection="..." base-dn="..." recursive="..." user-dn="...">
@@ -246,7 +246,7 @@ supplied by the user authenticating.
 [[security-realms-properties]]
 === <properties />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <properties path="..." relative-to="..." plain-text="..." />
@@ -273,7 +273,7 @@ password))
 [[users]]
 === <users />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authentication>
   <users>
@@ -303,7 +303,7 @@ being accessed. At the moment only a properties file approach or a
 custom plug-in are supported - support for loading roles from LDAP or
 from a database are planned for a subsequent release.
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authorization>
   <properties />
@@ -313,7 +313,7 @@ from a database are planned for a subsequent release.
 
 === <properties />
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <authorization>
   <properties path="..." relative-to="..." />
@@ -335,7 +335,7 @@ Strictly speaking these are not a part of the security realm definition,
 however at the moment they are only used by security realms so the
 definition of outbound connection is described here.
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <management>
   <security-realms />
@@ -349,10 +349,10 @@ definition of outbound connection is described here.
 
 We only support outbound connections to ldap servers for the authentication process.
 
-[source, xml]
+[source,xml,options="nowrap"]
 ----
 <outbound-connections>
-  <ldap name="..." url="..." search-dn="..." search-credential="..." security-realm="..." initial-context-factory="..." 
+  <ldap name="..." url="..." search-dn="..." search-credential="..." security-realm="..." initial-context-factory="..."
         referrals="..." handles-referrals-for="..." always-send-client-cert="...">
     <properties>
       <property name="..." value="..." />
@@ -379,15 +379,15 @@ context factory, defaults to ' `com.sun.jndi.ldap.LdapCtxFactory`'
 ** *FOLLOW* - Automatically follow any referrals re-using the configuration for this connection.
 ** *THROW* - Throw an exception is a referral is encountered, this allows an alternative connection to be identified to handle the referral.
 * *handles-referrals-for* (optional) - A space separated list of URIs this connection can be used for.
-* *always-send-client-cert* (optional) - By default the server's client certificate is not sent whilst verifying the users credential, if this is set to `true` it will always be sent. 
+* *always-send-client-cert* (optional) - By default the server's client certificate is not sent whilst verifying the users credential, if this is set to `true` it will always be sent.
 
 The optional `<properties/>` element can be used to specify additional properties to be passed in to the `DirContext` when it is created.
 
-The optional `<security-credential-reference />` can be used to reference a credential stored in a credential store as an alternative to 
+The optional `<security-credential-reference />` can be used to reference a credential stored in a credential store as an alternative to
 the `search-credential` attribute.  This element supports the following attributes: -
 
 * *store* (optional) - Reference to the credential store to obtain the search credential from.
 * *alias* (optional) - The alias of the credential in the referenced store.
 * *type* (optional) - The fully qualified class name of the credential type to obtain from the credential store.
 * *clear-text* (optional) - Instead of referencing a credential store this attribute can be used to specify a clear text password.
- 
+

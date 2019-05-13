@@ -22,16 +22,21 @@
 
 package org.wildfly.extension.messaging.activemq;
 
+import static java.lang.System.getProperty;
+import static java.lang.System.getSecurityManager;
+import static java.security.AccessController.doPrivileged;
 import static org.jboss.as.controller.SimpleAttributeDefinitionBuilder.create;
 import static org.jboss.dmr.ModelType.LONG;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.RUNTIME_QUEUE;
 
+import java.security.PrivilegedAction;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.CaseParameterCorrector;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathAddress;
@@ -40,6 +45,7 @@ import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.access.management.AccessConstraintDefinition;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.controller.operations.validation.EnumValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelNode;
@@ -53,13 +59,24 @@ import org.jboss.dmr.ModelType;
  */
 public class QueueDefinition extends PersistentResourceDefinition {
 
+    private static final String DEFAULT_ROUTING_TYPE_PROPERTY = "org.wildfly.messaging.core.queue.default.routing-type";
+    public static final String DEFAULT_ROUTING_TYPE = getSecurityManager() == null ? getProperty(DEFAULT_ROUTING_TYPE_PROPERTY) : doPrivileged((PrivilegedAction<String>) () -> getProperty(DEFAULT_ROUTING_TYPE_PROPERTY));
+
     public static final SimpleAttributeDefinition ADDRESS = create("queue-address", ModelType.STRING)
             .setXmlName(CommonAttributes.ADDRESS)
             .setAllowExpression(true)
             .setRestartAllServices()
             .build();
 
-    static final SimpleAttributeDefinition[] ATTRIBUTES = { ADDRESS, CommonAttributes.FILTER, CommonAttributes.DURABLE };
+    static final SimpleAttributeDefinition ROUTING_TYPE = create("routing-type", ModelType.STRING)
+            .setDefaultValue(new ModelNode(RoutingType.MULTICAST.toString()))
+            .setRequired(false)
+            .setAllowExpression(true)
+            .setCorrector(CaseParameterCorrector.TO_UPPER)
+            .setValidator(EnumValidator.create(RoutingType.class, RoutingType.values()))
+            .build();
+
+    static final SimpleAttributeDefinition[] ATTRIBUTES = { ADDRESS, CommonAttributes.FILTER, CommonAttributes.DURABLE, ROUTING_TYPE};
 
     public static final SimpleAttributeDefinition EXPIRY_ADDRESS = create(CommonAttributes.EXPIRY_ADDRESS)
             .setStorageRuntime()
@@ -173,5 +190,9 @@ public class QueueDefinition extends PersistentResourceDefinition {
             context.addStep(forwardOperation, handler, OperationContext.Stage.RUNTIME, true);
             return true;
         }
+    }
+
+   private enum RoutingType {
+        MULTICAST, ANYCAST;
     }
 }

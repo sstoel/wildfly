@@ -22,18 +22,19 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import static org.jboss.as.clustering.controller.CommonRequirement.LOCAL_TRANSACTION_PROVIDER;
 import static org.jboss.as.clustering.infinispan.subsystem.TransactionResourceDefinition.Attribute.LOCKING;
 import static org.jboss.as.clustering.infinispan.subsystem.TransactionResourceDefinition.Attribute.MODE;
 import static org.jboss.as.clustering.infinispan.subsystem.TransactionResourceDefinition.Attribute.STOP_TIMEOUT;
+import static org.jboss.as.clustering.infinispan.subsystem.TransactionResourceDefinition.TransactionRequirement.TRANSACTION_SYNCHRONIZATION_REGISTRY;
 
-import java.util.Optional;
-import java.util.function.Supplier;
+import java.util.EnumSet;
 
-import javax.transaction.TransactionManager;
 import javax.transaction.TransactionSynchronizationRegistry;
 
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.TransactionConfiguration;
+import org.infinispan.configuration.cache.TransactionConfigurationBuilder;
 import org.infinispan.transaction.LockingMode;
 import org.infinispan.transaction.tm.EmbeddedTransactionManager;
 import org.jboss.as.clustering.dmr.ModelNodes;
@@ -42,22 +43,26 @@ import org.jboss.as.clustering.infinispan.TransactionSynchronizationRegistryProv
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
-import org.jboss.as.txn.service.TxnServices;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceBuilder;
+import org.wildfly.clustering.service.CompositeDependency;
+import org.wildfly.clustering.service.Dependency;
 import org.wildfly.clustering.service.ServiceConfigurator;
+import org.wildfly.clustering.service.ServiceDependency;
+import org.wildfly.clustering.service.ServiceSupplierDependency;
+import org.wildfly.clustering.service.SupplierDependency;
+import org.wildfly.transaction.client.ContextTransactionManager;
 
 /**
  * @author Paul Ferraro
  */
 public class TransactionServiceConfigurator extends ComponentServiceConfigurator<TransactionConfiguration> {
 
-    private volatile Supplier<TransactionManager> tm;
-    private volatile Supplier<TransactionSynchronizationRegistry> tsr;
-
     private volatile LockingMode locking;
     private volatile long timeout;
     private volatile TransactionMode mode;
+    private volatile Dependency transactionDependency;
+    private volatile SupplierDependency<TransactionSynchronizationRegistry> tsrDependency;
 
     public TransactionServiceConfigurator(PathAddress address) {
         super(CacheComponent.TRANSACTION, address);
@@ -65,26 +70,7 @@ public class TransactionServiceConfigurator extends ComponentServiceConfigurator
 
     @Override
     public <T> ServiceBuilder<T> register(ServiceBuilder<T> builder) {
-        switch (this.mode) {
-            case NONE: {
-                break;
-            }
-            case BATCH: {
-                this.tm = new Supplier<TransactionManager>() {
-                    @Override
-                    public TransactionManager get() {
-                        return EmbeddedTransactionManager.getInstance();
-                    }
-                };
-                break;
-            }
-            case NON_XA: {
-                this.tsr = builder.requires(TxnServices.JBOSS_TXN_SYNCHRONIZATION_REGISTRY);
-            }
-            default: {
-                this.tm = builder.requires(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER);
-            }
-        }
+        new CompositeDependency(this.transactionDependency, this.tsrDependency).register(builder);
         return super.register(builder);
     }
 
@@ -93,19 +79,37 @@ public class TransactionServiceConfigurator extends ComponentServiceConfigurator
         this.mode = ModelNodes.asEnum(MODE.resolveModelAttribute(context, model), TransactionMode.class);
         this.locking = ModelNodes.asEnum(LOCKING.resolveModelAttribute(context, model), LockingMode.class);
         this.timeout = STOP_TIMEOUT.resolveModelAttribute(context, model).asLong();
+        this.transactionDependency = !EnumSet.of(TransactionMode.NONE, TransactionMode.BATCH).contains(this.mode) ? new ServiceDependency(context.getCapabilityServiceName(LOCAL_TRANSACTION_PROVIDER.getName(), null)) : null;
+        this.tsrDependency = this.mode == TransactionMode.NON_XA ? new ServiceSupplierDependency<>(context.getCapabilityServiceName(TRANSACTION_SYNCHRONIZATION_REGISTRY.getName(), null)) : null;
         return this;
     }
 
     @Override
     public TransactionConfiguration get() {
-        return new ConfigurationBuilder().transaction()
+        TransactionConfigurationBuilder builder = new ConfigurationBuilder().transaction()
                 .lockingMode(this.locking)
                 .cacheStopTimeout(this.timeout)
-                .transactionManagerLookup(Optional.ofNullable(this.tm).map(Supplier::get).map(TransactionManagerProvider::new).orElse(null))
-                .transactionSynchronizationRegistryLookup(Optional.ofNullable(this.tsr).map(Supplier::get).map(TransactionSynchronizationRegistryProvider::new).orElse(null))
                 .transactionMode((this.mode == TransactionMode.NONE) ? org.infinispan.transaction.TransactionMode.NON_TRANSACTIONAL : org.infinispan.transaction.TransactionMode.TRANSACTIONAL)
                 .useSynchronization(this.mode == TransactionMode.NON_XA)
                 .recovery().enabled(this.mode == TransactionMode.FULL_XA).transaction()
-                .create();
+                ;
+
+        switch (this.mode) {
+            case NONE: {
+                break;
+            }
+            case BATCH: {
+                builder.transactionManagerLookup(new TransactionManagerProvider(EmbeddedTransactionManager.getInstance()));
+                break;
+            }
+            case NON_XA: {
+                builder.transactionSynchronizationRegistryLookup(new TransactionSynchronizationRegistryProvider(this.tsrDependency.get()));
+                // fall through
+            }
+            default: {
+                builder.transactionManagerLookup(new TransactionManagerProvider(ContextTransactionManager.getInstance()));
+            }
+        }
+        return builder.create();
     }
 }

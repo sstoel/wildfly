@@ -80,6 +80,7 @@ public class AbstractValidationUnitTest {
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-container-interceptors_1_0.xsd");
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-delivery-active_1_0.xsd");
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-delivery-active_1_1.xsd");
+        EXCLUDED_SCHEMA_FILES.add("jboss-ejb-delivery-active_1_2.xsd");
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-clustering_1_1.xsd");
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-iiop_1_0.xsd");
         EXCLUDED_SCHEMA_FILES.add("jboss-ejb-iiop_1_1.xsd");
@@ -137,7 +138,7 @@ public class AbstractValidationUnitTest {
             }
             Map<String, BigDecimal> mostRecentVersions = new HashMap<>();
             Map<String, String> mostRecentNames = new HashMap<>();
-            Pattern pattern = Pattern.compile("(.*?)_(\\d)_(\\d).xsd");
+            Pattern pattern = Pattern.compile("(.*?)_(\\d+)_(\\d+).xsd");
             for(Map.Entry<String, File> entry : JBOSS_SCHEMAS_MAP.entrySet()) {
                 if (FUTURE_SCHEMA_FILES.contains(entry.getKey())) {
                     // not "current"; it's future.

@@ -21,17 +21,22 @@
  */
 package org.jboss.as.weld.deployment.processor;
 
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
+
+import java.util.function.Supplier;
+
 import javax.enterprise.inject.spi.BeanManager;
 
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.beanvalidation.BeanValidationAttachments;
-import org.jboss.as.ee.weld.WeldDeploymentMarker;
+import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
-import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.weld.CdiValidatorFactoryService;
 import org.jboss.as.weld.ServiceNames;
-import org.jboss.msc.inject.CastingInjector;
+import org.jboss.as.weld.WeldCapability;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 
@@ -40,28 +45,39 @@ import org.jboss.msc.service.ServiceTarget;
  *
  * @author Farah Juma
  * @author Martin Kouba
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class CdiBeanValidationFactoryProcessor implements DeploymentUnitProcessor {
 
     @Override
-    public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
+    public void deploy(DeploymentPhaseContext phaseContext) {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
         final DeploymentUnit topLevelDeployment = deploymentUnit.getParent() == null ? deploymentUnit : deploymentUnit.getParent();
         final ServiceName weldStartService = topLevelDeployment.getServiceName().append(ServiceNames.WELD_START_SERVICE_NAME);
-        if (!WeldDeploymentMarker.isPartOfWeldDeployment(deploymentUnit)) {
+        final CapabilityServiceSupport support = deploymentUnit.getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT);
+
+        final WeldCapability weldCapability;
+        try {
+            weldCapability = support.getCapabilityRuntimeAPI(WELD_CAPABILITY_NAME, WeldCapability.class);
+        } catch (CapabilityServiceSupport.NoSuchCapabilityException ignored) {
             return;
         }
+
+        if (!weldCapability.isPartOfWeldDeployment(deploymentUnit)) {
+            return;
+        }
+
         if (!deploymentUnit.hasAttachment(BeanValidationAttachments.VALIDATOR_FACTORY)) {
             return;
         }
+
         final ServiceTarget serviceTarget = phaseContext.getServiceTarget();
         final ServiceName serviceName = deploymentUnit.getServiceName().append(CdiValidatorFactoryService.SERVICE_NAME);
-        final CdiValidatorFactoryService cdiValidatorFactoryService = new CdiValidatorFactoryService(deploymentUnit);
-        serviceTarget.addService(serviceName, cdiValidatorFactoryService)
-            .addDependency(ServiceNames.beanManagerServiceName(deploymentUnit),
-                new CastingInjector<BeanManager>(cdiValidatorFactoryService.getBeanManagerInjector(), BeanManager.class))
-            .addDependency(weldStartService)
-            .install();
+        final ServiceBuilder<?> sb = serviceTarget.addService(serviceName);
+        final Supplier<BeanManager> beanManagerSupplier = weldCapability.addBeanManagerService(deploymentUnit, sb);
+        sb.requires(weldStartService);
+        sb.setInstance(new CdiValidatorFactoryService(deploymentUnit, beanManagerSupplier));
+        sb.install();
     }
 
     @Override

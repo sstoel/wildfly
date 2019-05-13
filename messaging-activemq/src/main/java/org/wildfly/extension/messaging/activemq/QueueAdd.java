@@ -25,11 +25,13 @@
  */
 package org.wildfly.extension.messaging.activemq;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.DURABLE;
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.FILTER;
+import static org.wildfly.extension.messaging.activemq.QueueDefinition.DEFAULT_ROUTING_TYPE;
 
 import java.util.List;
+import java.util.function.Supplier;
+import org.apache.activemq.artemis.api.core.RoutingType;
 
 import org.apache.activemq.artemis.core.config.Configuration;
 import org.apache.activemq.artemis.core.config.CoreQueueConfiguration;
@@ -38,14 +40,17 @@ import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
-import org.jboss.as.controller.PathAddress;
-import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.Property;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceController.Mode;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceRegistry;
+
+import static org.wildfly.extension.messaging.activemq.QueueDefinition.ROUTING_TYPE;
+
+import java.util.Locale;
 
 /**
  * Core queue add update.
@@ -61,27 +66,29 @@ public class QueueAdd extends AbstractAddStepHandler {
         super(attributes);
     }
 
+    @Override
     protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
         for (final AttributeDefinition attributeDefinition : QueueDefinition.ATTRIBUTES) {
             attributeDefinition.validateAndSet(operation, model);
         }
     }
 
+    @Override
     protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
         ServiceRegistry registry = context.getServiceRegistry(true);
-        final ServiceName serviceName = MessagingServices.getActiveMQServiceName(PathAddress.pathAddress(operation.get(ModelDescriptionConstants.OP_ADDR)));
+        final ServiceName serviceName = MessagingServices.getActiveMQServiceName(context.getCurrentAddress());
         ServiceController<?> serverService = registry.getService(serviceName);
         if (serverService != null) {
-            PathAddress address = PathAddress.pathAddress(operation.get(OP_ADDR));
-            final String queueName = address.getLastElement().getValue();
+            final String queueName = context.getCurrentAddressValue();
             final CoreQueueConfiguration queueConfiguration = createCoreQueueConfiguration(context, queueName, model);
-            final QueueService service = new QueueService(queueConfiguration, false);
             final ServiceName queueServiceName = MessagingServices.getQueueBaseServiceName(serviceName).append(queueName);
-            context.getServiceTarget().addService(queueServiceName, service)
-                    .addDependency(ActiveMQActivationService.getServiceName(serviceName))
-                    .addDependency(serviceName, ActiveMQServer.class, service.getActiveMQServer())
-                    .setInitialMode(Mode.PASSIVE)
-                    .install();
+            final ServiceBuilder sb = context.getServiceTarget().addService(queueServiceName);
+            sb.requires(ActiveMQActivationService.getServiceName(serviceName));
+            Supplier<ActiveMQServer> serverSupplier = sb.requires(serviceName);
+            final QueueService service = new QueueService(serverSupplier, queueConfiguration, false, true);
+            sb.setInitialMode(Mode.PASSIVE);
+            sb.setInstance(service);
+            sb.install();
         }
         // else the initial subsystem install is not complete; MessagingSubsystemAdd will add a
         // handler that calls addQueueConfigs
@@ -92,22 +99,27 @@ public class QueueAdd extends AbstractAddStepHandler {
             final List<CoreQueueConfiguration> configs = configuration.getQueueConfigurations();
             for (Property prop : model.get(CommonAttributes.QUEUE).asPropertyList()) {
                 configs.add(createCoreQueueConfiguration(context, prop.getName(), prop.getValue()));
-
             }
         }
     }
 
     private static CoreQueueConfiguration createCoreQueueConfiguration(final OperationContext context, String name, ModelNode model) throws OperationFailedException {
         final String queueAddress = QueueDefinition.ADDRESS.resolveModelAttribute(context, model).asString();
-        final ModelNode filterNode =  FILTER.resolveModelAttribute(context, model);
-        final String filter = filterNode.isDefined() ? filterNode.asString() : null;
+        final String filter = FILTER.resolveModelAttribute(context, model).asStringOrNull();
+        final String routing;
+        if(DEFAULT_ROUTING_TYPE != null && ! model.hasDefined(ROUTING_TYPE.getName())) {
+            routing = RoutingType.valueOf(DEFAULT_ROUTING_TYPE.toUpperCase(Locale.ENGLISH)).toString();
+        } else {
+            routing = ROUTING_TYPE.resolveModelAttribute(context, model).asString();
+        }
         final boolean durable = DURABLE.resolveModelAttribute(context, model).asBoolean();
 
         return new CoreQueueConfiguration()
                 .setAddress(queueAddress)
                 .setName(name)
                 .setFilterString(filter)
-                .setDurable(durable);
+                .setDurable(durable)
+                .setRoutingType(RoutingType.valueOf(routing));
     }
 
 }

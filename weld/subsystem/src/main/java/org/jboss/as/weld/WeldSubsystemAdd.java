@@ -25,12 +25,14 @@ package org.jboss.as.weld;
 import static org.jboss.as.weld.WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE;
 
 import java.util.ServiceLoader;
+import java.util.function.Consumer;
 
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.registry.Resource;
+import org.jboss.as.controller.registry.Resource.NoSuchResourceException;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
@@ -40,6 +42,7 @@ import org.jboss.as.weld.deployment.processors.BeanArchiveProcessor;
 import org.jboss.as.weld.deployment.processors.BeanDefiningAnnotationProcessor;
 import org.jboss.as.weld.deployment.processors.BeansXmlProcessor;
 import org.jboss.as.weld.deployment.processors.DevelopmentModeProcessor;
+import org.jboss.as.weld.deployment.processors.EarApplicationScopedObserverMethodProcessor;
 import org.jboss.as.weld.deployment.processors.ExternalBeanArchiveProcessor;
 import org.jboss.as.weld.deployment.processors.WebIntegrationProcessor;
 import org.jboss.as.weld.deployment.processors.WeldBeanManagerServiceProcessor;
@@ -54,7 +57,9 @@ import org.jboss.as.weld.services.TCCLSingletonService;
 import org.jboss.as.weld.services.bootstrap.WeldExecutorServices;
 import org.jboss.as.weld.spi.DeploymentUnitProcessorProvider;
 import org.jboss.dmr.ModelNode;
+import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController.Mode;
+import org.jboss.weld.manager.api.ExecutorServices;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
@@ -105,6 +110,8 @@ class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_BEAN_ARCHIVE, new BeanArchiveProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_EXTERNAL_BEAN_ARCHIVE, new ExternalBeanArchiveProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_PORTABLE_EXTENSIONS, new WeldPortableExtensionProcessor());
+                // TODO add processor priority to Phase
+                processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, 0x0F10, new EarApplicationScopedObserverMethodProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_COMPONENT_INTEGRATION, new WeldComponentIntegrationProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.INSTALL, Phase.INSTALL_WELD_DEPLOYMENT, new WeldDeploymentProcessor(checkJtsEnabled(context)));
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.INSTALL, Phase.INSTALL_WELD_BEAN_MANAGER, new WeldBeanManagerServiceProcessor());
@@ -120,19 +127,25 @@ class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
             }
         }, OperationContext.Stage.RUNTIME);
 
-        TCCLSingletonService singleton = new TCCLSingletonService();
-        context.getServiceTarget().addService(TCCLSingletonService.SERVICE_NAME, singleton).setInitialMode(
-                Mode.ON_DEMAND).install();
+        context.getServiceTarget().addService(TCCLSingletonService.SERVICE_NAME).setInstance(new TCCLSingletonService()).setInitialMode(Mode.ON_DEMAND).install();
 
-        context.getServiceTarget().addService(WeldExecutorServices.SERVICE_NAME, new WeldExecutorServices(threadPoolSize)).setInitialMode(Mode.ON_DEMAND).install();
+        ServiceBuilder<?> builder = context.getServiceTarget().addService(WeldExecutorServices.SERVICE_NAME);
+        final Consumer<ExecutorServices> executorServicesConsumer = builder.provides(WeldExecutorServices.SERVICE_NAME);
+        builder.setInstance(new WeldExecutorServices(executorServicesConsumer, threadPoolSize));
+        builder.setInitialMode(Mode.ON_DEMAND);
+        builder.install();
     }
 
     // Synchronization objects created by iiop ejb beans require wrapping by JTSSychronizationWrapper to work correctly
     // (WFLY-3538). This hack is used obtain jts configuration in order to avoid doing this in non-jts environments when it is
     // not necessary.
     private boolean checkJtsEnabled(final OperationContext context) {
-        final ModelNode jtsNode = context.readResourceFromRoot(PathAddress.pathAddress("subsystem", "transactions"), false)
-                .getModel().get("jts");
-        return jtsNode.isDefined() ? jtsNode.asBoolean() : false;
+        try {
+            final ModelNode jtsNode = context.readResourceFromRoot(PathAddress.pathAddress("subsystem", "transactions"), false)
+                    .getModel().get("jts");
+            return jtsNode.isDefined() ? jtsNode.asBoolean() : false;
+        } catch (NoSuchResourceException ex) {
+            return false;
+        }
     }
 }

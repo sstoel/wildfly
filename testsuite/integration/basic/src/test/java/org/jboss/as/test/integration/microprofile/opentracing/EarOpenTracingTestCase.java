@@ -21,30 +21,17 @@
  */
 package org.jboss.as.test.integration.microprofile.opentracing;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
-import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.as.arquillian.api.ContainerResource;
-import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.test.integration.microprofile.opentracing.application.TracerIdentityApplication;
-import org.jboss.as.test.shared.ServerReload;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.junit.Assert;
-import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.net.URL;
-
-import static org.wildfly.test.integration.microprofile.config.smallrye.HttpUtils.getContent;
 
 /**
  * Test verifying the assumption that different services inside single EAR have different tracers.
@@ -53,51 +40,18 @@ import static org.wildfly.test.integration.microprofile.config.smallrye.HttpUtil
  */
 @RunWith(Arquillian.class)
 @RunAsClient
-public class EarOpenTracingTestCase {
-
-    @ContainerResource
-    ManagementClient managementClient;
-
-    @ArquillianResource
-    private URL url;
+public class EarOpenTracingTestCase extends AbstractEarOpenTracingTestCase {
 
     @Deployment
     public static Archive<?> deploy() {
         WebArchive serviceOne = ShrinkWrap.create(WebArchive.class, "ServiceOne.war")
-                .addClass(TracerIdentityApplication.class)
-                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+            .addClass(TracerIdentityApplication.class)
+            .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
         WebArchive serviceTwo = ShrinkWrap.create(WebArchive.class, "ServiceTwo.war")
-                .addClass(TracerIdentityApplication.class)
-                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+            .addClass(TracerIdentityApplication.class)
+            .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
         EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, "EarOpenTracingTestCase.ear")
-                .addAsModules(serviceOne, serviceTwo);
+            .addAsModules(serviceOne, serviceTwo);
         return ear;
     }
-
-    @Test
-    public void testEarServicesUseDifferentTracers() throws Exception {
-        testHttpInvokation();
-    }
-
-    @Test
-    public void testEarServicesUseDifferentTracersAfterReload() throws Exception {
-        //TODO the tracer instance is same after reload as before it - check whether this is correct or no
-        testHttpInvokation();
-        ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
-        testHttpInvokation();
-    }
-
-    private void testHttpInvokation() throws Exception {
-        try (CloseableHttpClient client = HttpClientBuilder.create().build()) {
-            HttpResponse svcOneResponse = client.execute(new HttpGet(url.toString() + "/ServiceOne/service-endpoint/app"));
-            Assert.assertEquals(200, svcOneResponse.getStatusLine().getStatusCode());
-            String serviceOneTracer = getContent(svcOneResponse);
-            HttpResponse svcTwoResponse = client.execute(new HttpGet(url.toString() + "/ServiceTwo/service-endpoint/app"));
-            Assert.assertEquals(200, svcTwoResponse.getStatusLine().getStatusCode());
-            String serviceTwoTracer = getContent(svcTwoResponse);
-            Assert.assertNotEquals("Service one and service two tracer instance hash is same - " + serviceTwoTracer,
-                    serviceOneTracer, serviceTwoTracer);
-        }
-    }
-
 }

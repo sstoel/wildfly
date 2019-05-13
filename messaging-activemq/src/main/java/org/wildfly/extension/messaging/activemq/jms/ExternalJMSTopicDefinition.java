@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 JBoss by Red Hat.
+ * Copyright 2018 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,13 +38,14 @@ public class ExternalJMSTopicDefinition extends PersistentResourceDefinition {
         CommonAttributes.DESTINATION_ENTRIES
     };
 
-    public static final ExternalJMSTopicDefinition INSTANCE = new ExternalJMSTopicDefinition();
+    private final boolean registerRuntimeOnly;
 
-    private ExternalJMSTopicDefinition() {
+    public ExternalJMSTopicDefinition(final boolean registerRuntimeOnly) {
         super(MessagingExtension.EXTERNAL_JMS_TOPIC_PATH,
                 MessagingExtension.getResourceDescriptionResolver(CommonAttributes.EXTERNAL_JMS_TOPIC),
                 ExternalJMSTopicAdd.INSTANCE,
                 ExternalJMSTopicRemove.INSTANCE);
+        this.registerRuntimeOnly = registerRuntimeOnly;
     }
 
     @Override
@@ -54,7 +55,11 @@ public class ExternalJMSTopicDefinition extends PersistentResourceDefinition {
 
     @Override
     public void registerAttributes(ManagementResourceRegistration registry) {
-        registry.registerReadWriteAttribute(CommonAttributes.DESTINATION_ENTRIES, null, new ReloadRequiredWriteAttributeHandler(getAttributes()));
+        if (registerRuntimeOnly) {
+            registry.registerReadOnlyAttribute(CommonAttributes.DESTINATION_ENTRIES, null);
+        } else {
+            registry.registerReadWriteAttribute(CommonAttributes.DESTINATION_ENTRIES, null, new ReloadRequiredWriteAttributeHandler(CommonAttributes.DESTINATION_ENTRIES));
+        }
     }
 
     @Override

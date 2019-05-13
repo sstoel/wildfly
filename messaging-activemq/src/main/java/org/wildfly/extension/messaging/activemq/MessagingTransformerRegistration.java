@@ -31,6 +31,8 @@ import static org.wildfly.extension.messaging.activemq.CommonAttributes.CONNECTI
 import static org.wildfly.extension.messaging.activemq.CommonAttributes.POOLED_CONNECTION_FACTORY;
 import static org.wildfly.extension.messaging.activemq.MessagingExtension.EXTERNAL_JMS_QUEUE_PATH;
 import static org.wildfly.extension.messaging.activemq.MessagingExtension.EXTERNAL_JMS_TOPIC_PATH;
+import static org.wildfly.extension.messaging.activemq.MessagingExtension.QUEUE_PATH;
+import static org.wildfly.extension.messaging.activemq.MessagingExtension.SERVER_PATH;
 
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.ModelVersion;
@@ -68,18 +70,39 @@ public class MessagingTransformerRegistration implements ExtensionTransformerReg
     public void registerTransformers(SubsystemTransformerRegistration registration) {
         ChainedTransformationDescriptionBuilder builder = TransformationDescriptionBuilder.Factory.createChainedSubystemInstance(registration.getCurrentSubsystemVersion());
 
+        registerTransformers_WF_16(builder.createBuilder(MessagingExtension.VERSION_6_0_0, MessagingExtension.VERSION_5_0_0));
         registerTransformers_WF_15(builder.createBuilder(MessagingExtension.VERSION_5_0_0, MessagingExtension.VERSION_4_0_0));
         registerTransformers_EAP_7_2_0(builder.createBuilder(MessagingExtension.VERSION_4_0_0, MessagingExtension.VERSION_3_0_0));
         registerTransformers_EAP_7_1_0(builder.createBuilder(MessagingExtension.VERSION_3_0_0, MessagingExtension.VERSION_2_0_0));
         registerTransformers_EAP_7_0_0(builder.createBuilder(MessagingExtension.VERSION_2_0_0, MessagingExtension.VERSION_1_0_0));
 
-        builder.buildAndRegister(registration, new ModelVersion[] { MessagingExtension.VERSION_1_0_0, MessagingExtension.VERSION_2_0_0, MessagingExtension.VERSION_3_0_0, MessagingExtension.VERSION_4_0_0 });
+        builder.buildAndRegister(registration, new ModelVersion[] { MessagingExtension.VERSION_1_0_0, MessagingExtension.VERSION_2_0_0,
+            MessagingExtension.VERSION_3_0_0, MessagingExtension.VERSION_4_0_0, MessagingExtension.VERSION_5_0_0});
+    }
+
+    private static void registerTransformers_WF_16(ResourceTransformationDescriptionBuilder subsystem) {
+        ResourceTransformationDescriptionBuilder server = subsystem.addChildResource(SERVER_PATH);
+        rejectDefinedAttributeWithDefaultValue(server, ServerDefinition.JOURNAL_FILE_OPEN_TIMEOUT);
+
+        ResourceTransformationDescriptionBuilder queue = server.addChildResource(QUEUE_PATH);
+        rejectDefinedAttributeWithDefaultValue(queue, QueueDefinition.ROUTING_TYPE);
+
+        ResourceTransformationDescriptionBuilder jmsBridge = subsystem.addChildResource(MessagingExtension.JMS_BRIDGE_PATH);
+        defaultValueAttributeConverter(jmsBridge, JMSBridgeDefinition.QUALITY_OF_SERVICE);
+        defaultValueAttributeConverter(jmsBridge, JMSBridgeDefinition.FAILURE_RETRY_INTERVAL);
+        defaultValueAttributeConverter(jmsBridge, JMSBridgeDefinition.MAX_RETRIES);
+        defaultValueAttributeConverter(jmsBridge, JMSBridgeDefinition.MAX_BATCH_SIZE);
+        defaultValueAttributeConverter(jmsBridge, JMSBridgeDefinition.MAX_BATCH_TIME);
     }
 
     private static void registerTransformers_WF_15(ResourceTransformationDescriptionBuilder subsystem) {
         ResourceTransformationDescriptionBuilder server = subsystem.addChildResource(MessagingExtension.SERVER_PATH);
         // WFLY-10976 - journal-pool-files default value is 10.
         defaultValueAttributeConverter(server, ServerDefinition.JOURNAL_POOL_FILES);
+        rejectDefinedAttributeWithDefaultValue(server,
+                ServerDefinition.GLOBAL_MAX_DISK_USAGE,
+                ServerDefinition.DISK_SCAN_PERIOD,
+                ServerDefinition.GLOBAL_MAX_MEMORY_SIZE);
     }
 
     private static void registerTransformers_EAP_7_2_0(ResourceTransformationDescriptionBuilder subsystem) {
@@ -229,6 +252,6 @@ public class MessagingTransformerRegistration implements ExtensionTransformerReg
     }
 
     private static void defaultValueAttributeConverter(ResourceTransformationDescriptionBuilder builder, AttributeDefinition attr) {
-        builder.getAttributeBuilder().setValueConverter(new DefaultValueAttributeConverter(attr), attr);
+        builder.getAttributeBuilder().setValueConverter(new DefaultValueAttributeConverter(attr), attr).end();
     }
 }

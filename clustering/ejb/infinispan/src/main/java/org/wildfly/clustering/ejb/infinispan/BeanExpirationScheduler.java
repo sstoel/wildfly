@@ -21,6 +21,7 @@
  */
 package org.wildfly.clustering.ejb.infinispan;
 
+import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -30,7 +31,6 @@ import java.util.concurrent.TimeUnit;
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
 import org.wildfly.clustering.ee.infinispan.TransactionBatch;
-import org.wildfly.clustering.ejb.Time;
 import org.wildfly.clustering.ejb.infinispan.logging.InfinispanEjbLogger;
 import org.wildfly.clustering.infinispan.spi.distribution.Locality;
 
@@ -39,11 +39,10 @@ import org.wildfly.clustering.infinispan.spi.distribution.Locality;
  *
  * @author Paul Ferraro
  *
- * @param <G> the group identifier type
  * @param <I> the bean identifier type
  * @param <T> the bean type
  */
-public class BeanExpirationScheduler<G, I, T> implements Scheduler<I> {
+public class BeanExpirationScheduler<I, T> implements Scheduler<I> {
     final Map<I, Future<?>> expirationFutures = new ConcurrentHashMap<>();
     final Batcher<TransactionBatch> batcher;
     final BeanRemover<I, T> remover;
@@ -57,15 +56,13 @@ public class BeanExpirationScheduler<G, I, T> implements Scheduler<I> {
 
     @Override
     public void schedule(I id) {
-        Time timeout = this.expiration.getTimeout();
-        long value = timeout.getValue();
-        if (value >= 0) {
-            TimeUnit unit = timeout.getUnit();
-            InfinispanEjbLogger.ROOT_LOGGER.tracef("Scheduling stateful session bean %s to expire in %d %s", id, value, unit);
+        Duration timeout = this.expiration.getTimeout();
+        if (!timeout.isNegative()) {
+            InfinispanEjbLogger.ROOT_LOGGER.tracef("Scheduling stateful session bean %s to expire in %s", id, timeout);
             Runnable task = new ExpirationTask(id);
             // Make sure the expiration future map insertion happens before map removal (during task execution).
             synchronized (task) {
-                this.expirationFutures.put(id, this.expiration.getExecutor().schedule(task, value, unit));
+                this.expirationFutures.put(id, this.expiration.getExecutor().schedule(task, timeout.toMillis(), TimeUnit.MILLISECONDS));
             }
         }
     }
@@ -117,16 +114,22 @@ public class BeanExpirationScheduler<G, I, T> implements Scheduler<I> {
         @Override
         public void run() {
             InfinispanEjbLogger.ROOT_LOGGER.tracef("Expiring stateful session bean %s", this.id);
+            boolean removed = false;
             try (Batch batch = BeanExpirationScheduler.this.batcher.createBatch()) {
                 try {
-                    BeanExpirationScheduler.this.remover.remove(this.id, BeanExpirationScheduler.this.expiration.getRemoveListener());
+                    removed = BeanExpirationScheduler.this.remover.remove(this.id, BeanExpirationScheduler.this.expiration.getRemoveListener());
                 } catch (Throwable e) {
                     InfinispanEjbLogger.ROOT_LOGGER.failedToExpireBean(e, this.id);
                     batch.discard();
                 }
             } finally {
                 synchronized (this) {
-                    BeanExpirationScheduler.this.expirationFutures.remove(this.id);
+                    if (removed) {
+                        BeanExpirationScheduler.this.expirationFutures.remove(this.id);
+                    } else {
+                        // If bean failed to expire, likely due to a lock timeout, just reschedule it
+                        BeanExpirationScheduler.this.schedule(this.id);
+                    }
                 }
             }
         }

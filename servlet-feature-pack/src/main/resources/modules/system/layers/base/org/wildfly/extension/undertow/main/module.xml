@@ -51,7 +51,7 @@
         <module name="org.jboss.staxmapper"/>
         <module name="org.jboss.as.clustering.common"/>
         <module name="org.wildfly.clustering.service"/>
-        <module name="org.wildfly.clustering.web.api" optional="true"/>
+        <module name="org.wildfly.clustering.web.container"/>
         <module name="org.wildfly.clustering.web.undertow" services="import" optional="true"/>
         <module name="org.wildfly.extension.request-controller" />
         <module name="org.jboss.as.controller"/>
@@ -61,12 +61,12 @@
         <module name="org.wildfly.extension.io"/>
         <module name="org.jboss.as.naming"/>
         <module name="org.jboss.as.network"/>
-        <module name="org.jboss.as.security"/>
+        <!-- Only needed if capability 'org.wildfly.legacy-security' is present -->
+        <module name="org.jboss.as.security" optional="true"/>
         <module name="org.wildfly.security.elytron-private"/>
         <module name="org.wildfly.security.elytron-web.undertow-server"/>
         <module name="org.wildfly.security.elytron-web.undertow-server-servlet"/>
         <module name="org.jboss.as.server"/>
-        <module name="org.jboss.as.threads"/>
         <module name="org.jboss.common-beans" services="import"/>
         <module name="org.jboss.marshalling"/>
         <module name="org.jboss.marshalling.river" services="import"/>
@@ -82,7 +82,8 @@
         <module name="org.jboss.vfs"/>
         <module name="org.jboss.as.version"/>
         <module name="org.jboss.logging"/>
-        <module name="org.picketbox"/>
+        <!-- Only needed if capability 'org.wildfly.legacy-security' is present -->
+        <module name="org.picketbox" optional="true"/>
         <module name="javax.security.jacc.api"/>
         <module name="org.jboss.xnio"/>
         <module name="org.jboss.xnio.nio" services="import"/>

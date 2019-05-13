@@ -12,7 +12,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>15.0.0.Alpha1-SNAPSHOT</version>
+        <version>17.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <properties>
@@ -84,6 +84,10 @@
             <version>${version.org.hibernate4_3}</version>
             <scope>provided</scope>
             <exclusions>
+            <exclusion>
+                <artifactId>dom4j</artifactId>
+                <groupId>dom4j</groupId>
+            </exclusion>
               <exclusion>
                  <groupId>org.hibernate.common</groupId>
                  <artifactId>hibernate-commons-annotations</artifactId>
@@ -97,6 +101,10 @@
             <version>${version.org.hibernate4_3}</version>
             <scope>provided</scope>
             <exclusions>
+                <exclusion>
+                    <artifactId>dom4j</artifactId>
+                    <groupId>dom4j</groupId>
+                </exclusion>
               <exclusion>
                  <groupId>org.hibernate.common</groupId>
                  <artifactId>hibernate-commons-annotations</artifactId>

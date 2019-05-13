@@ -81,6 +81,7 @@ public class JMSBridgeTest {
         return ShrinkWrap.create(JavaArchive.class, "test.jar")
                 .addPackage(JMSOperations.class.getPackage())
                 .addClass(CreateJMSBridgeSetupTask.class)
+                .addClass(AbstractCreateJMSBridgeSetupTask.class)
                 .addClass(CreateQueueSetupTask.class)
                 .addAsManifestResource(
                         EmptyAsset.INSTANCE,

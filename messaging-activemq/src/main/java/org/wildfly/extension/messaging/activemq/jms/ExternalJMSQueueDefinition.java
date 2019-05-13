@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 JBoss by Red Hat.
+ * Copyright 2018 Red Hat, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,14 +34,14 @@ import org.wildfly.extension.messaging.activemq.MessagingExtension;
 public class ExternalJMSQueueDefinition extends PersistentResourceDefinition {
 
     public static final AttributeDefinition[] ATTRIBUTES = {CommonAttributes.DESTINATION_ENTRIES};
+    private final boolean registerRuntimeOnly;
 
-    public static final ExternalJMSQueueDefinition INSTANCE = new ExternalJMSQueueDefinition();
-
-    private ExternalJMSQueueDefinition() {
+    public ExternalJMSQueueDefinition(boolean registerRuntimeOnly) {
         super(MessagingExtension.EXTERNAL_JMS_QUEUE_PATH,
                 MessagingExtension.getResourceDescriptionResolver(CommonAttributes.EXTERNAL_JMS_QUEUE),
                 ExternalJMSQueueAdd.INSTANCE,
                 ExternalJMSQueueRemove.INSTANCE);
+        this.registerRuntimeOnly = registerRuntimeOnly;
     }
 
     @Override
@@ -51,7 +51,11 @@ public class ExternalJMSQueueDefinition extends PersistentResourceDefinition {
 
     @Override
     public void registerAttributes(ManagementResourceRegistration registry) {
-        registry.registerReadWriteAttribute(CommonAttributes.DESTINATION_ENTRIES, null, new ReloadRequiredWriteAttributeHandler(CommonAttributes.DESTINATION_ENTRIES));
+        if (registerRuntimeOnly) {
+            registry.registerReadOnlyAttribute(CommonAttributes.DESTINATION_ENTRIES, null);
+        } else {
+            registry.registerReadWriteAttribute(CommonAttributes.DESTINATION_ENTRIES, null, new ReloadRequiredWriteAttributeHandler(CommonAttributes.DESTINATION_ENTRIES));
+        }
     }
 
     @Override

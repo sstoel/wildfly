@@ -21,6 +21,8 @@
  */
 package org.wildfly.extension.rts;
 
+import static org.wildfly.extension.rts.RTSSubsystemDefinition.XA_RESOURCE_RECOVERY_CAPABILITY;
+
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -28,7 +30,6 @@ import org.jboss.as.network.SocketBinding;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
 import org.jboss.as.server.deployment.Phase;
-import org.jboss.as.txn.service.TxnServices;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
@@ -82,9 +83,9 @@ final class RTSSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final InboundBridgeService inboundBridgeService = new InboundBridgeService();
         final ServiceBuilder<InboundBridgeService> inboundBridgeServiceBuilder = context
                 .getServiceTarget()
-                .addService(RTSSubsystemExtension.INBOUND_BRIDGE, inboundBridgeService)
-                .addDependency(TxnServices.JBOSS_TXN_ARJUNA_RECOVERY_MANAGER)
-                .addDependency(RTSSubsystemExtension.PARTICIPANT);
+                .addService(RTSSubsystemExtension.INBOUND_BRIDGE, inboundBridgeService);
+        inboundBridgeServiceBuilder.requires(context.getCapabilityServiceName(XA_RESOURCE_RECOVERY_CAPABILITY, null));
+        inboundBridgeServiceBuilder.requires(RTSSubsystemExtension.PARTICIPANT);
 
         inboundBridgeServiceBuilder
                 .setInitialMode(ServiceController.Mode.ACTIVE)

@@ -23,7 +23,7 @@ package org.jboss.as.ejb3.timerservice;
 
 import java.io.Serializable;
 import java.util.Date;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.Semaphore;
 
 import javax.ejb.EJBException;
 import javax.ejb.ScheduleExpression;
@@ -117,7 +117,13 @@ public class TimerImpl implements Timer {
      *
      * todo: we can probably just use a sync block here
      */
-    private final ReentrantLock inUseLock = new ReentrantLock();
+    private final Semaphore inUseLock = new Semaphore(1);
+
+    /**
+     * The executing thread which is processing the timeout task This is only set to executing thread for TimerState.IN_TIMEOUT
+     * and TimerState.RETRY_TIMEOUT
+     */
+    private volatile Thread executingThread = null;
 
     /**
      * Creates a {@link TimerImpl}
@@ -146,6 +152,7 @@ public class TimerImpl implements Timer {
         this.timerService = service;
         this.timedObjectInvoker = service.getInvoker();
         this.handle = new TimerHandleImpl(this.id, this.timedObjectInvoker.getTimedObjectId(), service);
+        this.executingThread = null;
     }
 
     /**
@@ -153,7 +160,11 @@ public class TimerImpl implements Timer {
      */
     @Override
     public void cancel() throws IllegalStateException, EJBException {
-        timerService.cancelTimer(this);
+        try {
+            timerService.cancelTimer(this);
+        } catch (InterruptedException e) {
+            throw new EJBException(e);
+        }
     }
 
     /**
@@ -276,7 +287,7 @@ public class TimerImpl implements Timer {
      */
     public void setNextTimeout(Date next) {
         if(next == null) {
-            setTimerState(TimerState.EXPIRED);
+            setTimerState(TimerState.EXPIRED, null);
         }
         this.nextExpiration = next;
     }
@@ -443,14 +454,22 @@ public class TimerImpl implements Timer {
     }
 
     /**
+     * Returns the executing thread which is processing the timeout task
+     *
+     * @return the executingThread
+     */
+    protected Thread getExecutingThread() {
+        return executingThread;
+    }
+
+    /**
      * Asserts that the timer is <i>not</i> in any of the following states:
      * <ul>
      * <li>{@link TimerState#CANCELED}</li>
      * <li>{@link TimerState#EXPIRED}</li>
      * </ul>
      *
-     * @throws javax.ejb.NoSuchObjectLocalException
-     *          if the txtimer was canceled or has expired
+     * @throws javax.ejb.NoSuchObjectLocalException if the txtimer was canceled or has expired
      */
     protected void assertTimerState() {
         if (timerState == TimerState.EXPIRED)
@@ -464,9 +483,22 @@ public class TimerImpl implements Timer {
      * Sets the state of this timer
      *
      * @param state The state of this timer
+     * @deprecated Use {@link #setTimerState(TimerState state, Thread thread)} instead.
      */
     public void setTimerState(TimerState state) {
+        setTimerState(state, null);
+    }
+
+    /**
+     * Sets the state and timer task executing thread of this timer
+     *
+     * @param state The state of this timer
+     * @param thread The executing thread which is processing the timeout task
+     */
+    protected void setTimerState(TimerState state, Thread thread) {
+        assert ((state == TimerState.IN_TIMEOUT || state == TimerState.RETRY_TIMEOUT) && thread != null) || thread == null : "Invalid to set timer state " + state + " with executing Thread " + thread;
         this.timerState = state;
+        this.executingThread = thread;
     }
 
     /**
@@ -515,12 +547,12 @@ public class TimerImpl implements Timer {
         return new TimerTask<TimerImpl>(this);
     }
 
-    public void lock() {
-        inUseLock.lock();
+    public void lock() throws InterruptedException {
+        inUseLock.acquire();
     }
 
     public void unlock() {
-        inUseLock.unlock();
+        inUseLock.release();
     }
 
     /**

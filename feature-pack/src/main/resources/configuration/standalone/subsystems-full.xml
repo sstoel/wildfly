@@ -9,6 +9,7 @@
         <subsystem>datasources.xml</subsystem>
         <subsystem>deployment-scanner.xml</subsystem>
         <subsystem>discovery.xml</subsystem>
+        <subsystem>distributable-web.xml</subsystem>
         <subsystem supplement="full">ee.xml</subsystem>
         <subsystem>ee-security.xml</subsystem>
         <subsystem supplement="full">ejb3.xml</subsystem>
@@ -27,6 +28,7 @@
         <subsystem>messaging-activemq.xml</subsystem>
         <subsystem>microprofile-config-smallrye.xml</subsystem>
         <subsystem>microprofile-health-smallrye.xml</subsystem>
+        <subsystem>microprofile-metrics-smallrye.xml</subsystem>
         <subsystem>microprofile-opentracing-smallrye.xml</subsystem>
         <subsystem>naming.xml</subsystem>
         <subsystem>pojo.xml</subsystem>

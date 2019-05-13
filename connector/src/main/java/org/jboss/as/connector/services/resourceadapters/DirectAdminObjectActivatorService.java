@@ -35,7 +35,6 @@ import org.jboss.as.connector.subsystems.jca.JcaSubsystemConfiguration;
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.service.NamingService;
-import org.jboss.as.txn.service.TxnServices;
 import org.jboss.jca.common.api.metadata.common.TransactionSupportEnum;
 import org.jboss.jca.common.api.metadata.resourceadapter.Activation;
 import org.jboss.jca.common.api.metadata.resourceadapter.ConnectionDefinition;
@@ -164,7 +163,7 @@ public class DirectAdminObjectActivatorService implements Service<ContextNames.B
                             activator.getManagementRepositoryInjector())
                     .addDependency(ConnectorServices.RESOURCE_ADAPTER_REGISTRY_SERVICE,
                             ResourceAdapterDeploymentRegistry.class, activator.getRegistryInjector())
-                    .addDependency(ConnectorServices.TRANSACTION_INTEGRATION_SERVICE, TransactionIntegration.class,
+                    .addDependency(ConnectorServices.getCachedCapabilityServiceName(ConnectorServices.TRANSACTION_INTEGRATION_CAPABILITY_NAME), TransactionIntegration.class,
                             activator.getTxIntegrationInjector())
                     .addDependency(ConnectorServices.CONNECTOR_CONFIG_SERVICE,
                             JcaSubsystemConfiguration.class, activator.getConfigInjector())
@@ -177,14 +176,11 @@ public class DirectAdminObjectActivatorService implements Service<ContextNames.B
                             ServerSecurityManager.class, activator.getServerSecurityManager())
                     */
                     .addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class,
-                            activator.getCcmInjector()).addDependency(NamingService.SERVICE_NAME)
-                    .addDependency(TxnServices.JBOSS_TXN_TRANSACTION_MANAGER)
-                    .addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append("default"));
-
-
+                            activator.getCcmInjector());
+            adminObjectServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(NamingService.CAPABILITY_NAME));
+            adminObjectServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(ConnectorServices.LOCAL_TRANSACTION_PROVIDER_CAPABILITY));
+            adminObjectServiceBuilder.requires(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append("default"));
             adminObjectServiceBuilder.setInitialMode(ServiceController.Mode.ACTIVE).install();
-
-
         } catch (Exception e) {
             throw new StartException(e);
         }

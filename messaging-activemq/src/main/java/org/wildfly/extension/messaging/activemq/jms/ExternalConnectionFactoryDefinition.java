@@ -1,34 +1,32 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
+ * Copyright 2018 Red Hat, Inc.
  *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.wildfly.extension.messaging.activemq.jms;
 
+import static org.wildfly.extension.messaging.activemq.AbstractTransportDefinition.CONNECTOR_CAPABILITY_NAME;
 
 import java.util.Arrays;
 import java.util.Collection;
 
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.PersistentResourceDefinition;
+import org.jboss.as.controller.SimpleResourceDefinition;
+import org.jboss.as.controller.StringListAttributeDefinition;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.wildfly.extension.messaging.activemq.AbstractTransportDefinition;
 import org.wildfly.extension.messaging.activemq.CommonAttributes;
 import org.wildfly.extension.messaging.activemq.MessagingExtension;
 import org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttributes.Common;
@@ -41,16 +39,21 @@ import org.wildfly.extension.messaging.activemq.jms.ConnectionFactoryAttributes.
  */
 public class ExternalConnectionFactoryDefinition extends PersistentResourceDefinition {
 
-    public static final AttributeDefinition[] ATTRIBUTES = new AttributeDefinition[] {
-        CommonAttributes.HA, Regular.FACTORY_TYPE, Common.DISCOVERY_GROUP, Common.CONNECTORS, Common.ENTRIES};
+    private static StringListAttributeDefinition CONNECTORS = new StringListAttributeDefinition.Builder(Common.CONNECTORS)
+            .setCapabilityReference(new AbstractTransportDefinition.TransportCapabilityReferenceRecorder("org.wildfly.messaging.activemq.external.connection-factory", CONNECTOR_CAPABILITY_NAME, true))
+            .build();
+    static final RuntimeCapability<Void> CAPABILITY = RuntimeCapability.Builder.of("org.wildfly.messaging.activemq.external.connection-factory", true, ExternalConnectionFactoryService.class).
+            build();
+    public static final AttributeDefinition[] ATTRIBUTES = new AttributeDefinition[]{
+        CommonAttributes.HA, Regular.FACTORY_TYPE, Common.DISCOVERY_GROUP, CONNECTORS, Common.ENTRIES};
 
     private final boolean registerRuntimeOnly;
 
     public ExternalConnectionFactoryDefinition(final boolean registerRuntimeOnly) {
-        super(MessagingExtension.CONNECTION_FACTORY_PATH,
-                MessagingExtension.getResourceDescriptionResolver(CommonAttributes.CONNECTION_FACTORY),
-                ExternalConnectionFactoryAdd.INSTANCE,
-                ExternalConnectionFactoryRemove.INSTANCE);
+        super(new SimpleResourceDefinition.Parameters(MessagingExtension.CONNECTION_FACTORY_PATH, MessagingExtension.getResourceDescriptionResolver(CommonAttributes.CONNECTION_FACTORY))
+                .setCapabilities(CAPABILITY)
+                .setAddHandler(ExternalConnectionFactoryAdd.INSTANCE)
+                .setRemoveHandler(ExternalConnectionFactoryRemove.INSTANCE));
         this.registerRuntimeOnly = registerRuntimeOnly;
     }
 
@@ -66,5 +69,5 @@ public class ExternalConnectionFactoryDefinition extends PersistentResourceDefin
         if (registerRuntimeOnly) {
             ConnectionFactoryUpdateJndiHandler.registerOperations(registry, getResourceDescriptionResolver());
         }
-   }
+    }
 }
