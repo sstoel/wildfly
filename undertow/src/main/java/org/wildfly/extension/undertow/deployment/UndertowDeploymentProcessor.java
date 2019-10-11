@@ -75,6 +75,7 @@ import org.jboss.as.web.common.ServletContextAttribute;
 import org.jboss.as.web.common.WarMetaData;
 import org.jboss.as.web.common.WebComponentDescription;
 import org.jboss.as.web.common.WebInjectionContainer;
+import org.jboss.as.web.host.ContextActivator;
 import org.jboss.as.web.session.SessionIdentifierCodec;
 import org.jboss.as.web.session.SharedSessionManagerConfig;
 import org.jboss.dmr.ModelNode;
@@ -451,7 +452,8 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor, Fun
 
         infoBuilder.install();
 
-        final UndertowDeploymentService service = new UndertowDeploymentService(injectionContainer, true);
+        final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
+        final UndertowDeploymentService service = new UndertowDeploymentService(injectionContainer, !isWebappBundle);
         final ServiceBuilder<UndertowDeploymentService> builder = serviceTarget.addService(deploymentServiceName, service)
                 .addAliases(legacyDeploymentServiceName)
                 .addDependency(UndertowService.SERVLET_CONTAINER.append(defaultContainer), ServletContainerService.class, service.getContainer())
@@ -466,7 +468,6 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor, Fun
         // inject the server executor which can be used by the WebDeploymentService for blocking tasks in start/stop
         // of that service
         Services.addServerExecutorDependency(builder, service.getServerExecutorInjector());
-        builder.install();
 
         deploymentUnit.addToAttachmentList(Attachments.DEPLOYMENT_COMPLETE_SERVICES, deploymentServiceName);
 
@@ -488,6 +489,15 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor, Fun
                 jaccBuilder.requires(deploymentServiceName);
                 jaccBuilder.setInitialMode(Mode.PASSIVE).install();
             }
+        }
+
+        // OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
+        if (isWebappBundle) {
+            UndertowDeploymentService.ContextActivatorImpl activator = new UndertowDeploymentService.ContextActivatorImpl(builder.install());
+            deploymentUnit.putAttachment(ContextActivator.ATTACHMENT_KEY, activator);
+            deploymentUnit.addToAttachmentList(Attachments.BUNDLE_ACTIVE_DEPENDENCIES, deploymentServiceName);
+        } else {
+            builder.install();
         }
 
         // Process the web related mgmt information
