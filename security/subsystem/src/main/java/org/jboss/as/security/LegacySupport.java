@@ -46,6 +46,7 @@ import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.jboss.as.controller.ListAttributeDefinition;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -80,7 +81,7 @@ class LegacySupport {
     /**
      * @author Jason T. Greene
      */
-    public static class JASPIAuthenticationModulesAttributeDefinition extends ListAttributeDefinition {
+    static class JASPIAuthenticationModulesAttributeDefinition extends ListAttributeDefinition {
 
         private static final ParameterValidator validator;
 
@@ -88,7 +89,7 @@ class LegacySupport {
         static {
             final ParametersValidator delegate = new ParametersValidator();
             delegate.registerValidator(CODE, new StringLengthValidator(1));
-            delegate.registerValidator(Constants.FLAG, new EnumValidator<ModuleFlag>(ModuleFlag.class, true, false));
+            delegate.registerValidator(Constants.FLAG, EnumValidator.create(ModuleFlag.class));
             delegate.registerValidator(Constants.MODULE, new StringLengthValidator(1, true));
             delegate.registerValidator(Constants.MODULE_OPTIONS, new ModelTypeValidator(ModelType.OBJECT, true));
             delegate.registerValidator(Constants.LOGIN_MODULE_STACK_REF, new StringLengthValidator(1, true));
@@ -175,7 +176,7 @@ class LegacySupport {
         static {
             final ParametersValidator delegate = new ParametersValidator();
             delegate.registerValidator(CODE, new StringLengthValidator(1));
-            delegate.registerValidator(Constants.FLAG, new EnumValidator<ModuleFlag>(ModuleFlag.class, false, false));
+            delegate.registerValidator(Constants.FLAG, EnumValidator.create(ModuleFlag.class));
             delegate.registerValidator(Constants.MODULE, new StringLengthValidator(1, true));
             delegate.registerValidator(Constants.MODULE_OPTIONS, new ModelTypeValidator(ModelType.OBJECT, true));
             validator = new ParametersOfValidator(delegate);
@@ -437,7 +438,7 @@ class LegacySupport {
             for (Resource.ResourceEntry entry : existing.getChildren(newKeyName)) {
                 PathAddress address = PathAddress.pathAddress(operation.get(OP_ADDR)).append(entry.getPathElement());
                 ModelNode removeModuleOp = Util.createRemoveOperation(address);
-                context.addStep(new ModelNode(), removeModuleOp, new SecurityDomainReloadRemoveHandler(), OperationContext.Stage.MODEL, true);
+                context.addStep(new ModelNode(), removeModuleOp, ModelOnlyRemoveStepHandler.INSTANCE, OperationContext.Stage.MODEL, true);
             }
         }
     }
@@ -476,7 +477,7 @@ class LegacySupport {
             for (Resource.ResourceEntry entry : existing.getChildren(newKeyName)) {
                 PathAddress address = PathAddress.pathAddress(operation.get(OP_ADDR)).append(entry.getPathElement());
                 ModelNode removeModuleOp = Util.createRemoveOperation(address);
-                context.addStep(new ModelNode(), removeModuleOp, new SecurityDomainReloadRemoveHandler(), OperationContext.Stage.MODEL, true);
+                context.addStep(new ModelNode(), removeModuleOp, ModelOnlyRemoveStepHandler.INSTANCE, OperationContext.Stage.MODEL, true);
             }
         }
     }

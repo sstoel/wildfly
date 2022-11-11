@@ -21,26 +21,16 @@
  */
 package org.wildfly.clustering.web.undertow.session;
 
-import io.undertow.security.api.AuthenticatedSessionManager.AuthenticatedSession;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.wildfly.clustering.web.LocalContextFactory;
 
-public class LocalSessionContextFactory implements LocalContextFactory<LocalSessionContext> {
+public enum LocalSessionContextFactory implements LocalContextFactory<Map<String, Object>> {
+    INSTANCE;
 
     @Override
-    public LocalSessionContext createLocalContext() {
-        return new LocalSessionContext() {
-            private volatile AuthenticatedSession authenticatedSession;
-
-            @Override
-            public AuthenticatedSession getAuthenticatedSession() {
-                return this.authenticatedSession;
-            }
-
-            @Override
-            public void setAuthenticatedSession(AuthenticatedSession authenticatedSession) {
-                this.authenticatedSession = authenticatedSession;
-            }
-        };
+    public Map<String, Object> createLocalContext() {
+        return new ConcurrentHashMap<>();
     }
 }

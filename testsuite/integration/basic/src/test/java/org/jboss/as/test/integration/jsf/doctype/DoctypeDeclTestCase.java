@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2017, Red Hat Inc., and individual contributors as indicated
+ * Copyright 2021, Red Hat Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -60,7 +60,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests for disallowing and allowing DOCTYPE declarations in JSF apps.
+ * Tests for disallowing and allowing DOCTYPE declarations in Jakarta Server Faces apps.
  *
  * @author Farah Juma
  */
@@ -73,7 +73,7 @@ public class DoctypeDeclTestCase {
     @ArquillianResource
     private ManagementClient managementClient;
 
-    private final Pattern viewStatePattern = Pattern.compile("id=\".*javax.faces.ViewState.*\" value=\"([^\"]*)\"");
+    private final Pattern viewStatePattern = Pattern.compile("id=\".*jakarta.faces.ViewState.*\" value=\"([^\"]*)\"");
 
     @Deployment(testable = false)
     public static Archive<?> deploy() {
@@ -112,7 +112,7 @@ public class DoctypeDeclTestCase {
             HttpGet getRequest = new HttpGet(requestUrl);
             HttpResponse response = client.execute(getRequest);
             try {
-                // Get the JSF view state
+                // Get the Jakarta Server Faces view state
                 String responseString = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
                 Matcher jsfViewMatcher = viewStatePattern.matcher(responseString);
                 if (jsfViewMatcher.find()) {
@@ -125,7 +125,7 @@ public class DoctypeDeclTestCase {
             // Create and execute a POST request with the given name
             HttpPost post = new HttpPost(requestUrl);
             List<NameValuePair> list = new ArrayList<NameValuePair>();
-            list.add(new BasicNameValuePair("javax.faces.ViewState", jsfViewState));
+            list.add(new BasicNameValuePair("jakarta.faces.ViewState", jsfViewState));
             list.add(new BasicNameValuePair("register", "register"));
             list.add(new BasicNameValuePair("register:inputName", name));
             list.add(new BasicNameValuePair("register:registerButton", "Register"));
@@ -147,13 +147,13 @@ public class DoctypeDeclTestCase {
         final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, "jsf");
         final ModelNode op = Operations.createWriteAttributeOperation(address, "disallow-doctype-decl", value);
         ManagementOperations.executeOperation(managementClient.getControllerClient(), op);
-        ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
+        ServerReload.executeReloadAndWaitForCompletion(managementClient);
     }
 
     private void undefineDisallowDoctypeDeclAttributeAndReload() throws Exception {
         final ModelNode address = Operations.createAddress(ClientConstants.SUBSYSTEM, "jsf");
         final ModelNode op = Operations.createUndefineAttributeOperation(address, "disallow-doctype-decl");
         ManagementOperations.executeOperation(managementClient.getControllerClient(), op);
-        ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
+        ServerReload.executeReloadAndWaitForCompletion(managementClient);
     }
 }

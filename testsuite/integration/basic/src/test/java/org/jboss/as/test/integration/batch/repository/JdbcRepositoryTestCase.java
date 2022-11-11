@@ -21,11 +21,11 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.Properties;
-import javax.annotation.Resource;
-import javax.batch.operations.JobOperator;
-import javax.batch.runtime.BatchRuntime;
-import javax.batch.runtime.BatchStatus;
-import javax.batch.runtime.JobExecution;
+import jakarta.annotation.Resource;
+import jakarta.batch.operations.JobOperator;
+import jakarta.batch.runtime.BatchRuntime;
+import jakarta.batch.runtime.BatchStatus;
+import jakarta.batch.runtime.JobExecution;
 import javax.sql.DataSource;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -102,17 +102,15 @@ public class JdbcRepositoryTestCase extends AbstractBatchTestCase {
 
         // Check the job as completed and the expected execution id should be 1
         Assert.assertEquals(BatchStatus.COMPLETED, jobExecution.getBatchStatus());
-        Assert.assertEquals(1L, jobExecution.getExecutionId());
 
         // Query the actual DB and ensure we're using the correct repository
         Assert.assertNotNull(dataSource);
         try (Connection connection = dataSource.getConnection()) {
             final Statement stmt = connection.createStatement();
-            final ResultSet rs = stmt.executeQuery("SELECT JOBEXECUTIONID, BATCHSTATUS FROM JOB_EXECUTION");
+            final ResultSet rs = stmt.executeQuery("SELECT JOBEXECUTIONID, BATCHSTATUS FROM JOB_EXECUTION ORDER BY JOBEXECUTIONID DESC");
             Assert.assertTrue("Expected a single entry for the query", rs.next());
-            Assert.assertEquals(1L, rs.getLong("JOBEXECUTIONID"));
+            Assert.assertEquals(jobExecution.getExecutionId(), rs.getLong("JOBEXECUTIONID"));
             Assert.assertEquals(BatchStatus.COMPLETED.toString(), rs.getString("BATCHSTATUS"));
-            Assert.assertFalse("Expected a single entry for the query", rs.next());
         }
     }
 

@@ -25,7 +25,7 @@ import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.timerservice.schedule.value.ScheduleExpressionType;
 
 /**
- * Represents the value of a second constructed out of a {@link javax.ejb.ScheduleExpression#getSecond()}
+ * Represents the value of a second constructed out of a {@link jakarta.ejb.ScheduleExpression#getSecond()}
  * <p/>
  * <p>
  * A {@link Second} can hold only {@link Integer} as its value. The only exception to this being the wildcard (*)
@@ -95,7 +95,7 @@ public class Second extends IntegerBasedExpression {
             return 0;
         }
         if (this.absoluteValues.isEmpty()) {
-            throw EjbLogger.EJB3_TIMER_LOGGER.invalidExpressionSeconds(this.origValue);
+            throw EjbLogger.EJB3_TIMER_LOGGER.invalidScheduleValue(Second.class.getSimpleName(), this.origValue);
         }
         return this.absoluteValues.first();
     }

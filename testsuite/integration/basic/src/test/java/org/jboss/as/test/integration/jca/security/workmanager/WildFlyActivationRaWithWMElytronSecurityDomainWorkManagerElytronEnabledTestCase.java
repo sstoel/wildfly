@@ -33,20 +33,21 @@ import java.util.Set;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Resource;
-import javax.ejb.EJB;
-import javax.ejb.EJBAccessException;
-import javax.resource.spi.work.SecurityContext;
-import javax.resource.spi.work.Work;
-import javax.resource.spi.work.WorkContext;
-import javax.resource.spi.work.WorkContextProvider;
-import javax.resource.spi.work.WorkManager;
+import jakarta.annotation.Resource;
+import jakarta.ejb.EJB;
+import jakarta.ejb.EJBAccessException;
+import jakarta.resource.spi.work.SecurityContext;
+import jakarta.resource.spi.work.Work;
+import jakarta.resource.spi.work.WorkContext;
+import jakarta.resource.spi.work.WorkContextProvider;
+import jakarta.resource.spi.work.WorkManager;
 import javax.security.auth.AuthPermission;
 import javax.security.auth.Subject;
 import javax.security.auth.callback.CallbackHandler;
-import javax.security.auth.message.callback.CallerPrincipalCallback;
-import javax.security.auth.message.callback.GroupPrincipalCallback;
+import jakarta.security.auth.message.callback.CallerPrincipalCallback;
+import jakarta.security.auth.message.callback.GroupPrincipalCallback;
 
+import org.hamcrest.MatcherAssert;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -61,7 +62,6 @@ import org.jboss.as.test.integration.jca.rar.MultipleAdminObject1;
 import org.jboss.as.test.integration.jca.rar.MultipleAdminObject1Impl;
 import org.jboss.as.test.integration.jca.rar.MultipleConnectionFactory1;
 import org.jboss.as.test.integration.jca.rar.MultipleResourceAdapter;
-import org.jboss.as.test.integration.jca.security.AbstractLoginModuleSecurityDomainTestCaseSetup;
 import org.jboss.as.test.integration.jca.security.TestBean;
 import org.jboss.as.test.integration.jca.security.WildFlyActivationRaWithElytronAuthContextTestCase;
 import org.jboss.as.test.integration.security.common.AbstractSecurityDomainSetup;
@@ -86,7 +86,7 @@ import org.wildfly.test.security.common.elytron.ConfigurableElement;
 import org.wildfly.test.security.common.elytron.PropertyFileBasedDomain;
 
 /**
- * Test security inflow with JCA work manager using Elytron security domain
+ * Test security inflow with Jakarta Connectors work manager using Elytron security domain
  */
 @RunWith(Arquillian.class)
 @ServerSetup({
@@ -212,7 +212,7 @@ public class WildFlyActivationRaWithWMElytronSecurityDomainWorkManagerElytronEna
                 .addClass(AbstractElytronSetupTask.class)
                 .addClass(AbstractJcaSetup.class)
                 .addClass(AbstractRaSetup.class);
-        jar.addClasses(AbstractLoginModuleSecurityDomainTestCaseSetup.class, AbstractSecurityDomainSetup.class, TestBean.class);
+        jar.addClasses(AbstractSecurityDomainSetup.class, TestBean.class);
         jar.addAsManifestResource(new StringAsset("Dependencies: org.jboss.ironjacamar.api,deployment.wf-ra-wm-security-domain-rar.rar\n"), "MANIFEST.MF");
         jar.addAsManifestResource(createPermissionsXmlAsset(
                 new ElytronPermission("createAdHocIdentity"),
@@ -266,12 +266,12 @@ public class WildFlyActivationRaWithWMElytronSecurityDomainWorkManagerElytronEna
     private void verifyUsers(MyWork work, String... expectedUsers) {
         Set<Principal> principals = work.getPrincipals();
         Set<Principal> expectedPrincipals = Stream.of(expectedUsers).map(NamePrincipal::new).collect(Collectors.toSet());
-        Assert.assertThat(principals, is(expectedPrincipals));
+        MatcherAssert.assertThat(principals, is(expectedPrincipals));
     }
 
     private void verifyRoles(MyWork work, String... expectedRoles) {
         String[] roles = work.getRoles();
-        Assert.assertThat(roles, is(expectedRoles));
+        MatcherAssert.assertThat(roles, is(expectedRoles));
     }
 
     public static class MyWork implements Work, WorkContextProvider {

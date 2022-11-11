@@ -22,13 +22,13 @@
 
 package org.jboss.as.test.integration.messaging.mgmt;
 
-import javax.annotation.Resource;
-import javax.ejb.Remote;
-import javax.ejb.Stateful;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSContext;
-import javax.jms.JMSException;
-import javax.jms.TemporaryQueue;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateful;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSException;
+import jakarta.jms.TemporaryQueue;
 
 /**
  * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2016 Red Hat inc.
@@ -44,7 +44,7 @@ public class ConnectionHoldingBean implements RemoteConnectionHolding {
 
     @Override
     public void createConnection() throws JMSException {
-        // create a consumer on a temp queue to ensure the JMS
+        // create a consumer on a temp queue to ensure the Jakarta Messaging
         // connection is actually created and started
         context = factory.createContext("guest", "guest");
         TemporaryQueue tempQueue = context.createTemporaryQueue();

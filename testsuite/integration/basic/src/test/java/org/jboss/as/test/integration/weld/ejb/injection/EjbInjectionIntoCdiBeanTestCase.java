@@ -31,9 +31,9 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.annotation.Resource;
-import javax.inject.Inject;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.inject.Inject;
+import jakarta.transaction.UserTransaction;
 
 /**
  * AS7-1269
@@ -49,7 +49,7 @@ public class EjbInjectionIntoCdiBeanTestCase {
     public static Archive<?> deploy() {
         WebArchive war = ShrinkWrap.create(WebArchive.class);
         war.addPackage(EjbInjectionIntoCdiBeanTestCase.class.getPackage());
-        war.addAsWebInfResource(new StringAsset(""), "beans.xml");
+        war.addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         return war;
     }
 

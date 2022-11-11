@@ -23,6 +23,7 @@ package org.wildfly.clustering.ejb.infinispan.bean;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.temporal.ChronoField;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.wildfly.clustering.ee.Mutator;
@@ -39,7 +40,6 @@ import org.wildfly.clustering.ejb.infinispan.logging.InfinispanEjbLogger;
  *
  * @author Paul Ferraro
  *
- * @param <G> the group identifier type
  * @param <I> the bean identifier type
  * @param <T> the bean type
  */
@@ -76,10 +76,7 @@ public class InfinispanBean<I, T> implements Bean<I, T> {
 
     @Override
     public boolean isExpired() {
-        if ((this.timeout == null) || this.timeout.isNegative()) return false;
-        if (this.timeout.isZero()) return true;
-        Instant lastAccessedTime = this.entry.getLastAccessedTime();
-        return (lastAccessedTime != null) ? !lastAccessedTime.plus(this.timeout).isAfter(Instant.now()) : false;
+        return this.entry.isExpired(this.timeout) && this.group.isCloseable();
     }
 
     @Override
@@ -111,7 +108,9 @@ public class InfinispanBean<I, T> implements Bean<I, T> {
     public void close() {
         if (this.valid.get()) {
             Instant lastAccessedTime = this.entry.getLastAccessedTime();
-            this.entry.setLastAccessedTime(Instant.now());
+            Instant now = Instant.now();
+            // Reduce precision to millis
+            this.entry.setLastAccessedTime((now.getNano() % 1_000_000) > 0 ? now.with(ChronoField.MILLI_OF_SECOND, now.get(ChronoField.MILLI_OF_SECOND)) : now);
             if (lastAccessedTime != null) {
                 this.mutator.mutate();
             }

@@ -27,12 +27,10 @@ import java.io.IOException;
 
 import org.jboss.ejb.client.SessionID;
 import org.kohsuke.MetaInfServices;
-import org.wildfly.clustering.ejb.infinispan.SessionIDSerializer;
-import org.wildfly.clustering.infinispan.spi.persistence.BinaryKeyFormat;
-import org.wildfly.clustering.infinispan.spi.persistence.KeyFormat;
-import org.wildfly.clustering.marshalling.Externalizer;
+import org.wildfly.clustering.ejb.client.SessionIDSerializer;
+import org.wildfly.clustering.marshalling.spi.BinaryFormatter;
+import org.wildfly.clustering.marshalling.spi.Formatter;
 import org.wildfly.clustering.marshalling.spi.Serializer;
-import org.wildfly.clustering.marshalling.spi.SerializerExternalizer;
 
 /**
  * Serializer for an {@link InfinispanBeanKey}.
@@ -51,18 +49,10 @@ public enum InfinispanBeanKeySerializer implements Serializer<InfinispanBeanKey<
         return new InfinispanBeanKey<>(SessionIDSerializer.INSTANCE.read(input));
     }
 
-    @MetaInfServices(Externalizer.class)
-    public static class InfinispanBeanKeyExternalizer extends SerializerExternalizer<InfinispanBeanKey<SessionID>> {
+    @MetaInfServices(Formatter.class)
+    public static class InfinispanBeanKeyFormatter extends BinaryFormatter<InfinispanBeanKey<SessionID>> {
         @SuppressWarnings("unchecked")
-        public InfinispanBeanKeyExternalizer() {
-            super((Class<InfinispanBeanKey<SessionID>>) (Class<?>) InfinispanBeanKey.class, INSTANCE);
-        }
-    }
-
-    @MetaInfServices(KeyFormat.class)
-    public static class InfinispanBeanKeyFormat extends BinaryKeyFormat<InfinispanBeanKey<SessionID>> {
-        @SuppressWarnings("unchecked")
-        public InfinispanBeanKeyFormat() {
+        public InfinispanBeanKeyFormatter() {
             super((Class<InfinispanBeanKey<SessionID>>) (Class<?>) InfinispanBeanKey.class, INSTANCE);
         }
     }

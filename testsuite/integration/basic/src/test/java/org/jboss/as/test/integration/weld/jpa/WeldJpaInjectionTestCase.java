@@ -22,18 +22,18 @@
 
 package org.jboss.as.test.integration.weld.jpa;
 
-import javax.inject.Inject;
-import javax.persistence.NoResultException;
+import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 
-import org.junit.Assert;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import org.junit.runner.RunWith;
 
 /**
@@ -69,24 +69,19 @@ public class WeldJpaInjectionTestCase {
         );
 
         jar.addAsResource(new StringAsset(persistence_xml), "META-INF/persistence.xml");
-        jar.addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         return jar;
     }
+
+    @Rule
+    public ExpectedException expected = ExpectedException.none();
 
     @Inject
     private CdiJpaInjectingBean bean;
 
     @Test
     public void testOrmXmlDefinedEmployeeEntity() {
-
-        try {
-            Employee emp = bean.queryEmployeeName(1);
-        } catch (Exception e) {
-            if (!(e instanceof NoResultException)){
-                Assert.fail("Expected NoResultException but got " + e);
-            }
-            return;
-        }
-        Assert.fail("NoResultException should occur but didn't!");
+        expected.expect(NoResultException.class);
+        bean.queryEmployeeName(1);
     }
 }

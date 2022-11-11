@@ -45,8 +45,8 @@ safely run, are:
 The `test` phase is not recommended to be used for scripted jobs as we
 are planning to switch to the `failsafe` plugin bound to the
 `integration-test` and `verify` phases. See
-https://issues.jboss.org/browse/WFLY-625[WFLY-625] and
-https://issues.jboss.org/browse/WFLY-228[WFLY-228].
+https://issues.redhat.com/browse/WFLY-625[WFLY-625] and
+https://issues.redhat.com/browse/WFLY-228[WFLY-228].
 
 [[testsuite-structure]]
 === Testsuite structure
@@ -74,7 +74,7 @@ To define groups of tests to be run, these properties are available:
 * `-DallInteg` - Runs all integration tests. Same as
 `cd testsuite/integration; mvn clean install -DallTests`
 * `-Dts.integ` - Basic integration + clustering tests.
-* `-Dts.clust` - Clustering tests.
+* `-Dts.clustering` - Clustering tests.
 * `-Dts.iiop` - IIOP tests.
 * `-Dts.multinode `- Tests with many nodes.
 * `-Dts.manualmode` - Tests with manual mode Arquillian containers.
@@ -167,14 +167,13 @@ operations.
 
 Single test is run using *-Dtest=...* . Examples:
 
-* `./integration-tests.sh install -Dtest='` `*` `Clustered` `*`
-`' -Dintegration.module` `-Dts.clust`
+* `./integration-tests.sh install` `+-Dtest='*Clustered*'+` `-Dintegration.module` `-Dts.clustering`
 * `./integration-tests.sh clean install -Dtest=org` `/` `jboss` `/` `as`
 `/` `test` `/` `integration` `/` `ejb/async/*TestCase.java`
 `-Dintegration.module` `-Dts.basic`
-* `cd testsuite; mvn install` `-Dtest='` `*Clustered` `*` `'`
-`-Dts.basic #`
-`No need for -Dintegration.module - integration module is active by default.`
+* `cd testsuite; mvn install` `+-Dtest='*Clustered*'+`
+`-Dts.basic`
+`# No need for -Dintegration.module - integration module is active by default.`
 
 The same shortcuts listed in "Test groups" may be used to activate the
 module and group profile.
@@ -477,7 +476,7 @@ the pattern is `**/*TestCase.xml`, without need to specify `-DallTests`.
 [[creating-coverage-reports]]
 === Creating coverage reports
 
-*Jira:* https://issues.jboss.org/browse/WFLY-585
+*Jira:* https://issues.redhat.com/browse/WFLY-585
 
 Coverage reports are created by
 http://www.eclemma.org/jacoco/trunk/index.html[JaCoCo].
@@ -545,4 +544,4 @@ Or:
 mvn clean install ... -Dmaven.repo.local=localrepo
 ----
 
-See also https://issues.jboss.org/browse/WFLY-628.
+See also https://issues.redhat.com/browse/WFLY-628.

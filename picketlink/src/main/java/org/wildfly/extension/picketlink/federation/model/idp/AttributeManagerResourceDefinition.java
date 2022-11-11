@@ -40,7 +40,7 @@ public class AttributeManagerResourceDefinition extends AbstractFederationResour
         .setAlternatives(ModelElement.COMMON_CODE.getName())
         .build();
     public static final SimpleAttributeDefinition CODE = new SimpleAttributeDefinitionBuilder(ModelElement.COMMON_CODE.getName(), ModelType.STRING, true)
-        .setValidator(new EnumValidator<AttributeManagerTypeEnum>(AttributeManagerTypeEnum.class, true, true))
+        .setValidator(EnumValidator.create(AttributeManagerTypeEnum.class))
         .setAllowExpression(true)
         .setAlternatives(ModelElement.COMMON_CLASS_NAME.getName())
         .build();
@@ -52,6 +52,6 @@ public class AttributeManagerResourceDefinition extends AbstractFederationResour
     public static final AttributeManagerResourceDefinition INSTANCE = new AttributeManagerResourceDefinition();
 
     private AttributeManagerResourceDefinition() {
-        super(ModelElement.IDENTITY_PROVIDER_ATTRIBUTE_MANAGER, new IdentityProviderConfigAddStepHandler(ATTRIBUTE_DEFINITIONS), IdentityProviderConfigRemoveStepHandler.INSTANCE, ATTRIBUTE_DEFINITIONS);
+        super(ModelElement.IDENTITY_PROVIDER_ATTRIBUTE_MANAGER, new IdentityProviderConfigAddStepHandler(ATTRIBUTE_DEFINITIONS), ATTRIBUTE_DEFINITIONS);
     }
 }

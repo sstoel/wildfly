@@ -23,12 +23,19 @@ package org.wildfly.clustering.web.session;
 
 import java.time.Duration;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
-import org.wildfly.clustering.web.IdentifierFactory;
+import org.wildfly.clustering.ee.Restartable;
 
-public interface SessionManager<L, B extends Batch> extends IdentifierFactory<String>, ActiveSessionStatistics {
+/**
+ * SPI for a distributable session manager.
+ * @param <L> the local context type
+ * @param <B> the batch type
+ * @author Paul Ferraro
+ */
+public interface SessionManager<L, B extends Batch> extends Restartable, ActiveSessionStatistics {
 
     /**
      * Returns the session with the specified identifier, or null if none exists.
@@ -84,11 +91,17 @@ public interface SessionManager<L, B extends Batch> extends IdentifierFactory<St
      * @param id a unique session identifier
      * @return a read-only session or null if none exists
      */
-    ImmutableSession viewSession(String id);
+    ImmutableSession readSession(String id);
 
     /**
      * The maximum duration of time to wait for the completion of requests before the session manager can be stopped.
      * @return a duration
      */
     Duration getStopTimeout();
+
+    /**
+     * Returns the identifier factory of this session manager.
+     * @return an identifier factory
+     */
+    Supplier<String> getIdentifierFactory();
 }

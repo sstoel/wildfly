@@ -24,7 +24,7 @@ package org.jboss.as.ejb3.deployment.processors.merging;
 
 import java.util.Set;
 
-import javax.ejb.DependsOn;
+import jakarta.ejb.DependsOn;
 
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.ComponentDescription;
@@ -65,11 +65,10 @@ public class EjbDependsOnMergingProcessor extends AbstractMergingProcessor<EJBCo
 
         //we ony care about annotations on the actual class
         final ClassAnnotationInformation<DependsOn, String[]> dependsOnClassAnnotationInformation = classDescription.getAnnotationInformation(DependsOn.class);
-        if (dependsOnClassAnnotationInformation != null) {
-            if (!dependsOnClassAnnotationInformation.getClassLevelAnnotations().isEmpty()) {
-                final String[] annotationValues = dependsOnClassAnnotationInformation.getClassLevelAnnotations().get(0);
-                setupDependencies(description, applicationDescription, deploymentRoot, annotationValues);
-            }
+        if (dependsOnClassAnnotationInformation != null
+                && !dependsOnClassAnnotationInformation.getClassLevelAnnotations().isEmpty()) {
+            final String[] annotationValues = dependsOnClassAnnotationInformation.getClassLevelAnnotations().get(0);
+            setupDependencies(description, applicationDescription, deploymentRoot, annotationValues);
         }
     }
 

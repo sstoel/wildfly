@@ -29,7 +29,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.jboss.arquillian.container.test.api.ContainerController;
@@ -108,12 +108,12 @@ public class DatasourceMaxPoolAttributeTestCase extends JcaMgmtBase {
                 "org.jboss.as.connector," +
                 "org.jboss.as.controller," +
                 "org.jboss.dmr," +
-                "org.jboss.as.cli," +
+                // Needed for RemotingPermission class if security manager is enabled
+                (System.getProperty("security.manager") == null ? "" : "org.jboss.remoting,") +
                 "org.jboss.staxmapper," +
                 "org.jboss.ironjacamar.api," +
                 "org.jboss.ironjacamar.impl," +
-                "org.jboss.ironjacamar.jdbcadapters," +
-                "org.jboss.remoting3\n"), "MANIFEST.MF");
+                "org.jboss.ironjacamar.jdbcadapters\n"), "MANIFEST.MF");
 
         jar.addAsManifestResource(createPermissionsXmlAsset(
                 new RuntimePermission("accessDeclaredMembers"),

@@ -26,7 +26,7 @@ import org.jboss.as.ejb3.timerservice.schedule.value.ScheduleExpressionType;
 import java.util.Calendar;
 
 /**
- * Represents in the year value part constructed out of a {@link javax.ejb.ScheduleExpression#getYear()}
+ * Represents in the year value part constructed out of a {@link jakarta.ejb.ScheduleExpression#getYear()}
  * <p/>
  * <p>
  * A {@link Year} can hold only {@link Integer} as its value. The only exception to this being the wildcard (*)
@@ -45,12 +45,12 @@ import java.util.Calendar;
  */
 public class Year extends IntegerBasedExpression {
 
-    // The EJB3. timer service spec says that the year
+    // The Enterprise Beans 3. timer service spec says that the year
     // value can be any 4 digit value.
     // Hence the max value 9999
     public static final Integer MAX_YEAR = 9999;
 
-    // TODO: think about this min value. The EJB3.1 timerservice spec
+    // TODO: think about this min value. The Enterprise Beans 3.1 timerservice spec
     // says, that the year value can be any 4 digit value.
     // That's the reason we have set it to 1000 here.
     public static final Integer MIN_YEAR = 1000;

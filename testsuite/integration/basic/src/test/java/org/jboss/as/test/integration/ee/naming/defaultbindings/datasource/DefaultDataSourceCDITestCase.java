@@ -30,11 +30,11 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 /**
  *
- * Test for EE's default data source on a CDI Bean
+ * Test for EE's default data source on a Jakarta Contexts and Dependency Injection Bean
  *
  * @author Eduardo Martins
  */
@@ -45,7 +45,7 @@ public class DefaultDataSourceCDITestCase {
     public static Archive<?> deploy() {
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class);
         jar.addClasses(DefaultDataSourceCDITestCase.class, DefaultDataSourceTestCDIBean.class);
-        jar.addAsManifestResource(new StringAsset(""), "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         return jar;
     }
 

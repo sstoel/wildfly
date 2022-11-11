@@ -32,9 +32,7 @@ import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.test.categories.CommonCriteria;
-import org.jboss.as.test.integration.web.security.WebTestsSecurityDomainSetup;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
@@ -49,7 +47,6 @@ import org.junit.runner.RunWith;
  */
 @RunWith(Arquillian.class)
 @RunAsClient
-@ServerSetup(WebTestsSecurityDomainSetup.class)
 @Category(CommonCriteria.class)
 public class WebSecurityRunAsTestCase {
 
@@ -60,9 +57,6 @@ public class WebSecurityRunAsTestCase {
 
         war.addAsWebInfResource(WebSecurityRunAsTestCase.class.getPackage(), "jboss-web.xml", "jboss-web.xml");
         war.addAsWebInfResource(WebSecurityRunAsTestCase.class.getPackage(), "web.xml", "web.xml");
-
-        war.addAsResource(WebSecurityRunAsTestCase.class.getPackage(), "users.properties", "users.properties");
-        war.addAsResource(WebSecurityRunAsTestCase.class.getPackage(), "roles.properties", "roles.properties");
 
         return war;
     }

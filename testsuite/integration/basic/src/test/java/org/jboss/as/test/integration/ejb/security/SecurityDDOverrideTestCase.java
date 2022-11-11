@@ -24,7 +24,7 @@ package org.jboss.as.test.integration.ejb.security;
 
 import java.util.concurrent.Callable;
 
-import javax.ejb.EJBAccessException;
+import jakarta.ejb.EJBAccessException;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 
@@ -64,8 +64,6 @@ public class SecurityDDOverrideTestCase {
                 .addPackage(PartialDDBean.class.getPackage())
                 .addClass(Util.class)
                 .addClasses(AbstractSecurityDomainSetup.class, EjbSecurityDomainSetup.class)
-                .addAsResource(currentPackage, "users.properties", "users.properties")
-                .addAsResource(currentPackage, "roles.properties", "roles.properties")
                 .addAsManifestResource(currentPackage, "partial-ejb-jar.xml", "ejb-jar.xml")
                 .addAsManifestResource(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.as.controller-client,org.jboss.dmr\n"), "MANIFEST.MF")
                 .addAsManifestResource(currentPackage, "permissions.xml", "permissions.xml")

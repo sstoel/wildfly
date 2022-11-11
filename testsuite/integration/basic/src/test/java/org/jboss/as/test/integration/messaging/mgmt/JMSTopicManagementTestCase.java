@@ -22,7 +22,7 @@
 
 package org.jboss.as.test.integration.messaging.mgmt;
 
-import static javax.jms.Session.AUTO_ACKNOWLEDGE;
+import static jakarta.jms.Session.AUTO_ACKNOWLEDGE;
 import static org.jboss.as.controller.client.helpers.ClientConstants.NAME;
 import static org.jboss.as.controller.client.helpers.ClientConstants.VALUE;
 import static org.jboss.as.controller.client.helpers.ClientConstants.WRITE_ATTRIBUTE_OPERATION;
@@ -30,13 +30,13 @@ import static org.jboss.as.controller.operations.common.Util.getEmptyOperation;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.MessageProducer;
-import javax.jms.Session;
-import javax.jms.TextMessage;
-import javax.jms.Topic;
-import javax.jms.TopicSubscriber;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
+import jakarta.jms.Topic;
+import jakarta.jms.TopicSubscriber;
 import javax.naming.Context;
 
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -58,7 +58,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests the management API for JMS topics.
+ * Tests the management API for Jakarta Messaging topics.
  *
  * @author Brian Stansberry (c) 2011 Red Hat Inc.
  */
@@ -422,6 +422,56 @@ public class JMSTopicManagementTestCase {
         // been removed from the topic
         consumerSession.createDurableSubscriber(topic, subscriptionName);
 
+        result = execute(operation, true);
+        assertTrue(result.isDefined());
+        Assert.assertEquals(0, result.asInt());
+    }
+
+    @Test
+    public void testPauseAndResume() throws Exception {
+
+        final ModelNode readAttr = getTopicOperation("read-attribute");
+        readAttr.get("name").set("paused");
+
+        ModelNode result = execute(readAttr, true);
+        Assert.assertTrue(result.isDefined());
+        Assert.assertFalse(result.asBoolean());
+
+        result = execute(getTopicOperation("pause"), true);
+        Assert.assertFalse(result.isDefined());
+
+        result = execute(readAttr, true);
+        Assert.assertTrue(result.isDefined());
+        Assert.assertTrue(result.asBoolean());
+
+        final String subscriptionName = "pauseJMSTopic";
+        TopicSubscriber consumer = consumerSession.createDurableSubscriber(topic, subscriptionName);
+        MessageProducer producer = session.createProducer(topic);
+        producer.send(session.createTextMessage("A"));
+
+        TextMessage message = (TextMessage)consumer.receive(TimeoutUtil.adjust(500));
+        Assert.assertNull("The message was received by the consumer, this is wrong as the connection is paused", message);
+        ModelNode operation = getTopicOperation("count-messages-for-subscription");
+        operation.get("client-id").set(consumerConn.getClientID());
+        operation.get("subscription-name").set(subscriptionName);
+        result = execute(operation, true);
+        assertTrue(result.isDefined());
+        Assert.assertEquals(1, result.asInt());
+
+        result = execute(getTopicOperation("resume"), true);
+        Assert.assertFalse(result.isDefined());
+
+        result = execute(readAttr, true);
+        Assert.assertTrue(result.isDefined());
+        Assert.assertFalse(result.asBoolean());
+
+        message = (TextMessage)consumer.receive(TimeoutUtil.adjust(500));
+        Assert.assertNotNull("The message was not received by the consumer, this is wrong as the connection is resumed", message);
+        Assert.assertEquals("A", message.getText());
+        Thread.sleep(TimeoutUtil.adjust(500));
+        operation = getTopicOperation("count-messages-for-subscription");
+        operation.get("client-id").set(consumerConn.getClientID());
+        operation.get("subscription-name").set(subscriptionName);
         result = execute(operation, true);
         assertTrue(result.isDefined());
         Assert.assertEquals(0, result.asInt());

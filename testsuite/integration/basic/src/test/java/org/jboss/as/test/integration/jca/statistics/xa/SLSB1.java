@@ -21,15 +21,15 @@
  */
 package org.jboss.as.test.integration.jca.statistics.xa;
 
-import javax.annotation.Resource;
-import javax.ejb.Stateless;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
-import javax.inject.Inject;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.transaction.TransactionManager;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.UserTransaction;
 
 import org.jboss.as.test.integration.transactions.TransactionCheckerSingleton;
 import org.jboss.as.test.integration.transactions.TxTestUtil;
@@ -43,6 +43,8 @@ public class SLSB1 implements SLSB {
 
     @PersistenceContext(unitName = "testxapu")
     private EntityManager em;
+
+
 
     @Resource(name = "java:jboss/TransactionManager")
     private TransactionManager tm;
@@ -63,9 +65,12 @@ public class SLSB1 implements SLSB {
 
     @Override
     public void rollback() throws Exception {
+
         tx.begin();
         TxTestUtil.enlistTestXAResource(tm.getTransaction(), checker);
+
         em.persist(new TestEntity());
+        em.flush();
         tx.rollback();
     }
 

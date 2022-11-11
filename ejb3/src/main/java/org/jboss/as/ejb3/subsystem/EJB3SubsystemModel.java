@@ -43,6 +43,7 @@ public interface EJB3SubsystemModel {
     String IIOP = "iiop";
 
     String CONNECTOR_REF = "connector-ref";
+    String CONNECTORS = "connectors";
     String IN_VM_REMOTE_INTERFACE_INVOCATION_PASS_BY_VALUE = "in-vm-remote-interface-invocation-pass-by-value";
 
     String DATASOURCE_JNDI_NAME = "datasource-jndi-name";
@@ -84,7 +85,10 @@ public interface EJB3SubsystemModel {
 
     String DEFAULT_SINGLETON_BEAN_ACCESS_TIMEOUT = "default-singleton-bean-access-timeout";
     String DEFAULT_STATEFUL_BEAN_ACCESS_TIMEOUT = "default-stateful-bean-access-timeout";
+    String DEFAULT_STATEFUL_BEAN_SESSION_TIMEOUT = "default-stateful-bean-session-timeout";
     String DEFAULT_DATA_STORE = "default-data-store";
+    String DEFAULT_PERSISTENT_TIMER_MANAGEMENT = "default-persistent-timer-management";
+    String DEFAULT_TRANSIENT_TIMER_MANAGEMENT = "default-transient-timer-management";
 
     String REMOTE = "remote";
     String SERVICE = "service";
@@ -96,6 +100,7 @@ public interface EJB3SubsystemModel {
     String OUTBOUND_CONNECTION_REF= "outbound-connection-ref";
     String CONNECT_TIMEOUT= "connect-timeout";
     String CLIENT_MAPPINGS_CLUSTER_NAME = "cluster";
+    String REMOTE_HTTP_CONNECTION = "remote-http-connection";
 
     String TIMER = "timer";
     String TIMER_SERVICE = "timer-service";
@@ -106,8 +111,11 @@ public interface EJB3SubsystemModel {
     String USE_QUALIFIED_NAME = "use-qualified-name";
     String ENABLE_BY_DEFAULT = "enable-by-default";
 
-    String CACHE = "cache";
-    String PASSIVATION_STORE = "passivation-store";
+    @Deprecated String CACHE = "cache";
+    String SIMPLE_CACHE = "simple-cache";
+    String DISTRIBUTABLE_CACHE = "distributable-cache";
+    String BEAN_MANAGEMENT = "bean-management";
+    @Deprecated String PASSIVATION_STORE = "passivation-store";
 
     String MDB_DELIVERY_GROUP="mdb-delivery-group";
     String MDB_DELVIERY_GROUP_ACTIVE = "active";
@@ -146,8 +154,14 @@ public interface EJB3SubsystemModel {
     PathElement IIOP_PATH = PathElement.pathElement(SERVICE, IIOP);
     PathElement FILE_DATA_STORE_PATH = PathElement.pathElement(FILE_DATA_STORE);
     PathElement DATABASE_DATA_STORE_PATH = PathElement.pathElement(DATABASE_DATA_STORE);
+    PathElement MDB_DELIVERY_GROUP_PATH = PathElement.pathElement(MDB_DELIVERY_GROUP);
+    PathElement STRICT_MAX_BEAN_INSTANCE_POOL_PATH = PathElement.pathElement(STRICT_MAX_BEAN_INSTANCE_POOL);
+    PathElement REMOTING_PROFILE_PATH = PathElement.pathElement(REMOTING_PROFILE);
+    PathElement SIMPLE_CACHE_PATH = PathElement.pathElement(SIMPLE_CACHE);
+    PathElement DISTRIBUTABLE_CACHE_PATH = PathElement.pathElement(DISTRIBUTABLE_CACHE);
 
-    ServiceName BASE_THREAD_POOL_SERVICE_NAME = ThreadsServices.EXECUTOR.append("ejb3");
+    String BASE_EJB_THREAD_POOL_NAME = "ejb3";
+    ServiceName BASE_THREAD_POOL_SERVICE_NAME = ThreadsServices.EXECUTOR.append(BASE_EJB_THREAD_POOL_NAME);
     String EXECUTE_IN_WORKER = "execute-in-worker";
 
     // Elytron integration
@@ -157,15 +171,20 @@ public interface EJB3SubsystemModel {
     String REFERENCING_DEPLOYMENTS = "referencing-deployments";
     String SECURITY_DOMAIN = "security-domain";
     String ENABLE_JACC = "enable-jacc";
+    String LEGACY_COMPLIANT_PRINCIPAL_PROPAGATION = "legacy-compliant-principal-propagation";
 
     PathElement IDENTITY_PATH = PathElement.pathElement(SERVICE, IDENTITY);
 
     //Server interceptors
     String SERVER_INTERCEPTOR = "server-interceptor";
     String SERVER_INTERCEPTORS = "server-interceptors";
+    //Client interceptors
+    String CLIENT_INTERCEPTOR = "client-interceptor";
+    String CLIENT_INTERCEPTORS = "client-interceptors";
     String MODULE = "module";
     String CLASS = "class";
     String BINDING = "binding";
 
+    String URI = "uri";
 
 }

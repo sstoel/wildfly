@@ -26,12 +26,12 @@ import org.jboss.as.ee.component.ComponentInstance;
 import org.jboss.as.ejb3.component.EJBComponent;
 import org.jboss.invocation.InterceptorContext;
 
-import javax.ejb.ConcurrentAccessException;
-import javax.ejb.ConcurrentAccessTimeoutException;
+import jakarta.ejb.ConcurrentAccessException;
+import jakarta.ejb.ConcurrentAccessTimeoutException;
 import java.rmi.RemoteException;
 
 /**
- * A {@link ComponentInstance} associating interceptor for EJB components (SLSB and message driven) which
+ * A {@link ComponentInstance} associating interceptor for Jakarta Enterprise Beans components (SLSB and message driven) which
  * have pooling disabled. Upon each {@link #processInvocation(org.jboss.invocation.InterceptorContext) invocation}
  * this interceptor creates a new {@link ComponentInstance} and associates it with the invocation. It then
  * {@link org.jboss.as.ee.component.ComponentInstance#destroy() destroys} the instance upon method completion.

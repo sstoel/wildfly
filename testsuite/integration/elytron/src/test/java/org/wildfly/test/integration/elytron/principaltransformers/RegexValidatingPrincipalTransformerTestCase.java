@@ -23,8 +23,8 @@ package org.wildfly.test.integration.elytron.principaltransformers;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -148,7 +148,7 @@ public class RegexValidatingPrincipalTransformerTestCase {
                 domainNotMatch = prepareSingleConfiguration(cli, ELYTRON_SECURITY_NOT_MATCH, PRINCIPAL_TRANSFORMER_NOT_MATCH, DEP_SECURITY_DOMAIN_NOT_MATCH,
                         "/subsystem=elytron/regex-validating-principal-transformer=%s:add(pattern=user\\\\d+,match=false)");
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         @Override
@@ -157,7 +157,7 @@ public class RegexValidatingPrincipalTransformerTestCase {
                 removeSingleConfiguration(cli, ELYTRON_SECURITY_NOT_MATCH, PRINCIPAL_TRANSFORMER_NOT_MATCH, DEP_SECURITY_DOMAIN_NOT_MATCH, domainNotMatch);
                 removeSingleConfiguration(cli, ELYTRON_SECURITY_MATCH, PRINCIPAL_TRANSFORMER_MATCH, DEP_SECURITY_DOMAIN_MATCH, domainMatch);
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         private PropertyFileBasedDomain prepareSingleConfiguration(CLIWrapper cli, String elytronName, String transformerName,

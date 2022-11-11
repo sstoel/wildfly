@@ -2,7 +2,7 @@
 = Class Loading in WildFly
 
 
-Since JBoss AS 7, Class loading is considerably different to previous
+Since JBoss AS 7, Class loading is considerably different from previous
 versions of JBoss AS. Class loading is based on the
 <<Class_Loading_in_WildFly,MODULES>> project. Instead of the more familiar
 hierarchical class loading environment, WildFly's class loading is based
@@ -28,10 +28,10 @@ of how to add an explicit module dependency are explained below.
 Even though in WildFly modules are isolated by default, as part of the
 deployment process some dependencies on modules defined by the
 application server are set up for you automatically. For instance, if
-you are deploying a Java EE application a dependency on the Java EE
+you are deploying a Jakarta EE application a dependency on the Java EE
 API's will be added to your module automatically. Similarly if your
 module contains a beans.xml file a dependency on
-http://seamframework.org/Weld[Weld]will be added automatically, along
+http://seamframework.org/Weld[Weld] will be added automatically, along
 with any supporting modules that weld needs to operate.
 
 For a complete list of the automatic dependencies that are added, please
@@ -53,7 +53,7 @@ situation from occurring.
 In order of highest priority to lowest priority
 
 1.  System Dependencies - These are dependencies that are added to the
-module automatically by the container, including the Java EE api's.
+module automatically by the container, including the Jakarta EE api's.
 2.  User Dependencies - These are dependencies that are added through
 `jboss-deployment-structure.xml` or through the `Dependencies:` manifest
 entry.
@@ -115,7 +115,7 @@ vice-versa).
 
 The ear-subdeployments-isolated element value has no effect on the
 isolated classloader of the .war file(s). i.e. irrespective of whether
-this flag is set to true or false, the .war within a .ear will have a
+this flag is set to true or false, the .war within a .ear will have an
 isolated classloader and other sub-deployments within that .ear will not
 be able to access classes from that .war. This is as per spec.
 
@@ -128,7 +128,7 @@ Portability
 
 [TIP]
 
-The Java EE specification says that portable applications should not
+The Jakarta EE specification says that portable applications should not
 rely on sub deployments having access to other sub deployments unless an
 explicit Class-Path entry is set in the MANIFEST.MF. So portable
 applications should always use Class-Path entry to explicitly state
@@ -161,7 +161,7 @@ module that depends on this module will also get access to the
 dependency.
 * `services` By default items in META-INF of a dependency are not
 accessible, this makes items from `META-INF/services` accessible so
-http://download.oracle.com/javase/6/docs/api/java/util/ServiceLoader.html[services]in
+http://download.oracle.com/javase/6/docs/api/java/util/ServiceLoader.html[services] in
 the modules can be loaded.
 * `optional` If this is specified the deployment will not fail if the
 module is not available.
@@ -171,12 +171,11 @@ available). In general this will not cause any deployment descriptors in
 META-INF to be processed, with the exception of `beans.xml`. If a
 `beans.xml` file is present this module will be scanned by Weld and any
 resulting beans will be available to the application.
-* `annotations` If a jandex index has be created for the module these
+* `annotations` If a Jandex index has be created for the module these
 annotations will be merged into the deployments annotation index. The
-https://github.com/jbossas/jandex[Jandex] index can be generated using
-the
-https://github.com/jbossas/jandex/blob/master/src/main/java/org/jboss/jandex/JandexAntTask.java[Jandex
-ant task], and must be named `META-INF/jandex.idx`. Note that it is not
+https://smallrye.io/jandex[Jandex] index can be generated using
+the Jandex Ant task or the Jandex Maven plugin, and must be named
+`META-INF/jandex.idx`. Note that it is not
 necessary to break open the jar being indexed to add this to the modules
 class path, a better approach is to create a jar containing just this
 index, and adding it as an additional resource root in the `module.xml`
@@ -257,6 +256,11 @@ following XML:
 
 Note that the `slot` field is optional and defaults to `main`.
 
+[[global-directory]]
+== Global Directory
+
+The EE subsystem allows the configuration of a global directory, which represents a directory tree scanned automatically to include .jar files and resources as a single additional dependency. This dependency is added as a system dependency to all deployed application. See link:Admin_Guide{outfilesuffix}#global-directory[Subsystem EE Global Directory] to get more information about how to set up a global directory.
+
 [[jboss-deployment-structure-file]]
 == JBoss Deployment Structure File
 
@@ -287,7 +291,7 @@ ear deployment is as follows:
      <!-- exclude-subsystem prevents a subsystems deployment unit processors running on a deployment -->
      <!-- which gives basically the same effect as removing the subsystem, but it only affects single deployment -->
      <exclude-subsystems>
-        <subsystem name="resteasy" />
+        <subsystem name="logging" />
     </exclude-subsystems>
     <!-- Exclusions allow you to prevent the server from automatically adding some dependencies     -->
     <exclusions>
@@ -349,7 +353,7 @@ ear deployment is as follows:
 [IMPORTANT]
 
 The xsd for jboss-deployment-structure.xml is available at
-https://github.com/wildfly/wildfly-core/blob/master/server/src/main/resources/schema/jboss-deployment-structure-1_2.xsd[https://github.com/wildfly/wildfly/blob/master/build/src/main/resources/docs/schema/jboss-deployment-structure-1_2.xsd]
+https://github.com/wildfly/wildfly-core/blob/master/server/src/main/resources/schema/jboss-deployment-structure-1_2.xsd[https://github.com/wildfly/wildfly-core/blob/main/server/src/main/resources/schema/jboss-deployment-structure-1_2.xsd]
 
 [[accessing-jdk-classes]]
 == Accessing JDK classes
@@ -391,7 +395,7 @@ module's module.xml file can tell you:
 
 [source,xml,options="nowrap"]
 ----
-<module xmlns="urn:jboss:module:1.5" name="com.google.guava">
+<module xmlns="urn:jboss:module:1.9" name="com.google.guava">
     <properties>
         <property name="jboss.api" value="private"/>
     </properties>
@@ -454,7 +458,7 @@ deployment.
 [[how-to-list-the-module-dependencies-of-a-deployed-application]]
 == How to list the module dependencies of a deployed application
 
-In Wildfly it is possible to list the module dependencies added by the container to your deployed application. This task can be achieved via the command line interface, where specific operations are available to list the module dependencies for deployments and ear-subdeployments.
+In WildFly it is possible to list the module dependencies added by the container to your deployed application. This task can be achieved via the command line interface, where specific operations are available to list the module dependencies for deployments and ear-subdeployments.
 
 You can list the module dependencies of a deployment using the _list-modules_ operation as below:
 
@@ -470,16 +474,16 @@ In case of ear-subdeployments, the _list-modules_ operation is also available un
 [standalone@localhost:9990 /] /deployment=test-application.ear/subdeployment=test-application.war:list-modules
 ----
 
-If you are running Wildfly in domain mode, this operation is available via the server resource at the host level:
+If you are running WildFly in domain mode, this operation is available via the server resource at the host level:
 
 [source,options="nowrap"]
 ----
-[domain@localhost:9990 /] /host=master/server=server-one/deployment=test-application.war:list-modules
+[domain@localhost:9990 /] /host=primary/server=server-one/deployment=test-application.war:list-modules
 ----
 
 [source,options="nowrap"]
 ----
-[domain@localhost:9990 /] /host=master/server=server-one/deployment=test-application.ear/subdeployment=test-application.war:list-modules
+[domain@localhost:9990 /] /host=primary/server=server-one/deployment=test-application.ear/subdeployment=test-application.war:list-modules
 ----
 
 By default, the _list-modules_ operation shows the list of dependencies in a compact view, including only the module name. You can control this output using the attribute _verbose=[false*|true]_ to enable/disable a detailed response.
@@ -524,7 +528,7 @@ The following output shows an example of a detailed view:
                   "import-services" => false
               },
               {
-                  "name" => "org.hibernate:4.1",
+                  "name" => "org.hibernate:5.3",
                   "optional" => false,
                   "export" => false,
                   "import-services" => false

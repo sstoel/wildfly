@@ -24,10 +24,10 @@ package org.wildfly.clustering.ee.cache.tx;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.Transaction;
+import jakarta.transaction.TransactionManager;
 
 import org.junit.After;
 import org.junit.Test;
@@ -60,7 +60,7 @@ public class TransactionalBatcherTestCase {
         TransactionBatch result = this.batcher.createBatch();
 
         verify(existingBatch).interpose();
-        verifyZeroInteractions(this.tm);
+        verifyNoInteractions(this.tm);
 
         assertSame(existingBatch, result);
     }
@@ -289,10 +289,10 @@ public class TransactionalBatcherTestCase {
         TransactionalBatcher.setCurrentBatch(batch);
 
         try (BatchContext context = this.batcher.resumeBatch(null)) {
-            verifyZeroInteractions(this.tm);
+            verifyNoInteractions(this.tm);
             assertNull(TransactionalBatcher.getCurrentBatch());
         }
-        verifyZeroInteractions(this.tm);
+        verifyNoInteractions(this.tm);
         assertSame(batch, TransactionalBatcher.getCurrentBatch());
     }
 
@@ -303,10 +303,10 @@ public class TransactionalBatcherTestCase {
         TransactionBatch batch = mock(TransactionBatch.class);
 
         try (BatchContext context = this.batcher.resumeBatch(batch)) {
-            verifyZeroInteractions(this.tm);
+            verifyNoInteractions(this.tm);
             assertSame(batch, TransactionalBatcher.getCurrentBatch());
         }
-        verifyZeroInteractions(this.tm);
+        verifyNoInteractions(this.tm);
         assertSame(existingBatch, TransactionalBatcher.getCurrentBatch());
     }
 

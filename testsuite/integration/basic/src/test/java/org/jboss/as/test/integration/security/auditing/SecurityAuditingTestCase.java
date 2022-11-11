@@ -22,10 +22,10 @@
 
 package org.jboss.as.test.integration.security.auditing;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.UNDEFINE_ATTRIBUTE_OPERATION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.WRITE_ATTRIBUTE_OPERATION;
 import static org.junit.Assert.assertTrue;
 
@@ -43,16 +43,16 @@ import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
+import org.jboss.as.arquillian.api.ServerSetupTask;
 import org.jboss.as.arquillian.container.ManagementClient;
+import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.test.integration.ejb.security.AnnSBTest;
 import org.jboss.as.test.integration.ejb.security.authorization.SingleMethodsAnnOnlyCheckSFSB;
-import org.jboss.as.test.integration.management.base.AbstractMgmtServerSetupTask;
-import org.jboss.as.test.integration.security.common.AbstractSecurityDomainsServerSetupTask;
+import org.jboss.as.test.integration.management.base.AbstractMgmtTestBase;
 import org.jboss.as.test.integration.security.common.Utils;
-import org.jboss.as.test.integration.security.common.config.SecurityDomain;
-import org.jboss.as.test.integration.security.common.config.SecurityModule;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.ServerSnapshot;
+import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.Archive;
@@ -61,6 +61,8 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.security.common.elytron.ElytronDomainSetup;
+import org.wildfly.test.security.common.elytron.ServletElytronDomainSetup;
 
 /**
  * This class tests Security auditing functionality
@@ -69,72 +71,91 @@ import org.junit.runner.RunWith;
  */
 @RunWith(Arquillian.class)
 @RunAsClient
-@ServerSetup({SecurityAuditingTestCase.SecurityDomainsSetup.class,
-        SecurityAuditingTestCase.SecurityAuditingTestCaseSetup.class})
+@ServerSetup({SecurityAuditingTestCase.SecurityAuditingTestCaseSetup.class})
 public class SecurityAuditingTestCase extends AnnSBTest {
 
     private static final Logger log = Logger.getLogger(testClass());
 
     private static File auditLog = new File(System.getProperty("jboss.home", null), "standalone" + File.separator + "log" + File.separator + "audit.log");
 
-    static class SecurityAuditingTestCaseSetup extends AbstractMgmtServerSetupTask {
+    static class SecurityAuditingTestCaseSetup extends AbstractMgmtTestBase implements ServerSetupTask {
 
         /**
          * The LOGGING
          */
         private static final String LOGGING = "logging";
+        private static final String SECURITY_DOMAIN_NAME = "form-auth";
 
         private AutoCloseable snapshot;
+        private ElytronDomainSetup elytronDomainSetup;
+        private ServletElytronDomainSetup servletElytronDomainSetup;
+        private ManagementClient managementClient;
+
+        protected static String getUsersFile() {
+            return new File(SecurityAuditingTestCase.class.getResource("form-auth/users.properties").getFile()).getAbsolutePath();
+        }
+
+        protected static String getGroupsFile() {
+            return new File(SecurityAuditingTestCase.class.getResource("form-auth/roles.properties").getFile()).getAbsolutePath();
+        }
 
         @Override
-        protected void doSetup(final ManagementClient managementClient) throws Exception {
+        public void setup(ManagementClient managementClient, String containerId) throws Exception {
+            this.managementClient = managementClient;
             snapshot = ServerSnapshot.takeSnapshot(managementClient);
             final List<ModelNode> updates = new ArrayList<ModelNode>();
 
             ModelNode op = new ModelNode();
-            op.get(OP).set(ADD);
-            op.get(OP_ADDR).add(SUBSYSTEM, LOGGING);
-            op.get(OP_ADDR).add("periodic-rotating-file-handler", "AUDIT");
-            op.get("level").set("TRACE");
-            op.get("append").set("true");
-            op.get("suffix").set(".yyyy-MM-dd");
-            ModelNode file = new ModelNode();
-            file.get("relative-to").set("jboss.server.log.dir");
-            file.get("path").set("audit.log");
-            op.get("file").set(file);
-            op.get("formatter").set("%d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%E%n");
-            updates.add(op);
+            elytronDomainSetup = new ElytronDomainSetup(getUsersFile(), getGroupsFile(), SECURITY_DOMAIN_NAME);
+            servletElytronDomainSetup = new ServletElytronDomainSetup(SECURITY_DOMAIN_NAME, false);
 
+            elytronDomainSetup.setup(managementClient, containerId);
+            servletElytronDomainSetup.setup(managementClient, containerId);
+
+            // /subsystem=elytron/security-domain=form-auth:write-attribute(name=security-event-listener, value=local-audit)
             op = new ModelNode();
-            op.get(OP).set(ADD);
-            op.get(OP_ADDR).add(SUBSYSTEM, LOGGING);
-            op.get(OP_ADDR).add("logger", "org.jboss.security.audit");
-            op.get("level").set("TRACE");
-            ModelNode list = op.get("handlers");
-            list.add("AUDIT");
+            op.get(OP).set(WRITE_ATTRIBUTE_OPERATION);
+            op.get(OP_ADDR).add(SUBSYSTEM, "elytron");
+            op.get(OP_ADDR).add("security-domain", SECURITY_DOMAIN_NAME);
+            op.get("name").set("security-event-listener");
+            op.get("value").set("local-audit");
             updates.add(op);
 
-            if (System.getProperty("elytron") != null) {
-                // /subsystem=elytron/security-domain=ApplicationDomain:write-attribute(name=security-event-listener, value=local-audit)
-                op = new ModelNode();
-                op.get(OP).set(WRITE_ATTRIBUTE_OPERATION);
-                op.get(OP_ADDR).add(SUBSYSTEM, "elytron");
-                op.get(OP_ADDR).add("security-domain", "ApplicationDomain");
-                op.get("name").set("security-event-listener");
-                op.get("value").set("local-audit");
-                updates.add(op);
-            }
+            // /subsystem=elytron/security-domain=ApplicationDomain:write-attribute(name=security-event-listener, value=local-audit)
+            op = new ModelNode();
+            op.get(OP).set(WRITE_ATTRIBUTE_OPERATION);
+            op.get(OP_ADDR).add(SUBSYSTEM, "elytron");
+            op.get(OP_ADDR).add("security-domain", "ApplicationDomain");
+            op.get("name").set("security-event-listener");
+            op.get("value").set("local-audit");
+            updates.add(op);
 
             executeOperations(updates);
 
-            if (System.getProperty("elytron") != null) {
-                ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), 50000);
-            }
+            ServerReload.executeReloadAndWaitForCompletion(managementClient, 50000);
         }
 
         @Override
         public void tearDown(final ManagementClient managementClient, final String containerId) throws Exception {
             snapshot.close();
+
+            // /subsystem=elytron/security-domain=ApplicationDomain:undefine-attribute(name=security-event-listener)
+            final List<ModelNode> updates = new ArrayList<ModelNode>();
+            ModelNode op = new ModelNode();
+            op.get(OP).set(UNDEFINE_ATTRIBUTE_OPERATION);
+            op.get(OP_ADDR).add(SUBSYSTEM, "elytron");
+            op.get(OP_ADDR).add("security-domain", SECURITY_DOMAIN_NAME);
+            op.get("name").set("security-event-listener");
+            updates.add(op);
+            executeOperations(updates);
+
+            elytronDomainSetup.tearDown(managementClient, containerId);
+            servletElytronDomainSetup.tearDown(managementClient, containerId);
+        }
+
+        @Override
+        protected ModelControllerClient getModelControllerClient() {
+            return managementClient.getControllerClient();
         }
     }
 
@@ -186,8 +207,7 @@ public class SecurityAuditingTestCase extends AnnSBTest {
 
         testSingleMethodAnnotationsUser1Template(MODULE, log, beanClass());
 
-        checkAuditLog(reader, "(TRACE.+org.jboss.security.audit.+Success.+user1|SecurityAuthenticationSuccessfulEvent.*\"name\":\"user1\")");
-
+        checkAuditLog(reader, "SecurityAuthenticationSuccessfulEvent.*\"name\":\"user1\"");
     }
 
     /**
@@ -210,7 +230,7 @@ public class SecurityAuditingTestCase extends AnnSBTest {
 
         Utils.makeCall(url.toString(), "anil", "anil", 200);
 
-        checkAuditLog(reader, "TRACE.+org.jboss.security.audit.+Success.+anil");
+        checkAuditLog(reader, "SecurityAuthenticationSuccessfulEvent.*\"name\":\"anil\"");
     }
 
     private void checkAuditLog(BufferedReader reader, String regex) throws Exception {
@@ -218,7 +238,7 @@ public class SecurityAuditingTestCase extends AnnSBTest {
         Pattern successPattern = Pattern.compile(regex);
 
         // we'll be actively waiting for a given INTERVAL for the record to appear
-        final long INTERVAL = 5000;
+        final long INTERVAL = TimeoutUtil.adjust(5000);
         long startTime = System.currentTimeMillis();
         String line;
         search_for_log:
@@ -239,23 +259,4 @@ public class SecurityAuditingTestCase extends AnnSBTest {
 
     }
 
-    /*
-     * A {@link ServerSetupTask} instance which creates security domains for this test case.
-     *
-     * @author Josef Cacek
-     */
-    static class SecurityDomainsSetup extends AbstractSecurityDomainsServerSetupTask {
-
-        /*
-         * Returns SecurityDomains configuration for this testcase.
-         *
-         * @see org.jboss.as.test.integration.security.common.AbstractSecurityDomainsServerSetupTask#getSecurityDomains()
-         */
-        @Override
-        protected SecurityDomain[] getSecurityDomains() {
-            final SecurityDomain sd = new SecurityDomain.Builder().name("form-auth")
-                    .loginModules(new SecurityModule.Builder().name("UsersRoles").build()).build();
-            return new SecurityDomain[]{sd};
-        }
-    }
 }

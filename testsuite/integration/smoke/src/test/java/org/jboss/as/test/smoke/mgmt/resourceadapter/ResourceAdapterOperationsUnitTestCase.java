@@ -45,8 +45,10 @@ import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.management.base.ContainerResourceMgmtTestBase;
 import org.jboss.as.test.integration.management.jca.ConnectionSecurityType;
+import org.jboss.as.test.integration.management.util.MgmtOperationException;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.dmr.ModelNode;
+import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -63,6 +65,15 @@ import org.junit.runner.RunWith;
 @RunAsClient
 public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmtTestBase {
     private static final Deque<ModelNode> REMOVE_ADDRESSES = new LinkedList<>();
+
+    private static final ModelNode RAR_ADDRESS;
+    static {
+        final ModelNode address = new ModelNode();
+        address.add("subsystem", "resource-adapters");
+        address.add("resource-adapter", "some.rar");
+        address.protect();
+        RAR_ADDRESS = address;
+    }
 
     @BeforeClass
     public static void configureElytron() throws Exception {
@@ -82,6 +93,16 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
         }
     }
 
+    @After
+    public void removeRar() throws IOException {
+        // Don't let failure in one test leave cruft behind to break the rest
+        try {
+            remove(RAR_ADDRESS);
+        } catch (MgmtOperationException ignored) {
+            // ignore -- assume it's the usual case where the test method already removed this
+        }
+    }
+
     @Test
     public void addComplexResourceAdapterWithAppSecurity() throws Exception {
         complexResourceAdapterAddTest(ConnectionSecurityType.APPLICATION, null);
@@ -93,11 +114,6 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
     }
 
     @Test
-    public void addComplexResourceAdapterWithAppSecurity_SecurityDomainRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.APPLICATION, ConnectionSecurityType.SECURITY_DOMAIN);
-    }
-
-    @Test
     public void addComplexResourceAdapterWithAppSecurity_ElytronRecovery() throws Exception {
         complexResourceAdapterAddTest(ConnectionSecurityType.APPLICATION, ConnectionSecurityType.ELYTRON);
     }
@@ -105,60 +121,6 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
     @Test
     public void addComplexResourceAdapterWithAppSecurity_ElytronAuthCtxtRecovery() throws Exception {
         complexResourceAdapterAddTest(ConnectionSecurityType.APPLICATION, ConnectionSecurityType.ELYTRON_AUTHENTICATION_CONTEXT);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomain() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN, ConnectionSecurityType.SECURITY_DOMAIN);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomain_NoRecoverySec() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN, null);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomain_UserPassRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN, ConnectionSecurityType.USER_PASSWORD);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomain_ElytronRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN, ConnectionSecurityType.ELYTRON);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomain_ElytronAuthCtxtRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN, ConnectionSecurityType.ELYTRON_AUTHENTICATION_CONTEXT);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomainAndApp() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN_AND_APPLICATION, null);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomainAndApp_UserPassRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN_AND_APPLICATION,
-                ConnectionSecurityType.USER_PASSWORD);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomainAndApp_SecurityDomainRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN_AND_APPLICATION,
-                ConnectionSecurityType.SECURITY_DOMAIN);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomainAndApp_ElytronRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN_AND_APPLICATION,
-                ConnectionSecurityType.ELYTRON);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithSecurityDomainAndApp_ElytronAuthCtxtRecovery() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.SECURITY_DOMAIN_AND_APPLICATION,
-                ConnectionSecurityType.ELYTRON_AUTHENTICATION_CONTEXT);
     }
 
     @Test
@@ -174,11 +136,6 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
     @Test
     public void addComplexResourceAdapterWithElytron_UserPassRecoverySec() throws Exception {
         complexResourceAdapterAddTest(ConnectionSecurityType.ELYTRON, ConnectionSecurityType.USER_PASSWORD);
-    }
-
-    @Test
-    public void addComplexResourceAdapterWithElytron_SecurityDomainRecoverySec() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.ELYTRON, ConnectionSecurityType.SECURITY_DOMAIN);
     }
 
     @Test
@@ -203,21 +160,13 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
     }
 
     @Test
-    public void addComplexResourceAdapterWithElytronAuthCtxt_SecurityDomainRecoverySec() throws Exception {
-        complexResourceAdapterAddTest(ConnectionSecurityType.ELYTRON_AUTHENTICATION_CONTEXT, ConnectionSecurityType.SECURITY_DOMAIN);
-    }
-
-    @Test
     public void addComplexResourceAdapterWithElytronAuthCtxt_ElytronRecoverySec() throws Exception {
         complexResourceAdapterAddTest(ConnectionSecurityType.ELYTRON_AUTHENTICATION_CONTEXT, ConnectionSecurityType.ELYTRON);
     }
 
     private void complexResourceAdapterAddTest(ConnectionSecurityType connectionSecurityType,
             ConnectionSecurityType connectionRecoverySecurityType) throws Exception {
-        final ModelNode address = new ModelNode();
-        address.add("subsystem", "resource-adapters");
-        address.add("resource-adapter", "some.rar");
-        address.protect();
+        final ModelNode address = RAR_ADDRESS;
 
         Properties params = raCommonProperties();
 
@@ -297,8 +246,8 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
         ModelNode node = findNodeWithProperty(newList, "archive", "some.rar");
         Assert.assertNotNull("There is no archive element:" + newList, node);
         Assert.assertTrue("compare failed, node:"+node.asString()+"\nparams:"+params,checkModelParams(node,params));
-        Assert.assertEquals("beanvalidationgroups element is incorrect:" + node.get("beanvalidationgroups").asString(), node
-                .get("beanvalidationgroups").asString(), "[\"Class0\",\"Class00\"]");
+        Assert.assertEquals("beanvalidationgroups element is incorrect:" + node.get("beanvalidationgroups").asString(),
+                "[\"Class0\",\"Class00\"]", node.get("beanvalidationgroups").asString());
 
         node = findNodeWithProperty(newList, "jndi-name", "java:jboss/name1");
         Assert.assertNotNull("There is no connection jndi-name element:" + newList, node);
@@ -313,22 +262,22 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
         Assert.assertNotNull("There is no admin-object config-property element:" + newList, node);
 
         Map<String, ModelNode> parseChildren = getChildren(node.get("address"));
-        Assert.assertEquals(parseChildren.get("admin-objects").asString(), "Pool2");
-        Assert.assertEquals(parseChildren.get("config-properties").asString(), "Property");
+        Assert.assertEquals("Pool2", parseChildren.get("admin-objects").asString());
+        Assert.assertEquals("Property", parseChildren.get("config-properties").asString());
 
         node = findNodeWithProperty(newList, "value", "A");
         Assert.assertNotNull("There is no resource-adapter config-property element:" + newList, node);
 
         parseChildren = getChildren(node.get("address"));
-        Assert.assertEquals(parseChildren.get("resource-adapter").asString(), "some.rar");
-        Assert.assertEquals(parseChildren.get("config-properties").asString(), "Property");
+        Assert.assertEquals("some.rar", parseChildren.get("resource-adapter").asString());
+        Assert.assertEquals("Property", parseChildren.get("config-properties").asString());
 
         node = findNodeWithProperty(newList, "value", "B");
         Assert.assertNotNull("There is no connection config-property element:" + newList, node);
 
         parseChildren = getChildren(node.get("address"));
-        Assert.assertEquals(parseChildren.get("connection-definitions").asString(), "Pool1");
-        Assert.assertEquals(parseChildren.get("config-properties").asString(), "Property");
+        Assert.assertEquals("Pool1", parseChildren.get("connection-definitions").asString());
+        Assert.assertEquals("Property", parseChildren.get("config-properties").asString());
     }
 
     public List<ModelNode> marshalAndReparseRaResources(final String childType) throws Exception {
@@ -356,11 +305,10 @@ public class ResourceAdapterOperationsUnitTestCase extends ContainerResourceMgmt
         execute(client, op);
     }
 
-    private static ModelNode execute(final ModelControllerClient client, final ModelNode op) throws IOException {
+    private static void execute(final ModelControllerClient client, final ModelNode op) throws IOException {
         final ModelNode result = client.execute(op);
         if (!Operations.isSuccessfulOutcome(result)) {
             throw new RuntimeException(Operations.getFailureDescription(result).asString());
         }
-        return result;
     }
 }

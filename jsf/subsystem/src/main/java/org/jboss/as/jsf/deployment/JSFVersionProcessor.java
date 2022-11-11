@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2012, Red Hat Inc., and individual contributors as indicated
+ * Copyright 2021, Red Hat Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -21,12 +21,15 @@
  */
 package org.jboss.as.jsf.deployment;
 
+import static org.jboss.as.weld.Capabilities.WELD_CAPABILITY_NAME;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.structure.DeploymentType;
 import org.jboss.as.ee.structure.DeploymentTypeMarker;
 import org.jboss.as.server.deployment.Attachments;
@@ -37,6 +40,7 @@ import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.annotation.CompositeIndex;
 import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jboss.as.web.common.WarMetaData;
+import org.jboss.as.weld.WeldCapability;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
@@ -48,7 +52,7 @@ import org.jboss.metadata.web.spec.WebFragmentMetaData;
 import org.jboss.vfs.VirtualFile;
 
 /**
- * Determines the JSF version that will be used by a deployment, and if JSF should be used at all
+ * Determines the Jakarta Server Faces version that will be used by a deployment, and if Jakarta Server Faces should be used at all
  *
  * @author Stuart Douglas
  * @author Stan Silvert
@@ -71,7 +75,8 @@ public class JSFVersionProcessor implements DeploymentUnitProcessor {
             DotName.createSimple("javax.faces.bean.ManagedBean"),
             DotName.createSimple("javax.faces.event.NamedEvent"),
             DotName.createSimple("javax.faces.application.ResourceDependencies"),
-            DotName.createSimple("javax.faces.application.ResourceDependency")};
+            DotName.createSimple("javax.faces.application.ResourceDependency"),
+            DotName.createSimple("javax.faces.annotation.ManagedProperty")};
 
 
     private static final DotName[] JSF_INTERFACES = {
@@ -88,9 +93,9 @@ public class JSFVersionProcessor implements DeploymentUnitProcessor {
 
 
     /**
-     * Create the JSFVersionProcessor and set the default JSF implementation slot.
+     * Create the Jakarta Server Faces VersionProcessor and set the default Jakarta Server Faces implementation slot.
      *
-     * @param jsfSlot The model for the JSF subsystem.
+     * @param jsfSlot The model for the Jakarta Server Faces subsystem.
      */
     public JSFVersionProcessor(String jsfSlot) {
         JSFModuleIdFactory.getInstance().setDefaultSlot(jsfSlot);
@@ -105,6 +110,15 @@ public class JSFVersionProcessor implements DeploymentUnitProcessor {
         if (!shouldJsfActivate(deploymentUnit, metaData)) {
             JsfVersionMarker.setVersion(deploymentUnit, JsfVersionMarker.NONE);
             return;
+        }
+
+        try {
+            // As per section 5.6 of the spec, mark deployment as requiring CDI.
+            deploymentUnit.getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT)
+                    .getCapabilityRuntimeAPI(WELD_CAPABILITY_NAME, WeldCapability.class)
+                    .markAsWeldDeployment(deploymentUnit);
+        } catch (CapabilityServiceSupport.NoSuchCapabilityException e) {
+            throw new DeploymentUnitProcessingException(e);
         }
 
         if (metaData == null) {
@@ -125,10 +139,10 @@ public class JSFVersionProcessor implements DeploymentUnitProcessor {
             }
         }
 
-        //we need to set the JSF version for the whole deployment
+        //we need to set the Jakarta Server Faces version for the whole deployment
         //as otherwise linkage errors can occur
         //if the user does have an ear with two wars with two different
-        //JSF versions they are going to need to use deployment descriptors
+        //Jakarta Server Faces versions they are going to need to use deployment descriptors
         //to manually sort out the dependencies
         for (final ParamValueMetaData param : contextParams) {
             if ((param.getParamName().equals(WAR_BUNDLES_JSF_IMPL_PARAM) &&
@@ -214,9 +228,5 @@ public class JSFVersionProcessor implements DeploymentUnitProcessor {
             }
         }
         return false;
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
     }
 }

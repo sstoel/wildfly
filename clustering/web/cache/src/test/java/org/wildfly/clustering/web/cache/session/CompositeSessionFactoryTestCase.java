@@ -28,8 +28,6 @@ import static org.mockito.Mockito.*;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.servlet.ServletContext;
-
 import org.junit.Test;
 import org.wildfly.clustering.web.LocalContextFactory;
 import org.wildfly.clustering.web.session.ImmutableSession;
@@ -44,10 +42,10 @@ import org.wildfly.clustering.web.session.Session;
  */
 public class CompositeSessionFactoryTestCase {
     private final SessionMetaDataFactory<CompositeSessionMetaDataEntry<Object>> metaDataFactory = mock(SessionMetaDataFactory.class);
-    private final SessionAttributesFactory<Object> attributesFactory = mock(SessionAttributesFactory.class);
+    private final SessionAttributesFactory<Object, Object> attributesFactory = mock(SessionAttributesFactory.class);
     private final LocalContextFactory<Object> localContextFactory = mock(LocalContextFactory.class);
 
-    private final SessionFactory<CompositeSessionMetaDataEntry<Object>, Object, Object> factory = new CompositeSessionFactory<>(this.metaDataFactory, this.attributesFactory, this.localContextFactory);
+    private final SessionFactory<Object, CompositeSessionMetaDataEntry<Object>, Object, Object> factory = new CompositeSessionFactory<>(this.metaDataFactory, this.attributesFactory, this.localContextFactory);
 
     @Test
     public void createValue() {
@@ -102,15 +100,21 @@ public class CompositeSessionFactoryTestCase {
 
         when(this.metaDataFactory.remove(id)).thenReturn(false);
 
-        this.factory.remove(id);
+        boolean removed = this.factory.remove(id);
 
-        verify(this.attributesFactory, never()).remove(id);
+        verify(this.attributesFactory).remove(id);
+
+        assertFalse(removed);
+
+        reset(this.attributesFactory);
 
         when(this.metaDataFactory.remove(id)).thenReturn(true);
 
-        this.factory.remove(id);
+        removed = this.factory.remove(id);
 
         verify(this.attributesFactory).remove(id);
+
+        assertTrue(removed);
     }
 
     @Test
@@ -128,7 +132,7 @@ public class CompositeSessionFactoryTestCase {
         Object attributesValue = new Object();
         InvalidatableSessionMetaData metaData = mock(InvalidatableSessionMetaData.class);
         SessionAttributes attributes = mock(SessionAttributes.class);
-        ServletContext context = mock(ServletContext.class);
+        Object context = new Object();
         String id = "id";
 
         when(entry.getKey()).thenReturn(metaDataValue);
@@ -165,5 +169,13 @@ public class CompositeSessionFactoryTestCase {
         assertSame(id, result.getId());
         assertSame(metaData, result.getMetaData());
         assertSame(attributes, result.getAttributes());
+    }
+
+    @Test
+    public void close() {
+        this.factory.close();
+
+        verify(this.metaDataFactory).close();
+        verify(this.attributesFactory).close();
     }
 }

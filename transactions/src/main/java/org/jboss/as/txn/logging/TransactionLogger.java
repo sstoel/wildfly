@@ -26,8 +26,6 @@ import static org.jboss.logging.Logger.Level.DEBUG;
 import static org.jboss.logging.Logger.Level.ERROR;
 import static org.jboss.logging.Logger.Level.WARN;
 
-import java.io.IOException;
-
 import javax.resource.spi.work.Work;
 import javax.resource.spi.work.WorkCompletedException;
 import javax.transaction.Synchronization;
@@ -173,27 +171,27 @@ public interface TransactionLogger extends BasicLogger {
     @Message(id = 15, value = "Jndi names have to start with java:/ or java:jboss/")
     OperationFailedException jndiNameInvalidFormat();
 
-    @LogMessage(level = WARN)
-    @Message(id = 16, value = "Transaction started in EE Concurrent invocation left open, starting rollback to prevent leak.")
-    void rollbackOfTransactionStartedInEEConcurrentInvocation();
+//    @LogMessage(level = WARN)
+//    @Message(id = 16, value = "Transaction started in EE Concurrent invocation left open, starting rollback to prevent leak.")
+//    void rollbackOfTransactionStartedInEEConcurrentInvocation();
 
-    @LogMessage(level = WARN)
-    @Message(id = 17, value = "Failed to rollback transaction.")
-    void failedToRollbackTransaction(@Cause Throwable cause);
+//    @LogMessage(level = WARN)
+//    @Message(id = 17, value = "Failed to rollback transaction.")
+//    void failedToRollbackTransaction(@Cause Throwable cause);
 
-    @LogMessage(level = WARN)
-    @Message(id = 18, value = "Failed to suspend transaction.")
-    void failedToSuspendTransaction(@Cause Throwable cause);
+//    @LogMessage(level = WARN)
+//    @Message(id = 18, value = "Failed to suspend transaction.")
+//    void failedToSuspendTransaction(@Cause Throwable cause);
 
-    @LogMessage(level = WARN)
-    @Message(id = 19, value = "System error while checking for transaction leak in EE Concurrent invocation.")
-    void systemErrorWhileCheckingForTransactionLeak(@Cause Throwable cause);
+//    @LogMessage(level = WARN)
+//    @Message(id = 19, value = "System error while checking for transaction leak in EE Concurrent invocation.")
+//    void systemErrorWhileCheckingForTransactionLeak(@Cause Throwable cause);
 
-    @Message(id = 20, value = "EE Concurrent ContextHandle serialization must be handled by the factory.")
-    IOException serializationMustBeHandledByTheFactory();
+//    @Message(id = 20, value = "EE Concurrent ContextHandle serialization must be handled by the factory.")
+//    IOException serializationMustBeHandledByTheFactory();
 
-    @Message(id = 21, value = "EE Concurrent's TransactionSetupProviderService not started.")
-    IllegalStateException transactionSetupProviderServiceNotStarted();
+//    @Message(id = 21, value = "EE Concurrent's TransactionSetupProviderService not started.")
+//    IllegalStateException transactionSetupProviderServiceNotStarted();
 
 //    @Message(id = 22, value = "EE Concurrent's TransactionSetupProviderService not installed.")
 //    IllegalStateException transactionSetupProviderServiceNotInstalled();
@@ -212,11 +210,11 @@ public interface TransactionLogger extends BasicLogger {
     void transactionNotFound(Transaction tx);
 
     @LogMessage(level = WARN)
-    @Message(id = 27, value = "The pre-jca synchronization %s associated with tx %s failed during after completion")
+    @Message(id = 27, value = "The pre-Jakarta Connectors synchronization %s associated with tx %s failed during after completion")
     void preJcaSyncAfterCompletionFailed(Synchronization preJcaSync, Transaction tx, @Cause Exception e);
 
     @LogMessage(level = WARN)
-    @Message(id = 28, value = "The jca synchronization %s associated with tx %s failed during after completion")
+    @Message(id = 28, value = "The Jakarta Connectors synchronization %s associated with tx %s failed during after completion")
     void jcaSyncAfterCompletionFailed(Synchronization jcaSync, Transaction tx, @Cause Exception e);
 
     @Message(id = 29, value = "Syncs are not allowed to be registered when the tx is in state %s")
@@ -241,7 +239,7 @@ public interface TransactionLogger extends BasicLogger {
     @Message(id = 35, value = "Cannot find or import inflow transaction for xid %s and work %s")
     WorkCompletedException cannotFindOrImportInflowTransaction(Xid xid, Work work, @Cause Exception e);
 
-    @Message(id = 36, value = "Imported jca inflow transaction with xid %s of work %s is inactive")
+    @Message(id = 36, value = "Imported Jakarta Connectors inflow transaction with xid %s of work %s is inactive")
     WorkCompletedException importedInflowTransactionIsInactive(Xid xid, Work work, @Cause Exception e);
 
     @Message(id = 37, value = "Unexpected error on resuming transaction %s for work %s")

@@ -24,8 +24,10 @@ package org.jboss.as.messaging.test;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.EXTENSION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESULT;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
 import static org.jboss.as.messaging.MessagingExtension.SUBSYSTEM_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -82,7 +84,6 @@ public class MigrateTestCase extends AbstractSubsystemTest {
 
         ModelNode response = services.executeOperation(migrateOp);
 
-        //System.out.println("response = " + response);
         checkOutcome(response);
 
         ModelNode warnings = response.get(RESULT, "migration-warnings");
@@ -92,38 +93,37 @@ public class MigrateTestCase extends AbstractSubsystemTest {
         assertEquals(warnings.toString(), 1 + 1 + 3, warnings.asList().size());
 
         model = services.readWholeModel();
-        //System.out.println("model = " + model);
 
         assertFalse(model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "unmigrated-backup", "ha-policy").isDefined());
         assertFalse(model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "unmigrated-shared-store", "ha-policy").isDefined());
 
-        ModelNode haPolicyForDefaultServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "default", "ha-policy", "shared-store-master");
+        ModelNode haPolicyForDefaultServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "default", "ha-policy", "shared-store-primary");
         assertTrue(haPolicyForDefaultServer.isDefined());
         assertFalse(haPolicyForDefaultServer.get("failback-delay").isDefined());
         assertEquals(false, haPolicyForDefaultServer.get("failover-on-server-shutdown").asBoolean());
 
-        ModelNode haPolicyForSharedStoreMasterServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "shared-store-master", "ha-policy", "shared-store-master");
+        ModelNode haPolicyForSharedStoreMasterServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "shared-store-primary", "ha-policy", "shared-store-primary");
         assertTrue(haPolicyForSharedStoreMasterServer.isDefined());
         assertFalse(haPolicyForSharedStoreMasterServer.get("failback-delay").isDefined());
         assertEquals("${failover.on.shutdown:true}", haPolicyForSharedStoreMasterServer.get("failover-on-server-shutdown").asString());
 
-        ModelNode haPolicyForSharedStoreSlaveServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "shared-store-slave", "ha-policy", "shared-store-slave");
+        ModelNode haPolicyForSharedStoreSlaveServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "shared-store-secondary", "ha-policy", "shared-store-secondary");
         assertTrue(haPolicyForSharedStoreSlaveServer.isDefined());
         assertEquals("${allow.failback.1:false}", haPolicyForSharedStoreSlaveServer.get("allow-failback").asString());
         assertFalse(haPolicyForSharedStoreSlaveServer.get("failback-delay").isDefined());
         assertEquals("${failover.on.shutdown.1:true}", haPolicyForSharedStoreSlaveServer.get("failover-on-server-shutdown").asString());
 
-        ModelNode haPolicyForReplicationMasterServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "replication-master", "ha-policy", "replication-master");
+        ModelNode haPolicyForReplicationMasterServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "replication-primary", "ha-policy", "replication-primary");
         assertTrue(haPolicyForReplicationMasterServer.isDefined());
         assertEquals("${check.for.live.server:true}", haPolicyForReplicationMasterServer.get("check-for-live-server").asString());
-        assertEquals("${replication.master.group.name:mygroup}", haPolicyForReplicationMasterServer.get("group-name").asString());
+        assertEquals("${replication.primary.group.name:mygroup}", haPolicyForReplicationMasterServer.get("group-name").asString());
 
-        ModelNode haPolicyForReplicationSlaveServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "replication-slave", "ha-policy", "replication-slave");
+        ModelNode haPolicyForReplicationSlaveServer = model.get(SUBSYSTEM, MESSAGING_ACTIVEMQ_SUBSYSTEM_NAME, "server", "replication-secondary", "ha-policy", "replication-secondary");
         assertTrue(haPolicyForReplicationSlaveServer.isDefined());
         assertEquals("${allow.failback.2:false}", haPolicyForReplicationSlaveServer.get("allow-failback").asString());
         assertFalse(haPolicyForReplicationSlaveServer.get("failback-delay").isDefined());
         assertEquals("${max.saved.replicated.journal.size:2}", haPolicyForReplicationSlaveServer.get("max-saved-replicated-journal-size").asString());
-        assertEquals("${replication.master.group.name:mygroup2}", haPolicyForReplicationSlaveServer.get("group-name").asString());
+        assertEquals("${replication.primary.group.name:mygroup2}", haPolicyForReplicationSlaveServer.get("group-name").asString());
     }
 
     @Test
@@ -153,18 +153,21 @@ public class MigrateTestCase extends AbstractSubsystemTest {
 
         ModelNode response = services.executeOperation(migrateOp);
 
-        checkOutcome(response);
+        assertEquals(response.toString(), SUCCESS, response.get(OUTCOME).asString());
 
         ModelNode warnings = response.get(RESULT, "migration-warnings");
         // 6 warnings about broadcast-group attributes that can not be migrated.
         // 2 warnings about broadcast-group attributes not migrated because they have an expression.
+        // 3 warnings about broadcast-group not migrated because they don't have a proper network configuration.
+        // 1 warnings about broadcast-group not migrated because they don't have a connector.
         // 5 warnings about discovery-group attributes that can not be migrated.
         // 2 warnings about discovery-group attributes not migrated because they have an expression.
         // 3 warnings about interceptors that can not be migrated (for remoting-interceptors, remoting-incoming-interceptors & remoting-outgoing-interceptors attributes)
+        // 3 warnings about discovery-group not migrated because they don't have a proper network configuration.
         // 1 warning about HA migration (attributes have expressions)
         // 1 warning about cluster-connection forward-when-no-consumers attribute having an expression.
         // 1 warning about use-nio being ignored for netty-throughput remote-connector resource.
-        int expectedNumberOfWarnings = 6 + 2 + 5 + 2 + 3 + 1 + 1 + 1;
+        int expectedNumberOfWarnings = 6 + 2 + 3 + 1 + 5 + 2 + 3 + 3 + 1 + 1 + 1;
         // 1 warning if add-legacy-entries is true because an in-vm connector can not be used in a legacy-connection-factory
         if (addLegacyEntries) {
             expectedNumberOfWarnings += 1;
@@ -222,7 +225,12 @@ public class MigrateTestCase extends AbstractSubsystemTest {
                             rootRegistration, ExtensionRegistryType.SERVER));
                 }
             }, null));
-            registerCapabilities(capabilityRegistry, JGroupsDefaultRequirement.CHANNEL_FACTORY.getName(), "org.wildfly.remoting.http-listener-registry");
+            registerCapabilities(capabilityRegistry,
+                    JGroupsDefaultRequirement.CHANNEL_FACTORY.getName(),
+                    "org.wildfly.remoting.http-listener-registry",                          // static capability
+                    "org.wildfly.undertow.listener.http-upgrade-registry.default",         // dynamic capability based on httpListenerName
+                    "org.wildfly.security.legacy-security-domain.other",                   // dynamic capability based on legacy security domain
+                    "org.wildfly.security.legacy-security-domain.someDomain");             // dynamic capability based on legacy security domain
         }
 
         @Override

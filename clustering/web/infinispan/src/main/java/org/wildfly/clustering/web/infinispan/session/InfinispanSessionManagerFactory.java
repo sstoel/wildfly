@@ -21,127 +21,120 @@
  */
 package org.wildfly.clustering.web.infinispan.session;
 
-import java.security.PrivilegedAction;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.time.Duration;
+import java.util.Map;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import javax.servlet.ServletContext;
-
 import org.infinispan.Cache;
-import org.infinispan.commons.CacheException;
-import org.infinispan.commons.util.CloseableIterator;
-import org.infinispan.context.Flag;
-import org.infinispan.notifications.Listener;
-import org.infinispan.notifications.cachelistener.annotation.DataRehashed;
-import org.infinispan.notifications.cachelistener.event.DataRehashedEvent;
-import org.jboss.threads.JBossThreadFactory;
 import org.wildfly.clustering.Registrar;
-import org.wildfly.clustering.dispatcher.CommandDispatcherFactory;
-import org.wildfly.clustering.ee.Batch;
-import org.wildfly.clustering.ee.Batcher;
-import org.wildfly.clustering.ee.Recordable;
+import org.wildfly.clustering.Registration;
+import org.wildfly.clustering.ee.Key;
 import org.wildfly.clustering.ee.cache.CacheProperties;
+import org.wildfly.clustering.ee.cache.ConcurrentManager;
+import org.wildfly.clustering.ee.cache.IdentifierFactory;
+import org.wildfly.clustering.ee.cache.SimpleManager;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
+import org.wildfly.clustering.ee.infinispan.InfinispanConfiguration;
 import org.wildfly.clustering.ee.infinispan.PrimaryOwnerLocator;
-import org.wildfly.clustering.ee.infinispan.tx.InfinispanBatcher;
-import org.wildfly.clustering.group.Node;
-import org.wildfly.clustering.infinispan.spi.affinity.KeyAffinityServiceFactory;
-import org.wildfly.clustering.infinispan.spi.distribution.CacheLocality;
-import org.wildfly.clustering.infinispan.spi.distribution.ConsistentHashLocality;
-import org.wildfly.clustering.infinispan.spi.distribution.Key;
-import org.wildfly.clustering.infinispan.spi.distribution.Locality;
-import org.wildfly.clustering.infinispan.spi.distribution.SimpleLocality;
-import org.wildfly.clustering.marshalling.spi.Marshallability;
+import org.wildfly.clustering.ee.infinispan.affinity.AffinityIdentifierFactory;
+import org.wildfly.clustering.ee.infinispan.scheduler.PrimaryOwnerScheduler;
+import org.wildfly.clustering.ee.infinispan.scheduler.ScheduleLocalKeysTask;
+import org.wildfly.clustering.ee.infinispan.scheduler.ScheduleWithMetaDataCommand;
+import org.wildfly.clustering.ee.infinispan.scheduler.ScheduleWithTransientMetaDataCommand;
+import org.wildfly.clustering.ee.infinispan.scheduler.CacheEntryScheduler;
+import org.wildfly.clustering.ee.infinispan.scheduler.SchedulerTopologyChangeListener;
+import org.wildfly.clustering.group.Group;
+import org.wildfly.clustering.infinispan.affinity.KeyAffinityServiceFactory;
+import org.wildfly.clustering.infinispan.distribution.CacheLocality;
+import org.wildfly.clustering.infinispan.distribution.Locality;
+import org.wildfly.clustering.infinispan.distribution.SimpleLocality;
+import org.wildfly.clustering.infinispan.listener.ListenerRegistration;
+import org.wildfly.clustering.marshalling.spi.ByteBufferMarshaller;
 import org.wildfly.clustering.marshalling.spi.MarshalledValue;
-import org.wildfly.clustering.web.IdentifierFactory;
+import org.wildfly.clustering.server.dispatcher.CommandDispatcherFactory;
 import org.wildfly.clustering.web.cache.session.CompositeSessionFactory;
 import org.wildfly.clustering.web.cache.session.CompositeSessionMetaDataEntry;
-import org.wildfly.clustering.web.cache.session.ImmutableSessionMetaDataFactory;
+import org.wildfly.clustering.web.cache.session.ConcurrentSessionManager;
 import org.wildfly.clustering.web.cache.session.MarshalledValueSessionAttributesFactoryConfiguration;
+import org.wildfly.clustering.web.cache.session.SessionAttributeActivationNotifier;
 import org.wildfly.clustering.web.cache.session.SessionAttributesFactory;
 import org.wildfly.clustering.web.cache.session.SessionFactory;
 import org.wildfly.clustering.web.cache.session.SessionMetaDataFactory;
-import org.wildfly.clustering.web.infinispan.AffinityIdentifierFactory;
 import org.wildfly.clustering.web.infinispan.session.coarse.CoarseSessionAttributesFactory;
 import org.wildfly.clustering.web.infinispan.session.fine.FineSessionAttributesFactory;
-import org.wildfly.clustering.web.session.ImmutableSession;
 import org.wildfly.clustering.web.session.SessionExpirationListener;
+import org.wildfly.clustering.web.session.SessionExpirationMetaData;
 import org.wildfly.clustering.web.session.SessionManager;
 import org.wildfly.clustering.web.session.SessionManagerConfiguration;
 import org.wildfly.clustering.web.session.SessionManagerFactory;
-import org.wildfly.security.manager.WildFlySecurityManager;
+import org.wildfly.clustering.web.session.SpecificationProvider;
 
 /**
  * Factory for creating session managers.
+ * @param <S> the HttpSession specification type
+ * @param <SC> the ServletContext specification type
+ * @param <AL> the HttpSessionAttributeListener specification type
+ * @param <LC> the local context type
  * @author Paul Ferraro
  */
-@Listener
-public class InfinispanSessionManagerFactory<C extends Marshallability, L> implements SessionManagerFactory<L, TransactionBatch> {
+public class InfinispanSessionManagerFactory<S, SC, AL, LC> implements SessionManagerFactory<SC, LC, TransactionBatch>, Runnable {
 
-    private static ThreadFactory createThreadFactory() {
-        PrivilegedAction<ThreadFactory> action = () -> new JBossThreadFactory(new ThreadGroup(InfinispanSessionManager.class.getSimpleName()), Boolean.FALSE, null, "%G - %t", null, null);
-        return WildFlySecurityManager.doUnchecked(action);
-    }
-
-    final Batcher<TransactionBatch> batcher;
-    final Registrar<SessionExpirationListener> expirationRegistrar;
-    final CacheProperties properties;
-    final Cache<Key<String>, ?> cache;
-    final org.wildfly.clustering.web.cache.session.Scheduler primaryOwnerScheduler;
-
+    private final org.wildfly.clustering.ee.Scheduler<String, SessionExpirationMetaData> scheduler;
+    private final SpecificationProvider<S, SC, AL> provider;
     private final KeyAffinityServiceFactory affinityFactory;
-    private final SessionFactory<CompositeSessionMetaDataEntry<L>, ?, L> factory;
-    private final Scheduler expirationScheduler;
-    private final SessionCreationMetaDataKeyFilter filter = new SessionCreationMetaDataKeyFilter();
-    private final ExecutorService executor = Executors.newSingleThreadExecutor(createThreadFactory());
-    private final AtomicReference<Future<?>> rehashFuture = new AtomicReference<>();
+    private final SessionFactory<SC, CompositeSessionMetaDataEntry<LC>, ?, LC> factory;
+    private final BiConsumer<Locality, Locality> scheduleTask;
+    private final ListenerRegistration schedulerListenerRegistration;
+    private final InfinispanConfiguration configuration;
+    private final ExpiredSessionRemover<SC, ?, ?, LC> remover;
+    private final SessionAttributeActivationNotifierFactory<S, SC, AL, LC, TransactionBatch> notifierFactory;
 
-    public InfinispanSessionManagerFactory(InfinispanSessionManagerFactoryConfiguration<C, L> config) {
+    public InfinispanSessionManagerFactory(InfinispanSessionManagerFactoryConfiguration<S, SC, AL, LC> config) {
+        this.configuration = config;
         this.affinityFactory = config.getKeyAffinityServiceFactory();
-        this.cache = config.getCache();
-        this.batcher = new InfinispanBatcher(this.cache);
-        this.properties = config.getCacheProperties();
-        SessionMetaDataFactory<CompositeSessionMetaDataEntry<L>> metaDataFactory = new InfinispanSessionMetaDataFactory<>(config);
+        this.provider = config.getSpecificationProvider();
+        this.notifierFactory = new SessionAttributeActivationNotifierFactory<>(this.provider);
+        CacheProperties properties = config.getCacheProperties();
+        SessionMetaDataFactory<CompositeSessionMetaDataEntry<LC>> metaDataFactory = properties.isLockOnRead() ? new LockOnReadInfinispanSessionMetaDataFactory<>(config) : new BulkReadInfinispanSessionMetaDataFactory<>(config);
         this.factory = new CompositeSessionFactory<>(metaDataFactory, this.createSessionAttributesFactory(config), config.getLocalContextFactory());
-        ExpiredSessionRemover<?, ?, L> remover = new ExpiredSessionRemover<>(this.factory);
-        this.expirationRegistrar = remover;
-        this.expirationScheduler = new SessionExpirationScheduler(this.batcher, remover);
+        this.remover = new ExpiredSessionRemover<>(this.factory);
+        Cache<Key<String>, ?> cache = config.getCache();
+        CacheEntryScheduler<String, SessionExpirationMetaData> localScheduler = new SessionExpirationScheduler<>(config.getBatcher(), this.factory.getMetaDataFactory(), this.remover, Duration.ofMillis(cache.getCacheConfiguration().transaction().cacheStopTimeout()));
         CommandDispatcherFactory dispatcherFactory = config.getCommandDispatcherFactory();
-        Function<Key<String>, Node> primaryOwnerLocator = new PrimaryOwnerLocator<>(this.cache, config.getMemberFactory(), dispatcherFactory.getGroup());
-        this.primaryOwnerScheduler = new PrimaryOwnerScheduler(dispatcherFactory, this.cache.getName(), this.expirationScheduler, primaryOwnerLocator);
-        this.cache.addListener(this);
-        this.schedule(new SimpleLocality(false), new CacheLocality(this.cache));
+        Group group = dispatcherFactory.getGroup();
+        this.scheduler = group.isSingleton() ? localScheduler : new PrimaryOwnerScheduler<>(dispatcherFactory, cache.getName(), localScheduler, new PrimaryOwnerLocator<>(cache, config.getMemberFactory()), SessionCreationMetaDataKey::new, properties.isTransactional() ? ScheduleWithMetaDataCommand::new : ScheduleWithTransientMetaDataCommand::new);
+
+        this.scheduleTask = new ScheduleLocalKeysTask<>(cache, SessionCreationMetaDataKeyFilter.INSTANCE, localScheduler);
+        this.schedulerListenerRegistration = new SchedulerTopologyChangeListener<>(cache, localScheduler, this.scheduleTask).register();
     }
 
     @Override
-    public SessionManager<L, TransactionBatch> createSessionManager(final SessionManagerConfiguration configuration) {
-        IdentifierFactory<String> factory = new AffinityIdentifierFactory<>(configuration.getIdentifierFactory(), this.cache, this.affinityFactory);
-        InfinispanSessionManagerConfiguration config = new InfinispanSessionManagerConfiguration() {
+    public void run() {
+        this.scheduleTask.accept(new SimpleLocality(false), new CacheLocality(this.configuration.getCache()));
+    }
+
+    @Override
+    public SessionManager<LC, TransactionBatch> createSessionManager(final SessionManagerConfiguration<SC> configuration) {
+        IdentifierFactory<String> factory = new AffinityIdentifierFactory<>(configuration.getIdentifierFactory(), this.configuration.getCache(), this.affinityFactory);
+        Registrar<SessionManager<LC, TransactionBatch>> registrar = manager -> {
+            Registration contextRegistration = this.notifierFactory.register(Map.entry(configuration.getServletContext(), manager));
+            Registration expirationRegistration = this.remover.register(configuration.getExpirationListener());
+            return () -> {
+                expirationRegistration.close();
+                contextRegistration.close();
+            };
+        };
+        org.wildfly.clustering.ee.Scheduler<String, SessionExpirationMetaData> scheduler = this.scheduler;
+        InfinispanSessionManagerConfiguration<SC, LC> config = new AbstractInfinispanSessionManagerConfiguration<>(this.configuration) {
             @Override
             public SessionExpirationListener getExpirationListener() {
                 return configuration.getExpirationListener();
             }
 
             @Override
-            public ServletContext getServletContext() {
+            public SC getServletContext() {
                 return configuration.getServletContext();
-            }
-
-            @Override
-            public Cache<Key<String>, ?> getCache() {
-                return InfinispanSessionManagerFactory.this.cache;
-            }
-
-            @Override
-            public CacheProperties getProperties() {
-                return InfinispanSessionManagerFactory.this.properties;
             }
 
             @Override
@@ -150,35 +143,30 @@ public class InfinispanSessionManagerFactory<C extends Marshallability, L> imple
             }
 
             @Override
-            public Batcher<TransactionBatch> getBatcher() {
-                return InfinispanSessionManagerFactory.this.batcher;
+            public org.wildfly.clustering.ee.Scheduler<String, SessionExpirationMetaData> getExpirationScheduler() {
+                return scheduler;
             }
 
             @Override
-            public Registrar<SessionExpirationListener> getExpirationRegistar() {
-                return InfinispanSessionManagerFactory.this.expirationRegistrar;
+            public Runnable getStartTask() {
+                return InfinispanSessionManagerFactory.this;
             }
 
             @Override
-            public Recordable<ImmutableSession> getInactiveSessionRecorder() {
-                return configuration.getInactiveSessionRecorder();
-            }
-
-            @Override
-            public org.wildfly.clustering.web.cache.session.Scheduler getExpirationScheduler() {
-                return InfinispanSessionManagerFactory.this.primaryOwnerScheduler;
+            public Registrar<SessionManager<LC, TransactionBatch>> getRegistrar() {
+                return registrar;
             }
         };
-        return new InfinispanSessionManager<>(this.factory, config);
+        return new ConcurrentSessionManager<>(new InfinispanSessionManager<>(this.factory, config), this.configuration.getCacheProperties().isTransactional() ? SimpleManager::new : ConcurrentManager::new);
     }
 
-    private SessionAttributesFactory<?> createSessionAttributesFactory(InfinispanSessionManagerFactoryConfiguration<C, L> configuration) {
+    private SessionAttributesFactory<SC, ?> createSessionAttributesFactory(InfinispanSessionManagerFactoryConfiguration<S, SC, AL, LC> configuration) {
         switch (configuration.getAttributePersistenceStrategy()) {
             case FINE: {
-                return new FineSessionAttributesFactory<>(new InfinispanMarshalledValueSessionAttributesFactoryConfiguration<>(configuration));
+                return new FineSessionAttributesFactory<>(new InfinispanMarshalledValueSessionAttributesFactoryConfiguration<>(configuration, this.notifierFactory));
             }
             case COARSE: {
-                return new CoarseSessionAttributesFactory<>(new InfinispanMarshalledValueSessionAttributesFactoryConfiguration<>(configuration));
+                return new CoarseSessionAttributesFactory<>(new InfinispanMarshalledValueSessionAttributesFactoryConfiguration<>(configuration, this.notifierFactory));
             }
             default: {
                 // Impossible
@@ -189,80 +177,42 @@ public class InfinispanSessionManagerFactory<C extends Marshallability, L> imple
 
     @Override
     public void close() {
-        this.cache.removeListener(this);
-        PrivilegedAction<List<Runnable>> action = () -> this.executor.shutdownNow();
-        WildFlySecurityManager.doUnchecked(action);
-        try {
-            this.executor.awaitTermination(this.cache.getCacheConfiguration().transaction().cacheStopTimeout(), TimeUnit.MILLISECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        this.primaryOwnerScheduler.close();
-        this.expirationScheduler.close();
+        this.schedulerListenerRegistration.close();
+        this.scheduler.close();
+        this.factory.close();
     }
 
-    @DataRehashed
-    public void dataRehashed(DataRehashedEvent<SessionCreationMetaDataKey, ?> event) {
-        Cache<SessionCreationMetaDataKey, ?> cache = event.getCache();
-        Locality newLocality = new ConsistentHashLocality(cache, event.getConsistentHashAtEnd());
-        if (event.isPre()) {
-            Future<?> future = this.rehashFuture.getAndSet(null);
-            if (future != null) {
-                future.cancel(true);
-            }
-            try {
-                this.executor.submit(() -> this.expirationScheduler.cancel(newLocality));
-            } catch (RejectedExecutionException e) {
-                // Executor was shutdown
-            }
-        } else {
-            Locality oldLocality = new ConsistentHashLocality(cache, event.getConsistentHashAtStart());
-            try {
-                this.rehashFuture.set(this.executor.submit(() -> this.schedule(oldLocality, newLocality)));
-            } catch (RejectedExecutionException e) {
-                // Executor was shutdown
-            }
+    private abstract static class AbstractInfinispanSessionManagerConfiguration<SC, LC> implements InfinispanSessionManagerConfiguration<SC, LC> {
+        private final InfinispanConfiguration configuration;
+
+        AbstractInfinispanSessionManagerConfiguration(InfinispanConfiguration configuration) {
+            this.configuration = configuration;
+        }
+
+        @Override
+        public <K, V> Cache<K, V> getCache() {
+            return this.configuration.getCache();
         }
     }
 
-    private void schedule(Locality oldLocality, Locality newLocality) {
-        ImmutableSessionMetaDataFactory<CompositeSessionMetaDataEntry<L>> metaDataFactory = this.factory.getMetaDataFactory();
-        // Iterate over sessions in memory
-        try (CloseableIterator<Key<String>> keys = this.cache.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL, Flag.SKIP_CACHE_LOAD).keySet().iterator()) {
-            while (keys.hasNext()) {
-                if (Thread.currentThread().isInterrupted()) break;
-                Key<String> key = keys.next();
-                // If we are the new primary owner of this session then schedule expiration of this session locally
-                if (this.filter.test(key) && !oldLocality.isLocal(key) && newLocality.isLocal(key)) {
-                    String id = key.getValue();
-                    try (Batch batch = this.batcher.createBatch()) {
-                        try {
-                            // We need to lookup the session to obtain its meta data
-                            CompositeSessionMetaDataEntry<L> value = metaDataFactory.tryValue(id);
-                            if (value != null) {
-                                this.expirationScheduler.schedule(id, metaDataFactory.createImmutableSessionMetaData(id, value));
-                            }
-                            return;
-                        } catch (CacheException e) {
-                            batch.discard();
-                        }
-                    }
-                }
-            }
-        }
-    }
+    private static class InfinispanMarshalledValueSessionAttributesFactoryConfiguration<S, SC, AL, V, LC> extends MarshalledValueSessionAttributesFactoryConfiguration<S, SC, AL, V, LC> implements InfinispanSessionAttributesFactoryConfiguration<S, SC, AL, V, MarshalledValue<V, ByteBufferMarshaller>> {
+        private final InfinispanSessionManagerFactoryConfiguration<S, SC, AL, LC> configuration;
+        private final Function<String, SessionAttributeActivationNotifier> notifierFactory;
 
-    private static class InfinispanMarshalledValueSessionAttributesFactoryConfiguration<V, C extends Marshallability, L> extends MarshalledValueSessionAttributesFactoryConfiguration<V, C, L> implements InfinispanSessionAttributesFactoryConfiguration<V, MarshalledValue<V, C>> {
-        private final InfinispanSessionManagerFactoryConfiguration<C, L> configuration;
-
-        InfinispanMarshalledValueSessionAttributesFactoryConfiguration(InfinispanSessionManagerFactoryConfiguration<C, L> configuration) {
+        InfinispanMarshalledValueSessionAttributesFactoryConfiguration(InfinispanSessionManagerFactoryConfiguration<S, SC, AL, LC> configuration, Function<String, SessionAttributeActivationNotifier> notifierFactory) {
             super(configuration);
             this.configuration = configuration;
+            this.notifierFactory = notifierFactory;
         }
 
         @Override
         public <CK, CV> Cache<CK, CV> getCache() {
             return this.configuration.getCache();
+        }
+
+        @Override
+        public Function<String, SessionAttributeActivationNotifier> getActivationNotifierFactory() {
+            return this.notifierFactory;
         }
     }
 }

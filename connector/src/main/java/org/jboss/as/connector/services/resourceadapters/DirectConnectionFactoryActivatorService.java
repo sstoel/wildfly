@@ -22,19 +22,24 @@
 
 package org.jboss.as.connector.services.resourceadapters;
 
+import static org.jboss.as.connector.logging.ConnectorLogger.ROOT_LOGGER;
+import static org.jboss.as.connector.logging.ConnectorLogger.SUBSYSTEM_RA_LOGGER;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.resource.spi.TransactionSupport;
+
 import org.jboss.as.connector.logging.ConnectorLogger;
 import org.jboss.as.connector.metadata.api.common.Security;
-import org.jboss.as.connector.metadata.api.resourceadapter.ActivationSecurityUtil;
 import org.jboss.as.connector.metadata.common.SecurityImpl;
 import org.jboss.as.connector.services.mdr.AS7MetadataRepository;
 import org.jboss.as.connector.services.resourceadapters.deployment.registry.ResourceAdapterDeploymentRegistry;
 import org.jboss.as.connector.subsystems.jca.JcaSubsystemConfiguration;
 import org.jboss.as.connector.util.ConnectorServices;
-import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.service.NamingService;
-import org.jboss.as.security.service.SimpleSecurityManagerService;
-import org.jboss.as.security.service.SubjectFactoryService;
 import org.jboss.jca.common.api.metadata.Defaults;
 import org.jboss.jca.common.api.metadata.common.Pool;
 import org.jboss.jca.common.api.metadata.common.TransactionSupportEnum;
@@ -52,18 +57,15 @@ import org.jboss.jca.core.spi.rar.ResourceAdapterRepository;
 import org.jboss.jca.core.spi.transaction.TransactionIntegration;
 import org.jboss.modules.Module;
 import org.jboss.msc.inject.Injector;
+import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.value.InjectedValue;
-import org.jboss.security.SubjectFactory;
-
-import javax.resource.spi.TransactionSupport;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.jboss.as.connector.logging.ConnectorLogger.ROOT_LOGGER;
-import static org.jboss.as.connector.logging.ConnectorLogger.SUBSYSTEM_RA_LOGGER;
 
 public class DirectConnectionFactoryActivatorService implements org.jboss.msc.service.Service<org.jboss.as.naming.deployment.ContextNames.BindInfo> {
+
+    private static final ServiceName SECURITY_MANAGER_SERVICE = ServiceName.JBOSS.append("security", "simple-security-manager");
+    private static final ServiceName SUBJECT_FACTORY_SERVICE = ServiceName.JBOSS.append("security", "subject-factory");
+
+
     public static final org.jboss.msc.service.ServiceName SERVICE_NAME_BASE =
             org.jboss.msc.service.ServiceName.JBOSS.append("connector").append("direct-connection-factory-activator");
 
@@ -87,13 +89,15 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
 
     private final ContextNames.BindInfo bindInfo;
 
+    private boolean legacySecurityAvailable;
+
     /**
      * create an instance *
      */
     public DirectConnectionFactoryActivatorService(String jndiName, String interfaceName, String resourceAdapter,
                                                    String raId, int maxPoolSize, int minPoolSize,
                                                    Map<String, String> properties, TransactionSupport.TransactionSupportLevel transactionSupport,
-                                                   Module module, ContextNames.BindInfo bindInfo) {
+                                                   Module module, ContextNames.BindInfo bindInfo, boolean legacySecurityAvailable) {
         this.jndiName = jndiName;
         this.interfaceName = interfaceName;
         this.resourceAdapter = resourceAdapter;
@@ -106,6 +110,7 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
         this.transactionSupport = transactionSupport;
         this.module = module;
         this.bindInfo = bindInfo;
+        this.legacySecurityAvailable = legacySecurityAvailable;
     }
 
     @Override
@@ -249,14 +254,6 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
             connectionFactoryServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(NamingService.CAPABILITY_NAME));
             connectionFactoryServiceBuilder.requires(ConnectorServices.getCachedCapabilityServiceName(ConnectorServices.LOCAL_TRANSACTION_PROVIDER_CAPABILITY));
             connectionFactoryServiceBuilder.requires(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append("default"));
-
-            if (ActivationSecurityUtil.isLegacySecurityRequired(security)) {
-                connectionFactoryServiceBuilder
-                        .addDependency(SubjectFactoryService.SERVICE_NAME, SubjectFactory.class,
-                                activator.getSubjectFactoryInjector())
-                        .addDependency(SimpleSecurityManagerService.SERVICE_NAME,
-                                ServerSecurityManager.class, activator.getServerSecurityManager());
-            }
 
             connectionFactoryServiceBuilder.setInitialMode(org.jboss.msc.service.ServiceController.Mode.ACTIVE).install();
 

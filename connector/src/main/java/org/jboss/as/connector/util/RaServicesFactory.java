@@ -34,6 +34,7 @@ import org.jboss.as.connector.services.mdr.AS7MetadataRepository;
 import org.jboss.as.connector.services.resourceadapters.deployment.ResourceAdapterXmlDeploymentService;
 import org.jboss.as.connector.services.resourceadapters.deployment.registry.ResourceAdapterDeploymentRegistry;
 import org.jboss.as.connector.subsystems.jca.JcaSubsystemConfiguration;
+import org.jboss.as.connector.subsystems.resourceadapters.ResourceAdaptersSubsystemService;
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.controller.descriptions.OverrideDescriptionProvider;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
@@ -82,7 +83,8 @@ public class RaServicesFactory {
                         service.getTxIntegrationInjector())
                 .addDependency(ConnectorServices.CONNECTOR_CONFIG_SERVICE, JcaSubsystemConfiguration.class,
                         service.getConfigInjector())
-                .addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class, service.getCcmInjector());
+                .addDependency(ConnectorServices.CCM_SERVICE, CachedConnectionManager.class, service.getCcmInjector())
+                .addDependency(ConnectorServices.RESOURCEADAPTERS_SUBSYSTEM_SERVICE, ResourceAdaptersSubsystemService.class, service.getResourceAdaptersSubsystem());
         builder.requires(ConnectorServices.IDLE_REMOVER_SERVICE);
         builder.requires(ConnectorServices.CONNECTION_VALIDATOR_SERVICE);
         builder.requires(support.getCapabilityServiceName(NamingService.CAPABILITY_NAME));
@@ -101,22 +103,22 @@ public class RaServicesFactory {
             }
         }
 
-        if (registration != null && deploymentResource != null) {
-            if (registration.isAllowsOverride() && registration.getOverrideModel(deploymentUnitName) == null) {
-                registration.registerOverrideModel(deploymentUnitName, new OverrideDescriptionProvider() {
-                    @Override
-                    public Map<String, ModelNode> getAttributeOverrideDescriptions(Locale locale) {
-                        return Collections.emptyMap();
-                    }
+        if (registration != null && deploymentResource != null
+                && registration.isAllowsOverride()
+                && registration.getOverrideModel(deploymentUnitName) == null) {
 
-                    @Override
-                    public Map<String, ModelNode> getChildTypeOverrideDescriptions(Locale locale) {
-                        return Collections.emptyMap();
-                    }
-                });
-            }
+            registration.registerOverrideModel(deploymentUnitName, new OverrideDescriptionProvider() {
+                @Override
+                public Map<String, ModelNode> getAttributeOverrideDescriptions(Locale locale) {
+                    return Collections.emptyMap();
+                }
+
+                @Override
+                public Map<String, ModelNode> getChildTypeOverrideDescriptions(Locale locale) {
+                    return Collections.emptyMap();
+                }
+            });
         }
-
 
 
         builder.setInitialMode(ServiceController.Mode.ACTIVE).install();

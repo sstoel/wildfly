@@ -79,7 +79,7 @@ Bar bar = (Bar) context.lookup("foo/bar");
 ...
 ----
 
-[[programmatic-approach]]
+[[application_client_programmatic-approach]]
 ==== Programmatic Approach
 
 The user credentials to use when establishing a connection to the naming
@@ -241,3 +241,5 @@ Callable<Void> callable = () -> {
 // use your authentication context to run your callable
 context.runCallable(callable);
 ----
+
+NOTE: References in this document to Enterprise JavaBeans(EJB) refer to the Jakarta Enterprise Beans unless otherwise noted.

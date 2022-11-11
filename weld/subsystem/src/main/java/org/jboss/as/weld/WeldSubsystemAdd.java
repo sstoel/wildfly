@@ -22,12 +22,14 @@
 
 package org.jboss.as.weld;
 
+import static org.jboss.as.weld.WeldResourceDefinition.LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE;
 import static org.jboss.as.weld.WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE;
 
 import java.util.ServiceLoader;
 import java.util.function.Consumer;
 
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
+import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
@@ -41,9 +43,9 @@ import org.jboss.as.weld.deployment.CdiAnnotationProcessor;
 import org.jboss.as.weld.deployment.processors.BeanArchiveProcessor;
 import org.jboss.as.weld.deployment.processors.BeanDefiningAnnotationProcessor;
 import org.jboss.as.weld.deployment.processors.BeansXmlProcessor;
-import org.jboss.as.weld.deployment.processors.DevelopmentModeProcessor;
 import org.jboss.as.weld.deployment.processors.EarApplicationScopedObserverMethodProcessor;
 import org.jboss.as.weld.deployment.processors.ExternalBeanArchiveProcessor;
+import org.jboss.as.weld.deployment.processors.SimpleEnvEntryCdiResourceInjectionProcessor;
 import org.jboss.as.weld.deployment.processors.WebIntegrationProcessor;
 import org.jboss.as.weld.deployment.processors.WeldBeanManagerServiceProcessor;
 import org.jboss.as.weld.deployment.processors.WeldComponentIntegrationProcessor;
@@ -71,14 +73,8 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  */
 class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
-    static final WeldSubsystemAdd INSTANCE = new WeldSubsystemAdd();
-
-    @Override
-    protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-        WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE.validateAndSet(operation, model);
-        WeldResourceDefinition.NON_PORTABLE_MODE_ATTRIBUTE.validateAndSet(operation, model);
-        WeldResourceDefinition.DEVELOPMENT_MODE_ATTRIBUTE.validateAndSet(operation, model);
-        WeldResourceDefinition.THREAD_POOL_SIZE_ATTRIBUTE.validateAndSet(operation, model);
+    WeldSubsystemAdd(AttributeDefinition... attributes) {
+        super(attributes);
     }
 
     @Override
@@ -86,6 +82,7 @@ class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
         final ModelNode model = resource.getModel();
         final boolean requireBeanDescriptor = REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE.resolveModelAttribute(context, model).asBoolean();
+        final boolean legacyEmptyBeansXmlTreatment = LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE.resolveModelAttribute(context, model).asBoolean();
         final boolean nonPortableMode = WeldResourceDefinition.NON_PORTABLE_MODE_ATTRIBUTE.resolveModelAttribute(context, model).asBoolean();
         final boolean developmentMode = WeldResourceDefinition.DEVELOPMENT_MODE_ATTRIBUTE.resolveModelAttribute(context, model).asBoolean();
         final int threadPoolSize = WeldResourceDefinition.THREAD_POOL_SIZE_ATTRIBUTE.resolveModelAttribute(context, model)
@@ -99,20 +96,21 @@ class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
                     .addParser(WeldJBossAll11Parser.ROOT_ELEMENT, WeldJBossAllConfiguration.ATTACHMENT_KEY, WeldJBossAll11Parser.INSTANCE)
                     .build();
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.STRUCTURE, Phase.STRUCTURE_REGISTER_JBOSS_ALL_WELD, jbossAllParsers);
-                processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_WELD_CONFIGURATION, new WeldConfigurationProcessor(requireBeanDescriptor, nonPortableMode, developmentMode));
+                processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_WELD_CONFIGURATION, new WeldConfigurationProcessor(requireBeanDescriptor, nonPortableMode, developmentMode, legacyEmptyBeansXmlTreatment));
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_CDI_ANNOTATIONS, new CdiAnnotationProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_CDI_BEAN_DEFINING_ANNOTATIONS, new BeanDefiningAnnotationProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_WELD_DEPLOYMENT, new BeansXmlProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_WELD_IMPLICIT_DEPLOYMENT_DETECTION, new WeldImplicitDeploymentProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES, Phase.DEPENDENCIES_WELD, new WeldDependencyProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_WEB_INTEGRATION, new WebIntegrationProcessor());
-                processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_DEVELOPMENT_MODE, new DevelopmentModeProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_BEAN_ARCHIVE, new BeanArchiveProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_EXTERNAL_BEAN_ARCHIVE, new ExternalBeanArchiveProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_PORTABLE_EXTENSIONS, new WeldPortableExtensionProcessor());
                 // TODO add processor priority to Phase
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, 0x0F10, new EarApplicationScopedObserverMethodProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_WELD_COMPONENT_INTEGRATION, new WeldComponentIntegrationProcessor());
+                // TODO add processor priority to Phase
+                processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_ENV_ENTRY + 1, new SimpleEnvEntryCdiResourceInjectionProcessor());
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.INSTALL, Phase.INSTALL_WELD_DEPLOYMENT, new WeldDeploymentProcessor(checkJtsEnabled(context)));
                 processorTarget.addDeploymentProcessor(WeldExtension.SUBSYSTEM_NAME, Phase.INSTALL, Phase.INSTALL_WELD_BEAN_MANAGER, new WeldBeanManagerServiceProcessor());
                 // note that we want to go one step before Phase.CLEANUP_EE because we use metadata that it then cleans up
@@ -136,7 +134,7 @@ class WeldSubsystemAdd extends AbstractBoottimeAddStepHandler {
         builder.install();
     }
 
-    // Synchronization objects created by iiop ejb beans require wrapping by JTSSychronizationWrapper to work correctly
+    // Synchronization objects created by iiop Jakarta Enterprise Beans beans require wrapping by JTSSychronizationWrapper to work correctly
     // (WFLY-3538). This hack is used obtain jts configuration in order to avoid doing this in non-jts environments when it is
     // not necessary.
     private boolean checkJtsEnabled(final OperationContext context) {

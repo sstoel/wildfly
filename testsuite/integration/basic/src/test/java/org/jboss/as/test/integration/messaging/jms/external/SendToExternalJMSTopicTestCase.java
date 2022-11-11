@@ -26,25 +26,27 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.net.SocketPermission;
-import javax.annotation.Resource;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
-import javax.jms.Session;
-import javax.jms.TextMessage;
-import javax.jms.Topic;
+import jakarta.annotation.Resource;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Message;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
+import jakarta.jms.Topic;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.arquillian.api.ServerSetup;
+import org.jboss.as.arquillian.api.ServerSetupTask;
+import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
 import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.as.test.shared.ServerReload;
-import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
+import org.jboss.as.test.shared.ServerSnapshot;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 import org.jboss.remoting3.security.RemotingPermission;
@@ -57,7 +59,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Basic JMS test using a customly created JMS topic
+ * Basic Jakarta Messaging test using a customly created Jakarta Messaging topic
  *
  * @author <a href="jmartisk@redhat.com">Jan Martiska</a>
  */
@@ -65,30 +67,49 @@ import org.junit.runner.RunWith;
 @ServerSetup(SendToExternalJMSTopicTestCase.SetupTask.class)
 public class SendToExternalJMSTopicTestCase {
 
-    static class SetupTask extends SnapshotRestoreSetupTask {
+    static class SetupTask implements ServerSetupTask {
 
         private static final Logger logger = Logger.getLogger(SendToExternalJMSTopicTestCase.SetupTask.class);
+        private AutoCloseable snapshot = null;
 
         @Override
-        public void doSetup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
+        public void setup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
+            snapshot = ServerSnapshot.takeSnapshot(managementClient);
+            ServerReload.executeReloadAndWaitForCompletion(managementClient, true);
             JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
-            ops.addExternalHttpConnector("http-test-connector", "http", "http-acceptor");
-            ops.createJmsTopic("myAwesomeTopic", "/topic/myAwesomeTopic");
-            ModelNode attr = new ModelNode();
-            attr.get("connectors").add("http-test-connector");
-            ModelNode op = Operations.createRemoveOperation(getInitialPooledConnectionFactoryAddress());
+            boolean needRemoteConnector = ops.isRemoteBroker();
+            if (needRemoteConnector) {
+                ops.addExternalRemoteConnector("remote-broker-connector", "messaging-activemq");
+            } else {
+                ops.addExternalHttpConnector("http-test-connector", "http", "http-acceptor");
+                ops.createJmsTopic("myAwesomeTopic", "/topic/myAwesomeTopic");
+            }
+            ModelNode op = Operations.createRemoveOperation(getInitialPooledConnectionFactoryAddress(ops.getServerAddress()));
             execute(managementClient, op, true);
             op = Operations.createAddOperation(getPooledConnectionFactoryAddress());
             op.get("transaction").set("xa");
             op.get("entries").add("java:/JmsXA java:jboss/DefaultJMSConnectionFactory");
-            op.get("connectors").add("http-test-connector");
+            if(needRemoteConnector) {
+                op.get("connectors").add("remote-broker-connector");
+            } else {
+                op.get("connectors").add("http-test-connector");
+            }
             execute(managementClient, op, true);
             op = Operations.createAddOperation(getClientTopicAddress());
             op.get("entries").add("java:jboss/exported/topic/myAwesomeClientTopic");
             op.get("entries").add("/topic/myAwesomeClientTopic");
             execute(managementClient, op, true);
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
+            ServerReload.executeReloadAndWaitForCompletion(managementClient);
+        }
+
+        @Override
+        public void tearDown(ManagementClient managementClient, String containerId) throws Exception {
+            JMSOperations ops = JMSOperationsProvider.getInstance(managementClient.getControllerClient());
+            ops.removeJmsTopic("myAwesomeTopic");
+            if (snapshot != null) {
+                snapshot.close();
+            }
+            ServerReload.executeReloadAndWaitForCompletion(managementClient);
         }
 
         private ModelNode execute(final org.jboss.as.arquillian.container.ManagementClient managementClient, final ModelNode op, final boolean expectSuccess) throws IOException {
@@ -118,10 +139,8 @@ public class SendToExternalJMSTopicTestCase {
             return address;
         }
 
-        ModelNode getInitialPooledConnectionFactoryAddress() {
-            ModelNode address = new ModelNode();
-            address.add("subsystem", "messaging-activemq");
-            address.add("server", "default");
+        ModelNode getInitialPooledConnectionFactoryAddress(ModelNode serverAddress) {
+            ModelNode address = serverAddress.clone();
             address.add("pooled-connection-factory", "activemq-ra");
             return address;
         }

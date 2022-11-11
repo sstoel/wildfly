@@ -25,7 +25,6 @@ package org.jboss.as.clustering.infinispan.subsystem;
 import static org.jboss.as.clustering.infinispan.subsystem.CacheComponent.PERSISTENCE;
 import static org.jboss.as.clustering.infinispan.subsystem.StoreResourceDefinition.Attribute.*;
 
-import java.util.Collections;
 import java.util.Properties;
 import java.util.function.Consumer;
 
@@ -34,7 +33,6 @@ import org.infinispan.configuration.cache.AsyncStoreConfiguration;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.PersistenceConfiguration;
 import org.infinispan.configuration.cache.StoreConfiguration;
-import org.jboss.as.clustering.dmr.ModelNodes;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
@@ -55,9 +53,9 @@ public abstract class StoreServiceConfigurator<C extends StoreConfiguration, B e
     private final Properties properties = new Properties();
 
     private volatile boolean passivation;
-    private volatile boolean fetchState;
     private volatile boolean preload;
     private volatile boolean purge;
+    private volatile boolean segmented;
     private volatile boolean shared;
     private volatile int maxBatchSize;
 
@@ -75,13 +73,13 @@ public abstract class StoreServiceConfigurator<C extends StoreConfiguration, B e
     @Override
     public ServiceConfigurator configure(OperationContext context, ModelNode model) throws OperationFailedException {
         this.passivation = PASSIVATION.resolveModelAttribute(context, model).asBoolean();
-        this.fetchState = FETCH_STATE.resolveModelAttribute(context, model).asBoolean();
         this.preload = PRELOAD.resolveModelAttribute(context, model).asBoolean();
         this.purge = PURGE.resolveModelAttribute(context, model).asBoolean();
+        this.segmented = SEGMENTED.resolveModelAttribute(context, model).asBoolean();
         this.shared = SHARED.resolveModelAttribute(context, model).asBoolean();
         this.maxBatchSize = MAX_BATCH_SIZE.resolveModelAttribute(context, model).asInt();
         this.properties.clear();
-        for (Property property : ModelNodes.optionalPropertyList(PROPERTIES.resolveModelAttribute(context, model)).orElse(Collections.emptyList())) {
+        for (Property property : PROPERTIES.resolveModelAttribute(context, model).asPropertyListOrEmpty()) {
             this.properties.setProperty(property.getName(), property.getValue().asString());
         }
         return this;
@@ -92,14 +90,18 @@ public abstract class StoreServiceConfigurator<C extends StoreConfiguration, B e
         B builder = new ConfigurationBuilder().persistence()
                 .passivation(this.passivation)
                 .addStore(this.builderClass)
-                    .fetchPersistentState(this.fetchState)
                     .maxBatchSize(this.maxBatchSize)
                     .preload(this.preload)
                     .purgeOnStartup(this.purge)
+                    .segmented(this.segmented)
                     .shared(this.shared)
                     .withProperties(this.properties)
                     ;
         this.accept(builder);
         return builder.async().read(this.async.get()).persistence().create();
+    }
+
+    boolean isPurgeOnStartup() {
+        return this.purge;
     }
 }

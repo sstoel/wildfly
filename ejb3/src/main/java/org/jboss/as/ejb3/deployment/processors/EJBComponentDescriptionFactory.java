@@ -21,7 +21,7 @@
  */
 package org.jboss.as.ejb3.deployment.processors;
 
-import static org.jboss.as.ejb3.deployment.processors.AbstractDeploymentUnitProcessor.getEjbJarDescription;
+import static org.jboss.as.ejb3.deployment.processors.AnnotatedEJBComponentDescriptionDeploymentUnitProcessor.getEjbJarDescription;
 
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
@@ -40,7 +40,7 @@ import org.jboss.metadata.ejb.spec.EnterpriseBeansMetaData;
 public abstract class EJBComponentDescriptionFactory {
 
     /**
-     * If this is an appclient we want to make the components as not installable, so we can still look up which EJB's are in
+     * If this is an appclient we want to make the components as not installable, so we can still look up which Jakarta Enterprise Beans's are in
      * the deployment, but do not actually install them
      */
     protected final boolean appclient;

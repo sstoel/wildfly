@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
+ * Copyright 2020, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -102,7 +102,7 @@ class TransactionSubsystem30Parser extends TransactionSubsystem20Parser {
         }
     }
 
-    private void parseCMs(XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
+    protected void parseCMs(XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
         while (reader.hasNext() && reader.nextTag() != END_ELEMENT) {
             final Element element = Element.forName(reader.getLocalName());
             switch (element) {
@@ -159,22 +159,9 @@ class TransactionSubsystem30Parser extends TransactionSubsystem20Parser {
                 case START_ELEMENT: {
                     switch (Element.forName(reader.getLocalName())) {
                         case CM_TABLE: {
-                            for (Attribute attribute : Attribute.values()) {
-                                switch (attribute) {
-                                    case NAME: {
-                                        addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_NAME);
-                                        break;
-                                    }
-                                    case CM_TABLE_BATCH_SIZE:
-                                        addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_BATCH_SIZE);
-                                        break;
-                                    case CM_TABLE_IMMEDIATE_CLEANUP:
-                                        addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_IMMEDIATE_CLEANUP);
-                                        break;
-                                    default:
-                                        break;
-                                }
-                            }
+                            addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_NAME);
+                            addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_BATCH_SIZE);
+                            addAttribute(reader, cmrOperation, CMResourceResourceDefinition.CM_TABLE_IMMEDIATE_CLEANUP);
                             break;
                         }
                     }
@@ -189,8 +176,6 @@ class TransactionSubsystem30Parser extends TransactionSubsystem20Parser {
 
         if (value != null) {
             attributeDefinition.parseAndSetParameter(value, operation, reader);
-        } else {
-            throw missingRequired(reader, attributeDefinition.getXmlName());
         }
     }
 

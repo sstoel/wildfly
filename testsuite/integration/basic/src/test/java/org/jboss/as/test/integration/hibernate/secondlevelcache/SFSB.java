@@ -23,11 +23,11 @@
 package org.jboss.as.test.integration.hibernate.secondlevelcache;
 
 import java.util.Properties;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
 
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -56,7 +56,7 @@ public class SFSB {
         try {
 
             // prepare the configuration
-            Configuration configuration = new Configuration().setProperty(AvailableSettings.USE_NEW_ID_GENERATOR_MAPPINGS, "true");
+            Configuration configuration = new Configuration();
             configuration.getProperties().put(AvailableSettings.JTA_PLATFORM, JBossAppServerJtaPlatform.class);
             configuration.getProperties().put(AvailableSettings.TRANSACTION_COORDINATOR_STRATEGY, "jta");
             configuration.setProperty(Environment.HBM2DDL_AUTO, "create-drop");
@@ -65,7 +65,6 @@ public class SFSB {
             Properties properties = new Properties();
             configuration = configuration.configure("hibernate.cfg.xml");
             properties.putAll(configuration.getProperties());
-            Environment.verifyProperties(properties);
             ConfigurationHelper.resolvePlaceHolders(properties);
 
             sessionFactory = configuration.buildSessionFactory();
@@ -87,13 +86,13 @@ public class SFSB {
 
         try {
             Session session = sessionFactory.openSession();
-            // Hibernate ORM 5.2+ doesn't allow beginTransaction in an active JTA transaction, as openSession
-            // will automatically join the JTA transaction.
+            // Hibernate ORM 5.2+ doesn't allow beginTransaction in an active Jakarta Transactions transaction, as openSession
+            // will automatically join the Jakarta Transactions transaction.
             // See https://github.com/hibernate/hibernate-orm/wiki/Migration-Guide---5.2
-            //Transaction ormTransaction = session.beginTransaction(); // join the current JTA transaction
+            //Transaction ormTransaction = session.beginTransaction(); // join the current Jakarta Transactions transaction
             //TransactionStatus status = ormTransaction.getStatus();
             //if(status.isNotOneOf(TransactionStatus.ACTIVE)) {
-            //    throw new RuntimeException("Hibernate Transaction is not active after joining Hibernate to JTA transaction: " + status.name());
+            //    throw new RuntimeException("Hibernate Transaction is not active after joining Hibernate to Jakarta Transactions transaction: " + status.name());
             //}
 
             session.save(student);
@@ -114,13 +113,13 @@ public class SFSB {
 
         try {
             Session session = sessionFactory.openSession();
-            // Hibernate ORM 5.2+ doesn't allow beginTransaction in an active JTA transaction, as openSession
-            // will automatically join the JTA transaction.
+            // Hibernate ORM 5.2+ doesn't allow beginTransaction in an active Jakarta Transactions transaction, as openSession
+            // will automatically join the Jakarta Transactions transaction.
             // See https://github.com/hibernate/hibernate-orm/wiki/Migration-Guide---5.2
-            // Transaction ormTransaction = session.beginTransaction(); // join the current JTA transaction
+            // Transaction ormTransaction = session.beginTransaction(); // join the current Jakarta Transactions transaction
             // TransactionStatus status = ormTransaction.getStatus();
             // if(status.isNotOneOf(TransactionStatus.ACTIVE)) {
-            //    throw new RuntimeException("Hibernate Transaction is not active after joining Hibernate to JTA transaction: " + status.name());
+            //    throw new RuntimeException("Hibernate Transaction is not active after joining Hibernate to Jakarta Transactions transaction: " + status.name());
             // }
             student = session.load(Student.class, id);
             session.close();

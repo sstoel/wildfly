@@ -55,6 +55,8 @@ public class PersistenceUnitMetadataImpl implements PersistenceUnitMetadata {
     // required: name of the persistent unit scoped to deployment file
     private volatile String scopedName;
 
+    private volatile ArrayList<String> containingModuleName;
+
     // optional: jndi name of non-jta datasource
     private volatile String nonJtaDataSourceName;
 
@@ -97,10 +99,10 @@ public class PersistenceUnitMetadataImpl implements PersistenceUnitMetadata {
     // optional:  validation mode can be "auto", "callback", "none".
     private volatile ValidationMode validationMode;
 
-    // optional: version of the JPA specification
+    // optional: version of the Jakarta Persistence specification
     private volatile String version;
 
-    // transformers will be written to when the JPA persistence provider adds their transformer.
+    // transformers will be written to when the Jakarta Persistence persistence provider adds their transformer.
     // there should be very few calls to add transformers but potentially many calls to get the
     // transformer list (once per application class loaded).
     private final List<ClassTransformer> transformers = new CopyOnWriteArrayList<ClassTransformer>();
@@ -133,6 +135,16 @@ public class PersistenceUnitMetadataImpl implements PersistenceUnitMetadata {
     @Override
     public String getScopedPersistenceUnitName() {
         return scopedName;
+    }
+
+    @Override
+    public void setContainingModuleName(ArrayList<String> containingModuleName) {
+        this.containingModuleName = containingModuleName;
+    }
+
+    @Override
+    public ArrayList<String> getContainingModuleName() {
+        return containingModuleName;
     }
 
     @Override
@@ -366,10 +378,10 @@ public class PersistenceUnitMetadataImpl implements PersistenceUnitMetadata {
     /**
      * Return a classloader that the provider can use to load the entity classes.
      * <p/>
-     * Note from JPA 8.2:
-     * All persistence classes defined at the level of the Java EE EAR must be accessible to other Java EE
+     * Note from Jakarta Persistence 8.2:
+     * All persistence classes defined at the level of the Jakarta EE EAR must be accessible to other Java EE
      * components in the application—i.e. loaded by the application classloader—such that if the same entity
-     * class is referenced by two different Java EE components (which may be using different persistence
+     * class is referenced by two different Jakarta EE components (which may be using different persistence
      * units), the referenced class is the same identical class.
      *
      * @return

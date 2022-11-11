@@ -22,11 +22,17 @@
 
 package org.jboss.as.test.integration.xerces;
 
-import javax.faces.bean.ManagedBean;
+import java.io.Serializable;
+import jakarta.faces.annotation.FacesConfig;
+import jakarta.faces.view.ViewScoped;
+import jakarta.inject.Named;
 
 /**
  * User: jpai
  */
-@ManagedBean
-public class JSFManagedBean {
+@Named
+@ViewScoped
+@FacesConfig
+public class JSFManagedBean implements Serializable {
+    private static final long serialVersionUID = 1L;
 }

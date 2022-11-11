@@ -22,7 +22,7 @@ how _application-security-domain_ is configured, see the
 Application Authentication Configuration>> section.
 
 To configure applications to use _application-security-domain_, see
-<<set-up-and-configure-authentication-for-applications,Set Up and Configure Authentication for Applications>>. You
+<<WildFly_Elytron_Security.adoc#set-up-and-configure-authentication-for-applications,Set Up and Configure Authentication for Applications>>. You
 can also override the default behavior of all applications using the
 steps in
 <<override-an-applications-authentication-configuration,
@@ -71,7 +71,7 @@ and application authentication.
 [[undertow-subsystem]]
 == Undertow Subsystem
 
-As a web application is deployed the name of the security domain required by that application will be identified, this will either be from within the deployment or if the deployment does not have a security domain the `default-security-domain` as defined on the Undertow subsystem will be assumed.  By default it is assumed that the security domain maps to a PicketBox domain defined in the legacy security subsystem, however an `application-security-domain` resource can be added to the Undertow subsystem which maps from the name of the security domain required by the application to the appropriate WildFly Elytron configuration.
+As a web application is deployed the name of the security domain required by that application will be identified, this will either be from within the deployment or if the deployment does not have a security domain the `default-security-domain` as defined on the Undertow subsystem will be assumed.  An `application-security-domain` resource can be added to the Undertow subsystem which maps from the name of the security domain required by the application to the appropriate WildFly Elytron configuration.
 
 As an example in it's simplest form a mapping can be added as: -
 
@@ -152,10 +152,10 @@ Where an `application-security-domain` mapping is in use it can be useful to dou
 
 In this output the `referencing-deployments` attribute shows that the deployment `simple-webapp.war` has been deployed using this mapping.
 
-[[ejb-subsystem]]
-== EJB Subsystem
+[[Jakarta-Enterprise-Beans-subsystem]]
+== Jakarta Enterprise Beans Subsystem
 
-Configuration can be added to the EJB subsystem to map a security domain
+Configuration can be added to the Jakarta Enterprise Beans subsystem to map a security domain
 name referenced in a deployment to an Elytron security domain:
 
 [source,options="nowrap"]
@@ -186,6 +186,13 @@ An `application-security-domain` has two main attributes:
 * security-domain - a reference to the Elytron security domain that
 should be used
 
+There is another attribute called `legacy-compliant-principal-propagation`.
+If it is set to true and there is no incoming run-as identity,
+then the principal of the local unsecured bean is the current authenticated identity. This was the case
+for legacy PicketBox security. If this attribute is set to false, the behaviour will comply with the Elytron's previous
+behaviour and if there is no incoming run-as identity then the principal of the local unsecured bean is anonymous.
+This attribute is optional and the default value is true.
+
 When an application security domain mapping is configured for a bean in
 a deployment, this indicates that security should be handled by Elytron.
 
@@ -199,8 +206,8 @@ descriptor or annotation to secure webservice endpoint.
 
 When Elytron security is enabled, JAAS subject or principal can be pushed
 to jbossws-cxf endpoint’s SecurityContext to propagate authenticated
-identity to EJB container. Here is a CXF interceptor example to
-propagate authenticated information to EJB container :
+identity to Jakarta Enterprise Beans container. Here is a CXF interceptor example to
+propagate authenticated information to Jakarta Enterprise Beans container :
 [source,java,options="nowrap"]
 ----
 public class PropagateSecurityInterceptor extends WSS4JInInterceptor {
@@ -222,12 +229,4 @@ public class PropagateSecurityInterceptor extends WSS4JInInterceptor {
 }
 
 ----
-[[legacy-security-subsystem]]
-== Legacy Security Subsystem
-
-As previously described, Elytron based security is configured by
-chaining together different capability references to form a complete
-security policy. To allow an incremental migration from the legacy
-Security subsystem some of the major components of this subsystem can be
-mapped to Elytron capabilities and used within an Elytron based set up.
 

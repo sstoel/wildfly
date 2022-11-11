@@ -46,7 +46,6 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import java.io.IOException;
@@ -55,7 +54,7 @@ import java.util.Properties;
 import java.util.concurrent.Future;
 
 /**
- * Testing ssl connection of remote ejb client.
+ * Testing ssl connection of remote Jakarta Enterprise Beans client.
  *
  * @author Ondrej Chaloupka
  * @author Jan Martiska
@@ -63,6 +62,7 @@ import java.util.concurrent.Future;
 @RunWith(Arquillian.class)
 @RunAsClient
 public class SSLEJBRemoteClientTestCase {
+
     private static final Logger log = Logger.getLogger(SSLEJBRemoteClientTestCase.class);
     private static final String MODULE_NAME_STATELESS = "ssl-remote-ejb-client-test";
     private static final String MODULE_NAME_STATEFUL = "ssl-remote-ejb-client-test-stateful";
@@ -132,9 +132,6 @@ public class SSLEJBRemoteClientTestCase {
             log.trace("*** restarting server");
             container.stop(DEFAULT_JBOSSAS);
             container.start(DEFAULT_JBOSSAS);
-            managementClient = new ManagementClient(client, TestSuiteEnvironment.getServerAddress(), TestSuiteEnvironment.getServerPort(), "remote+http");
-            // write SSL realm config to output - debugging purposes
-            SSLRealmSetupTool.readSSLRealmConfig(managementClient);
             serverConfigDone = true;
         } else {
             log.trace("*** Server already prepared, skipping config procedure");
@@ -169,7 +166,7 @@ public class SSLEJBRemoteClientTestCase {
             log.trace("**** About to perform synchronous call on stateless bean");
             String response = bean.sayHello();
             log.trace("**** The answer is: " + response);
-            Assert.assertEquals("Remote invocation of EJB was not successful", StatelessBeanRemote.ANSWER, response);
+            Assert.assertEquals("Remote invocation of Jakarta Enterprise Beans were not successful", StatelessBeanRemote.ANSWER, response);
             deployer.undeploy(DEPLOYMENT_STATELESS);
         } finally {
             ctx.close();
@@ -190,7 +187,7 @@ public class SSLEJBRemoteClientTestCase {
             Future<String> futureResponse = bean.sayHelloAsync();
             String response = futureResponse.get();
             log.trace("**** The answer is: " + response);
-            Assert.assertEquals("Remote asynchronous invocation of EJB was not successful", StatelessBeanRemote.ANSWER, response);
+            Assert.assertEquals("Remote asynchronous invocation of Jakarta Enterprise Beans were not successful", StatelessBeanRemote.ANSWER, response);
             deployer.undeploy(DEPLOYMENT_STATELESS);
         } finally {
             ctx.close();
@@ -210,7 +207,7 @@ public class SSLEJBRemoteClientTestCase {
             log.trace("**** About to perform synchronous call on stateful bean");
             String response = bean.sayHello();
             log.trace("**** The answer is: " + response);
-            Assert.assertEquals("Remote invocation of EJB was not successful", StatefulBeanRemote.ANSWER, response);
+            Assert.assertEquals("Remote invocation of Jakarta Enterprise Beans were not successful", StatefulBeanRemote.ANSWER, response);
             deployer.undeploy(DEPLOYMENT_STATEFUL);
         } finally {
             ctx.close();
@@ -231,7 +228,7 @@ public class SSLEJBRemoteClientTestCase {
             Future<String> futureResponse = bean.sayHelloAsync();
             String response = futureResponse.get();
             log.trace("**** The answer is: " + response);
-            Assert.assertEquals("Remote asynchronous invocation of EJB was not successful", StatefulBeanRemote.ANSWER, response);
+            Assert.assertEquals("Remote asynchronous invocation of Jakarta Enterprise Beans were not successful", StatefulBeanRemote.ANSWER, response);
             deployer.undeploy(DEPLOYMENT_STATEFUL);
         } finally {
             ctx.close();

@@ -25,31 +25,32 @@ package org.wildfly.clustering.ee.infinispan;
 import java.util.function.Function;
 
 import org.infinispan.Cache;
-import org.infinispan.distribution.DistributionManager;
 import org.infinispan.remoting.transport.Address;
-import org.wildfly.clustering.group.Group;
 import org.wildfly.clustering.group.Node;
-import org.wildfly.clustering.spi.NodeFactory;
+import org.wildfly.clustering.infinispan.distribution.CacheKeyDistribution;
+import org.wildfly.clustering.infinispan.distribution.KeyDistribution;
+import org.wildfly.clustering.server.NodeFactory;
 
 /**
- * Function that returns the primary owner of a given cache key.
+ * Function that returns the primary owner for a given cache key.
  * @author Paul Ferraro
  */
 public class PrimaryOwnerLocator<K> implements Function<K, Node> {
-    private final DistributionManager distribution;
+    private final KeyDistribution distribution;
     private final NodeFactory<Address> memberFactory;
-    private final Group group;
 
-    public PrimaryOwnerLocator(Cache<K, ?> cache, NodeFactory<Address> memberFactory, Group group) {
-        this.distribution = cache.getAdvancedCache().getDistributionManager();
+    public PrimaryOwnerLocator(Cache<? extends K, ?> cache, NodeFactory<Address> memberFactory) {
+        this(new CacheKeyDistribution(cache), memberFactory);
+    }
+
+    PrimaryOwnerLocator(KeyDistribution distribution, NodeFactory<Address> memberFactory) {
+        this.distribution = distribution;
         this.memberFactory = memberFactory;
-        this.group = group;
     }
 
     @Override
     public Node apply(K key) {
-        Address address = (this.distribution != null) ? this.distribution.getCacheTopology().getDistribution(key).primary() : null;
-        Node node = (address != null) ? this.memberFactory.createNode(address) : null;
-        return (node != null) ? node : this.group.getLocalMember();
+        Address address = this.distribution.getPrimaryOwner(key);
+        return this.memberFactory.createNode(address);
     }
 }

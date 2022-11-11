@@ -164,9 +164,6 @@ public class ResourceInjectionAnnotationParsingProcessor implements DeploymentUn
         }
     }
 
-    public void undeploy(final DeploymentUnit context) {
-    }
-
     protected void processFieldResource(final DeploymentPhaseContext phaseContext, final FieldInfo fieldInfo, final String name, final String type, final EEModuleClassDescription classDescription, final AnnotationInstance annotation, final EEModuleDescription eeModuleDescription, final Module module, final EEApplicationClasses applicationClasses, final PropertyReplacer replacer) throws DeploymentUnitProcessingException {
         final String fieldName = fieldInfo.name();
         final String injectionType = isEmpty(type) || type.equals(Object.class.getName()) ? fieldInfo.type().name().toString() : type;
@@ -224,7 +221,7 @@ public class ResourceInjectionAnnotationParsingProcessor implements DeploymentUn
             // since the binding (value) for env-entry is always driven from a deployment descriptor.
             // The deployment descriptor processing and subsequent binding in the ENC is taken care off by a
             // different Deployment unit processor. If the value isn't specified in the deployment descriptor,
-            // then there will be no binding the ENC and that's what is expected by the Java EE 6 spec. Furthermore,
+            // then there will be no binding the ENC and that's what is expected by the Jakarta EE spec. Furthermore,
             // if the @Resource is an env-entry binding then the injection target will be optional since in the absence of
             // an env-entry-value, there won't be a binding and effectively no injection. This again is as expected by spec.
         } else {

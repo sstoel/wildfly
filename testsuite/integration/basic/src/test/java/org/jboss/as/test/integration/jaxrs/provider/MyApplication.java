@@ -21,11 +21,11 @@
  */
 package org.jboss.as.test.integration.jaxrs.provider;
 
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
 
 /**
- * A JAX-RS application.
+ * A Jakarta RESTful Web Services application.
  *
  * @author Josef Cacek
  */

@@ -25,7 +25,6 @@ package org.jboss.as.clustering.controller;
 import java.util.Map;
 import java.util.function.Predicate;
 
-import org.jboss.as.clustering.controller.transform.InitialAttributeValueOperationContextAttachment;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -33,8 +32,6 @@ import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.registry.Resource;
-import org.jboss.as.controller.transform.TransformerOperationAttachment;
 import org.jboss.dmr.ModelNode;
 
 /**
@@ -54,11 +51,6 @@ public class WriteAttributeStepHandler extends ReloadRequiredWriteAttributeHandl
         super(descriptor.getAttributes());
         this.descriptor = descriptor;
         this.handler = handler;
-    }
-
-    @Override
-    protected boolean requiresRuntime(OperationContext context) {
-        return super.requiresRuntime(context) && (this.handler != null);
     }
 
     @Override
@@ -97,7 +89,7 @@ public class WriteAttributeStepHandler extends ReloadRequiredWriteAttributeHandl
     @Override
     protected boolean applyUpdateToRuntime(OperationContext context, ModelNode operation, String attributeName, ModelNode resolvedValue, ModelNode currentValue, HandbackHolder<Void> handback) throws OperationFailedException {
         boolean updated = super.applyUpdateToRuntime(context, operation, attributeName, resolvedValue, currentValue, handback);
-        if (updated) {
+        if (updated && (this.handler != null)) {
             PathAddress address = context.getCurrentAddress();
             if (context.isResourceServiceRestartAllowed() && this.getAttributeDefinition(attributeName).getFlags().contains(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES) && context.markResourceRestarted(address, this.handler)) {
                 this.restartServices(context);
@@ -120,20 +112,4 @@ public class WriteAttributeStepHandler extends ReloadRequiredWriteAttributeHandl
         this.handler.removeServices(context, context.getOriginalRootResource().navigate(context.getCurrentAddress()).getModel());
         this.handler.installServices(context, context.readResource(PathAddress.EMPTY_ADDRESS).getModel());
     }
-
-    @Override
-    protected void finishModelStage(OperationContext context, ModelNode operation, String attributeName, ModelNode newValue, ModelNode oldValue, Resource model) throws OperationFailedException {
-        super.finishModelStage(context, operation, attributeName, newValue, oldValue, model);
-
-        if (!context.isBooting()) {
-            TransformerOperationAttachment attachment = TransformerOperationAttachment.getOrCreate(context);
-            InitialAttributeValueOperationContextAttachment valuesAttachment = attachment.getAttachment(InitialAttributeValueOperationContextAttachment.INITIAL_VALUES_ATTACHMENT);
-            if (valuesAttachment == null) {
-                valuesAttachment = new InitialAttributeValueOperationContextAttachment();
-                attachment.attach(InitialAttributeValueOperationContextAttachment.INITIAL_VALUES_ATTACHMENT, valuesAttachment);
-            }
-            valuesAttachment.putIfAbsentInitialValue(Operations.getPathAddress(operation), attributeName, oldValue);
-        }
-    }
-
 }

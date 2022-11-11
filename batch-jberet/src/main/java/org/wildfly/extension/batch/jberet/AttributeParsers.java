@@ -42,7 +42,8 @@ class AttributeParsers {
     static final AttributeParser VALUE = new AttributeParser() {
         @Override
         public void parseElement(final AttributeDefinition attribute, final XMLExtendedStreamReader reader, final ModelNode operation) throws XMLStreamException {
-            operation.get(attribute.getName()).set(readValueAttribute(reader));
+            final ModelNode valueNode = ParseUtils.parseAttributeValue(readValueAttribute(reader), attribute.isAllowExpression(), attribute.getType());
+            operation.get(attribute.getName()).set(valueNode);
             ParseUtils.requireNoContent(reader);
         }
 
@@ -107,6 +108,17 @@ class AttributeParsers {
         }
         if (result.isEmpty()) {
             throw ParseUtils.missingRequired(reader, attributes.stream().map(Attribute::getLocalName).collect(Collectors.toSet()));
+        }
+        return result;
+    }
+
+    static Map<Attribute, String> readAttributes(final XMLExtendedStreamReader reader, final Set<Attribute> attributes) {
+        final Map<Attribute, String> result = new EnumMap<>(Attribute.class);
+        for (int i = 0; i < reader.getAttributeCount(); i++) {
+            final Attribute current = Attribute.forName(reader.getAttributeLocalName(i));
+            if (attributes.contains(current)) {
+                result.put(current, reader.getAttributeValue(i));
+            }
         }
         return result;
     }

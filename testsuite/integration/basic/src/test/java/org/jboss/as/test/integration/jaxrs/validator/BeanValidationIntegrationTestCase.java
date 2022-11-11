@@ -23,8 +23,8 @@ package org.jboss.as.test.integration.jaxrs.validator;
 
 import java.net.URL;
 
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -44,7 +44,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Test for the integration of JAX-RS and Bean Validation.
+ * Test for the integration of Jakarta RESTful Web Services and Jakarta Bean Validation.
  *
  * @author Stuart Douglas
  * @author Gunnar Morling

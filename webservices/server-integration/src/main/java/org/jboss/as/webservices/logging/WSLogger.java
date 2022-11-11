@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
+ * Copyright 2020, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -31,7 +31,7 @@ import static org.jboss.logging.Logger.Level.WARN;
 import java.io.IOException;
 import java.lang.reflect.Method;
 
-import javax.xml.ws.WebServiceException;
+import jakarta.xml.ws.WebServiceException;
 
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
@@ -113,7 +113,7 @@ public interface WSLogger extends BasicLogger {
     void mBeanServerNotAvailable(Object bean);
 
     @LogMessage(level = WARN)
-    @Message(id = 14, value = "Multiple EJB3 endpoints in the same deployment with different declared security roles; be aware this might be a security risk if you're not controlling allowed roles (@RolesAllowed) on each ws endpoint method.")
+    @Message(id = 14, value = "Multiple Enterprise Beans 3 endpoints in the same deployment with different declared security roles; be aware this might be a security risk if you're not controlling allowed roles (@RolesAllowed) on each ws endpoint method.")
     void multipleEndpointsWithDifferentDeclaredSecurityRoles();
 
     @LogMessage(level = ERROR)
@@ -128,7 +128,7 @@ public interface WSLogger extends BasicLogger {
     @Message(id = 17, value = "Invalid handler chain file: %s")
     void invalidHandlerChainFile(String fileName);
 
-    String WS_SPEC_REF_5_3_2_4_2 = ". See section 5.3.2.4.2 of \"Web Services for Java EE, Version 1.4\".";
+    String WS_SPEC_REF_5_3_2_4_2 = ". See section 5.3.2.4.2 of \"Jakarta Enterprise Web Services 2.0\".";
 
     @LogMessage(level = ERROR)
     @Message(id = 18, value = "Web service method %s must not be static or final" + WS_SPEC_REF_5_3_2_4_2)
@@ -257,12 +257,12 @@ public interface WSLogger extends BasicLogger {
     @Message(id = 57, value = "Unable to get URL for: %s")
     DeploymentUnitProcessingException cannotGetURLForDescriptor(@Cause Throwable cause, String resourcePath);
 
-    @Message(id = 58, value = "JAX-RPC not supported")
+    @Message(id = 58, value = "Jakarta XML RPC not supported")
     DeploymentUnitProcessingException jaxRpcNotSupported();
 
     @Message(id = 59, value = "%s library (%s) detected in ws endpoint deployment; either provide a proper deployment replacing embedded libraries with container module "
             + "dependencies or disable the webservices subsystem for the current deployment adding a proper jboss-deployment-structure.xml descriptor to it. "
-            + "The former approach is recommended, as the latter approach causes most of the webservices Java EE and any JBossWS specific functionality to be disabled.")
+            + "The former approach is recommended, as the latter approach causes most of the webservices Jakarta EE and any JBossWS specific functionality to be disabled.")
     DeploymentUnitProcessingException invalidLibraryInDeployment(String libraryName, String jar);
 
     @Message(id = 60, value = "Web service endpoint class %s not found")
@@ -286,7 +286,7 @@ public interface WSLogger extends BasicLogger {
 
     @Message(id = 66, value = "Servlet class %s declared in web.xml; either provide a proper deployment relying on JBossWS or disable the webservices subsystem for the "
             + "current deployment adding a proper jboss-deployment-structure.xml descriptor to it. "
-            + "The former approach is recommended, as the latter approach causes most of the webservices Java EE and any JBossWS specific functionality to be disabled.")
+            + "The former approach is recommended, as the latter approach causes most of the webservices Jakarta EE and any JBossWS specific functionality to be disabled.")
     WSFException invalidWSServlet(String servletClass);
 
     @LogMessage(level = ERROR)
@@ -313,4 +313,12 @@ public interface WSLogger extends BasicLogger {
 
     @Message(id = 73, value = "The target endpoint %s is undeploying or stopped" )
     IllegalStateException endpointAlreadyStopped(String endpointName);
+
+    @LogMessage(level = WARN)
+    @Message(id = 68, value = "A potentially problematic %s library (%s) detected in ws endpoint deployment; Check if this library can be replaced with container module")
+    void warningLibraryInDeployment(String libraryName, String jar);
+
+    @Message(id = 74, value = "The deployment is configured to use legacy security which is no longer supported." )
+    IllegalStateException legacySecurityUnsupported();
+
 }

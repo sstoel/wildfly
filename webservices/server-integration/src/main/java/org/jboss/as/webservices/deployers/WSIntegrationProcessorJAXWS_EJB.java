@@ -35,8 +35,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
-import javax.jws.WebService;
-import javax.xml.ws.WebServiceProvider;
+import jakarta.jws.WebService;
+import jakarta.xml.ws.WebServiceProvider;
 
 import org.jboss.as.ee.component.ComponentDescription;
 import org.jboss.as.ee.component.EEModuleClassDescription;
@@ -74,10 +74,6 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
         processAnnotation(unit, WebServiceProvider.class);
     }
 
-    @Override
-    public void undeploy(final DeploymentUnit context) {
-        // does nothing
-    }
     @SuppressWarnings("rawtypes")
     private static void processAnnotation(final DeploymentUnit unit,  final Class annotationType) {
 
@@ -118,8 +114,8 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
     }
 
     private static WebContextAnnotationWrapper getWebContextWrapper(final ClassInfo webServiceClassInfo) {
-        if (!webServiceClassInfo.annotations().containsKey(WEB_CONTEXT_ANNOTATION)) return new WebContextAnnotationWrapper(null);
-        final AnnotationInstance webContextAnnotation = webServiceClassInfo.annotations().get(WEB_CONTEXT_ANNOTATION).get(0);
+        if (!webServiceClassInfo.annotationsMap().containsKey(WEB_CONTEXT_ANNOTATION)) return new WebContextAnnotationWrapper(null);
+        final AnnotationInstance webContextAnnotation = webServiceClassInfo.annotationsMap().get(WEB_CONTEXT_ANNOTATION).get(0);
         return new WebContextAnnotationWrapper(webContextAnnotation);
     }
 
@@ -146,7 +142,7 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
                 }
             }
             final SecurityRolesMetaData securityRolesMD = ejbJarMD.getAssemblyDescriptor().getSecurityRoles();
-            if (securityRolesMD != null && securityRolesMD.size() > 0) {
+            if (securityRolesMD != null && !securityRolesMD.isEmpty()) {
                 for (final SecurityRoleMetaData securityRoleMD : securityRolesMD) {
                     securityRoles.add(securityRoleMD.getRoleName());
                 }
@@ -154,8 +150,8 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
         }
 
         // process @RolesAllowed annotation
-        if (webServiceClassInfo.annotations().containsKey(ROLES_ALLOWED_ANNOTATION)) {
-            final List<AnnotationInstance> allowedRoles = webServiceClassInfo.annotations().get(ROLES_ALLOWED_ANNOTATION);
+        if (webServiceClassInfo.annotationsMap().containsKey(ROLES_ALLOWED_ANNOTATION)) {
+            final List<AnnotationInstance> allowedRoles = webServiceClassInfo.annotationsMap().get(ROLES_ALLOWED_ANNOTATION);
             for (final AnnotationInstance allowedRole : allowedRoles) {
                 if (allowedRole.target().equals(webServiceClassInfo)) {
                    for (final String roleName : allowedRole.value().asStringArray()) {
@@ -166,8 +162,8 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
         }
 
         // process @DeclareRoles annotation
-        if (webServiceClassInfo.annotations().containsKey(DECLARE_ROLES_ANNOTATION)) {
-            final List<AnnotationInstance> declareRoles = webServiceClassInfo.annotations().get(DECLARE_ROLES_ANNOTATION);
+        if (webServiceClassInfo.annotationsMap().containsKey(DECLARE_ROLES_ANNOTATION)) {
+            final List<AnnotationInstance> declareRoles = webServiceClassInfo.annotationsMap().get(DECLARE_ROLES_ANNOTATION);
             for (final AnnotationInstance declareRole : declareRoles) {
                 if (declareRole.target().equals(webServiceClassInfo)) {
                    for (final String roleName : declareRole.value().asStringArray()) {
@@ -178,15 +174,15 @@ public final class WSIntegrationProcessorJAXWS_EJB implements DeploymentUnitProc
         }
 
         // process @PermitAll annotation
-        if (webServiceClassInfo.annotations().containsKey(PERMIT_ALL_ANNOTATION)) {
-            for (AnnotationInstance permitAll : webServiceClassInfo.annotations().get(PERMIT_ALL_ANNOTATION)) {
+        if (webServiceClassInfo.annotationsMap().containsKey(PERMIT_ALL_ANNOTATION)) {
+            for (AnnotationInstance permitAll : webServiceClassInfo.annotationsMap().get(PERMIT_ALL_ANNOTATION)) {
                 if (permitAll.target().equals(webServiceClassInfo)) {
                     securityRoles.add("*");
                     break;
                 }
             }
         }
-        //if there is no class level security annotation, it will delegate to ejb's security check
+        //if there is no class level security annotation, it will delegate to Jakarta Enterprise Beans's security check
         if (securityRoles.isEmpty()) {
             securityRoles.add("*");
         }

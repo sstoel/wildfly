@@ -4,13 +4,13 @@ import org.hibernate.Session;
 import org.hibernate.stat.QueryStatistics;
 import org.hibernate.stat.Statistics;
 
-import javax.ejb.Stateless;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.PersistenceUnit;
-import javax.persistence.Query;
+import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceUnit;
+import jakarta.persistence.Query;
 
 import static org.junit.Assert.assertEquals;
 
@@ -57,7 +57,7 @@ public class SFSB4LC {
         stats.clear();
 
         try {
-            String queryString = "from Employee e where e.id = " + id;
+            String queryString = "select e from Employee e where e.id = " + id;
             QueryStatistics queryStats = stats.getQueryStatistics(queryString);
             Query query = em.createQuery(queryString);
             query.setHint("org.hibernate.cacheable", true);

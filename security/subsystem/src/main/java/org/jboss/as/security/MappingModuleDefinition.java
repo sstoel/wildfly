@@ -26,7 +26,9 @@ package org.jboss.as.security;
 
 import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
+import org.jboss.as.controller.ModelOnlyWriteAttributeHandler;
+import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
@@ -35,13 +37,12 @@ import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.controller.registry.OperationEntry;
-import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
 /**
  * @author <a href="mailto:tomaz.cerar@redhat.com">Tomaz Cerar</a> (c) 2012 Red Hat Inc.
  */
-public class MappingModuleDefinition extends SimpleResourceDefinition {
+class MappingModuleDefinition extends SimpleResourceDefinition {
 
     protected static final SimpleAttributeDefinition CODE = new SimpleAttributeDefinitionBuilder(ModelDescriptionConstants.CODE, ModelType.STRING)
             .setRequired(true)
@@ -64,27 +65,20 @@ public class MappingModuleDefinition extends SimpleResourceDefinition {
         super(PathElement.pathElement(key),
                 SecurityExtension.getResourceDescriptionResolver(Constants.MAPPING_MODULE),
                 null,
-                new SecurityDomainReloadRemoveHandler()
+                ModelOnlyRemoveStepHandler.INSTANCE
         );
     }
 
     @Override
     public void registerOperations(ManagementResourceRegistration resourceRegistration) {
         super.registerOperations(resourceRegistration);
-        super.registerAddOperation(resourceRegistration, new AbstractAddStepHandler() {
-            @Override
-            protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-                for (AttributeDefinition attr : getAttributes()) {
-                    attr.validateAndSet(operation, model);
-                }
-            }
-        }, OperationEntry.Flag.RESTART_NONE);
+        super.registerAddOperation(resourceRegistration, new AbstractAddStepHandler(this.getAttributes()), OperationEntry.Flag.RESTART_NONE);
     }
 
     @Override
     public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
         super.registerAttributes(resourceRegistration);
-        SecurityDomainReloadWriteHandler writeHandler = new SecurityDomainReloadWriteHandler(getAttributes());
+        OperationStepHandler writeHandler = new ModelOnlyWriteAttributeHandler(getAttributes());
         for (AttributeDefinition attr : getAttributes()) {
             resourceRegistration.registerReadWriteAttribute(attr, null, writeHandler);
         }

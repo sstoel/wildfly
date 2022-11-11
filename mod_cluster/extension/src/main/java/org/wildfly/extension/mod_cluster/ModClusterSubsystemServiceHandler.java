@@ -27,23 +27,22 @@ import static org.wildfly.extension.mod_cluster.ProxyConfigurationResourceDefini
 import static org.wildfly.extension.mod_cluster.ProxyConfigurationResourceDefinition.Attribute.STATUS_INTERVAL;
 
 import java.time.Duration;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.Set;
 
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
-import org.jboss.as.clustering.dmr.ModelNodes;
+import org.jboss.as.clustering.controller.ServiceValueCaptorServiceConfigurator;
+import org.jboss.as.clustering.controller.ServiceValueRegistry;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.registry.Resource;
-import org.jboss.as.server.Services;
-import org.jboss.as.server.moduleservice.ServiceModuleLoader;
 import org.jboss.common.beans.property.BeanUtils;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.Property;
+import org.jboss.modcluster.ModClusterServiceMBean;
 import org.jboss.modcluster.load.LoadBalanceFactorProvider;
 import org.jboss.modcluster.load.impl.DynamicLoadBalanceFactorProvider;
 import org.jboss.modcluster.load.impl.SimpleLoadBalanceFactorProvider;
@@ -52,7 +51,7 @@ import org.jboss.modules.Module;
 import org.jboss.modules.ModuleLoadException;
 import org.jboss.msc.service.ServiceController.Mode;
 import org.jboss.msc.service.ServiceTarget;
-import org.wildfly.clustering.service.ActiveServiceSupplier;
+import org.wildfly.clustering.service.ServiceConfigurator;
 
 /**
  * Resource service handler implementation that handles installation of mod_cluster services. Since mod_cluster requires certain
@@ -62,6 +61,12 @@ import org.wildfly.clustering.service.ActiveServiceSupplier;
  * @author Radoslav Husar
  */
 class ModClusterSubsystemServiceHandler implements ResourceServiceHandler {
+
+    private final ServiceValueRegistry<ModClusterServiceMBean> registry;
+
+    ModClusterSubsystemServiceHandler(ServiceValueRegistry<ModClusterServiceMBean> registry) {
+        this.registry = registry;
+    }
 
     @Override
     public void installServices(OperationContext context, ModelNode model) throws OperationFailedException {
@@ -91,7 +96,9 @@ class ModClusterSubsystemServiceHandler implements ResourceServiceHandler {
                 String listenerName = LISTENER.resolveModelAttribute(context, proxyModel).asString();
                 int statusInterval = STATUS_INTERVAL.resolveModelAttribute(context, proxyModel).asInt();
 
-                new ContainerEventHandlerServiceConfigurator(proxyAddress, loadProvider).build(target).install();
+                ServiceConfigurator configurator = new ContainerEventHandlerServiceConfigurator(proxyAddress, loadProvider);
+                configurator.build(target).install();
+                new ServiceValueCaptorServiceConfigurator<>(this.registry.add(configurator.getServiceName())).build(target).install();
 
                 // Install services for web container integration
                 for (ContainerEventHandlerAdapterServiceConfiguratorProvider provider : ServiceLoader.load(ContainerEventHandlerAdapterServiceConfiguratorProvider.class, ContainerEventHandlerAdapterServiceConfiguratorProvider.class.getClassLoader())) {
@@ -117,7 +124,7 @@ class ModClusterSubsystemServiceHandler implements ResourceServiceHandler {
         }
         if (model.get(DynamicLoadProviderResourceDefinition.PATH.getKeyValuePair()).isDefined()) {
             ModelNode node = model.get(DynamicLoadProviderResourceDefinition.PATH.getKeyValuePair());
-            int decayFactor = DynamicLoadProviderResourceDefinition.Attribute.DECAY.resolveModelAttribute(context, node).asInt();
+            float decayFactor = (float) DynamicLoadProviderResourceDefinition.Attribute.DECAY.resolveModelAttribute(context, node).asDouble();
             int history = DynamicLoadProviderResourceDefinition.Attribute.HISTORY.resolveModelAttribute(context, node).asInt();
             int initialLoad = DynamicLoadProviderResourceDefinition.Attribute.INITIAL_LOAD.resolveModelAttribute(context, node).asInt();
 
@@ -151,23 +158,14 @@ class ModClusterSubsystemServiceHandler implements ResourceServiceHandler {
             Class<? extends LoadMetric> loadMetricClass = null;
             if (node.hasDefined(LoadMetricResourceDefinition.Attribute.TYPE.getName())) {
                 String type = LoadMetricResourceDefinition.Attribute.TYPE.resolveModelAttribute(context, node).asString();
-
-                // MODCLUSTER-288 Metric "mem" has been dropped, keep it in the model for versions prior to 8.0
-                if (type.equals("mem")) {
-                    ROOT_LOGGER.unsupportedMetric(type);
-                    continue;
-                }
-
                 LoadMetricEnum metric = LoadMetricEnum.forType(type);
                 loadMetricClass = (metric != null) ? metric.getLoadMetricClass() : null;
             } else {
                 String className = CustomLoadMetricResourceDefinition.Attribute.CLASS.resolveModelAttribute(context, node).asString();
                 String moduleName = CustomLoadMetricResourceDefinition.Attribute.MODULE.resolveModelAttribute(context, node).asString();
 
-                ServiceModuleLoader serviceModuleLoader = new ActiveServiceSupplier<ServiceModuleLoader>(context.getServiceRegistry(true), Services.JBOSS_SERVICE_MODULE_LOADER).get();
-
                 try {
-                    Module module = serviceModuleLoader.loadModule(moduleName);
+                    Module module = Module.getContextModuleLoader().loadModule(moduleName);
                     loadMetricClass = module.getClassLoader().loadClass(className).asSubclass(LoadMetric.class);
                 } catch (ModuleLoadException e) {
                     ROOT_LOGGER.errorLoadingModuleForCustomMetric(moduleName, e);
@@ -183,7 +181,7 @@ class ModClusterSubsystemServiceHandler implements ResourceServiceHandler {
                     metric.setWeight(weight);
 
                     Properties props = new Properties();
-                    for (Property property : ModelNodes.optionalPropertyList(LoadMetricResourceDefinition.SharedAttribute.PROPERTY.resolveModelAttribute(context, node)).orElse(Collections.emptyList())) {
+                    for (Property property : LoadMetricResourceDefinition.SharedAttribute.PROPERTY.resolveModelAttribute(context, node).asPropertyListOrEmpty()) {
                         props.put(property.getName(), property.getValue().asString());
                     }
 

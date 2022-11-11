@@ -30,6 +30,7 @@ import org.junit.Test;
 
 public class UndertowSubsystem100TestCase extends AbstractUndertowSubsystemTestCase {
 
+    private static final int SCHEMA_VERSION = 10;
     private final String virtualHostName = "some-server";
     private final int flag = 1;
 
@@ -44,14 +45,8 @@ public class UndertowSubsystem100TestCase extends AbstractUndertowSubsystemTestC
     }
 
     @Override
-    protected String[] getSubsystemTemplatePaths() {
-        return new String[] { "/subsystem-templates/undertow.xml" };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+    protected KernelServices standardSubsystemTest(String configId, boolean compareXml) throws Exception {
+        return super.standardSubsystemTest(configId, false);
     }
 
     @Test
@@ -59,7 +54,7 @@ public class UndertowSubsystem100TestCase extends AbstractUndertowSubsystemTestC
         setProperty();
         KernelServicesBuilder builder = createKernelServicesBuilder(RUNTIME).setSubsystemXml(getSubsystemXml());
         KernelServices mainServices = builder.build();
-        testRuntime(mainServices, virtualHostName, flag);
+        testRuntime(mainServices, virtualHostName, SCHEMA_VERSION);
         testRuntimeOther(mainServices);
         testRuntimeLast(mainServices);
     }

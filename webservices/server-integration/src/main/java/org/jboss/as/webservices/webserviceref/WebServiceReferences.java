@@ -22,10 +22,11 @@
 package org.jboss.as.webservices.webserviceref;
 
 import static org.jboss.as.webservices.webserviceref.WSRefUtils.processAnnotatedElement;
+import static org.wildfly.common.Assert.checkNotNullParam;
 
 import java.lang.reflect.AnnotatedElement;
 
-import javax.xml.ws.Service;
+import jakarta.xml.ws.Service;
 
 import org.jboss.as.naming.ManagedReferenceFactory;
 import org.jboss.as.server.deployment.Attachments;
@@ -50,12 +51,14 @@ public class WebServiceReferences {
 
 
     public static ManagedReferenceFactory createWebServiceFactory(final DeploymentUnit deploymentUnit, final String targetType, final WSRefAnnotationWrapper wsRefDescription, final AnnotatedElement target, String bindingName) throws DeploymentUnitProcessingException {
+        checkNotNullParam("targetType", targetType);
         final UnifiedServiceRefMetaData serviceRefUMDM = createServiceRef(deploymentUnit, targetType, wsRefDescription, target, bindingName, bindingName);
         final Module module = deploymentUnit.getAttachment(Attachments.MODULE);
         return new WebServiceManagedReferenceFactory(serviceRefUMDM, module.getClassLoader());
     }
 
     public static ManagedReferenceFactory createWebServiceFactory(final DeploymentUnit deploymentUnit, final String targetType, final WSRefAnnotationWrapper wsRefDescription, final AnnotatedElement target, String bindingName, final String refKey) throws DeploymentUnitProcessingException {
+        checkNotNullParam("targetType", targetType);
         final UnifiedServiceRefMetaData serviceRefUMDM = createServiceRef(deploymentUnit, targetType, wsRefDescription, target, bindingName, refKey);
         final Module module = deploymentUnit.getAttachment(Attachments.MODULE);
         return new WebServiceManagedReferenceFactory(serviceRefUMDM, module.getClassLoader());

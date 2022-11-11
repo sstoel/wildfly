@@ -29,9 +29,9 @@ import java.util.Set;
 import java.util.List;
 import java.util.Properties;
 
-import javax.resource.ResourceException;
-import javax.resource.spi.ActivationSpec;
-import javax.resource.spi.ResourceAdapter;
+import jakarta.resource.ResourceException;
+import jakarta.resource.spi.ActivationSpec;
+import jakarta.resource.spi.ResourceAdapter;
 
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.ee.component.BasicComponent;
@@ -224,7 +224,8 @@ public class MessageDrivenComponentCreateService extends EJBComponentCreateServi
     private String searchActiveResourceAdapterName(String configuredResourceAdapterName) {
         // Use the configured value unless it doesn't match and some variant of it does
         String result = configuredResourceAdapterName;
-        if (ConnectorServices.getRegisteredResourceAdapterIdentifier(configuredResourceAdapterName) == null) {
+        if (configuredResourceAdapterName != null
+                && ConnectorServices.getRegisteredResourceAdapterIdentifier(configuredResourceAdapterName) == null) {
             // No direct match. See if we have a match with .rar removed or appended
             String amended = stripDotRarSuffix(configuredResourceAdapterName);
             if (configuredResourceAdapterName.equals(amended)) {

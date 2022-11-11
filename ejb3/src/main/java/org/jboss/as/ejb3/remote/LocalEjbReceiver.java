@@ -22,6 +22,18 @@
 package org.jboss.as.ejb3.remote;
 
 
+import static org.jboss.as.ejb3.util.MethodInfoHelper.EMPTY_STRING_ARRAY;
+
+import java.io.Serializable;
+import java.lang.reflect.Method;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentView;
 import org.jboss.as.ee.component.deployers.StartupCountdown;
@@ -51,21 +63,9 @@ import org.jboss.marshalling.cloner.ClassLoaderClassCloner;
 import org.jboss.marshalling.cloner.ClonerConfiguration;
 import org.jboss.marshalling.cloner.ObjectCloner;
 import org.jboss.marshalling.cloner.ObjectCloners;
-import org.jboss.security.SecurityContext;
-import org.jboss.security.SecurityContextAssociation;
 import org.wildfly.security.auth.server.SecurityDomain;
 import org.wildfly.security.auth.server.SecurityIdentity;
 import org.wildfly.security.manager.WildFlySecurityManager;
-
-import java.io.Serializable;
-import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 /**
  * {@link EJBReceiver} for local same-VM invocations. This handles all invocations on remote interfaces
@@ -75,8 +75,6 @@ import java.util.concurrent.Future;
  * @author <a href=mailto:tadamski@redhat.com>Tomasz Adamski</a>
  */
 public class LocalEjbReceiver extends EJBReceiver {
-
-    private static final Object[] EMPTY_OBJECT_ARRAY = {};
     private static final EJBReceiverInvocationContext.ResultProducer.Immediate NULL_RESULT = new EJBReceiverInvocationContext.ResultProducer.Immediate(null);
     private static final AttachmentKey<CancellationFlag> CANCELLATION_FLAG_ATTACHMENT_KEY = new AttachmentKey<>();
 
@@ -115,7 +113,7 @@ public class LocalEjbReceiver extends EJBReceiver {
 
         final Object[] parameters;
         if (invocation.getParameters() == null) {
-            parameters = EMPTY_OBJECT_ARRAY;
+            parameters = EMPTY_STRING_ARRAY;
         } else {
             parameters = new Object[invocation.getParameters().length];
             for (int i = 0; i < parameters.length; ++i) {
@@ -147,7 +145,7 @@ public class LocalEjbReceiver extends EJBReceiver {
                 // entire map of JBoss specific attachments
                 data.put(EJBClientInvocationContext.PRIVATE_ATTACHMENTS_KEY, privateAttachments);
             }
-            // Note: The code here is just for backward compatibility of 1.0.x version of EJB client project
+            // Note: The code here is just for backward compatibility of 1.0.x version of Jakarta Enterprise Beans client project
             // against AS7 7.1.x releases. Discussion here https://github.com/jbossas/jboss-ejb-client/pull/11#issuecomment-6573863
             final boolean txIdAttachmentPresent = privateAttachments.containsKey(AttachmentKeys.TRANSACTION_ID_KEY);
             if (txIdAttachmentPresent) {
@@ -175,18 +173,13 @@ public class LocalEjbReceiver extends EJBReceiver {
                 final boolean isAsync = view.isAsynchronous(method);
                 final boolean oneWay = isAsync && method.getReturnType() == void.class;
                 final boolean isSessionBean = view.getComponent() instanceof SessionBeanComponent;
-                if (isAsync && isSessionBean) {
-                    if (! oneWay) {
-                        interceptorContext.putPrivateData(CancellationFlag.class, flag);
-                    }
+                if (isAsync && isSessionBean && !oneWay) {
+                    interceptorContext.putPrivateData(CancellationFlag.class, flag);
                 }
-                final SecurityContext securityContext;
                 final SecurityDomain securityDomain;
                 if (WildFlySecurityManager.isChecking()) {
-                    securityContext = AccessController.doPrivileged((PrivilegedAction<SecurityContext>) SecurityContextAssociation::getSecurityContext);
                     securityDomain = AccessController.doPrivileged((PrivilegedAction<SecurityDomain>) SecurityDomain::getCurrent);
                 } else {
-                    securityContext = SecurityContextAssociation.getSecurityContext();
                     securityDomain = SecurityDomain.getCurrent();
                 }
                 final SecurityIdentity securityIdentity = securityDomain != null ? securityDomain.getCurrentSecurityIdentity() : null;
@@ -196,7 +189,6 @@ public class LocalEjbReceiver extends EJBReceiver {
                         receiverContext.requestCancelled();
                         return;
                     }
-                    setSecurityContextOnAssociation(securityContext);
                     StartupCountdown.restore(frame);
                     try {
                         final Object result;
@@ -242,7 +234,6 @@ public class LocalEjbReceiver extends EJBReceiver {
                         receiverContext.resultReady(new CloningResultProducer(invocation, resultCloner, result, allowPassByReference));
                     } finally {
                         StartupCountdown.restore(null);
-                        clearSecurityContextOnAssociation();
                     }
                 };
                 invocation.putAttachment(CANCELLATION_FLAG_ATTACHMENT_KEY, flag);
@@ -402,17 +393,4 @@ public class LocalEjbReceiver extends EJBReceiver {
         return ejbInfo;
     }
 
-    private static void setSecurityContextOnAssociation(final SecurityContext sc) {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            SecurityContextAssociation.setSecurityContext(sc);
-            return null;
-        });
-    }
-
-    private static void clearSecurityContextOnAssociation() {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            SecurityContextAssociation.clearSecurityContext();
-            return null;
-        });
-    }
 }

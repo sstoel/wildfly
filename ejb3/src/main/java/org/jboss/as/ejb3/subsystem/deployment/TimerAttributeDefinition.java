@@ -30,14 +30,15 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.UNI
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.VALUE_TYPE;
 import static org.jboss.as.ejb3.logging.EjbLogger.ROOT_LOGGER;
 
+import java.io.Serializable;
 import java.util.Date;
 import java.util.Locale;
 import java.util.ResourceBundle;
-import javax.ejb.EJBException;
-import javax.ejb.NoSuchObjectLocalException;
-import javax.ejb.ScheduleExpression;
-import javax.ejb.Timer;
-import javax.ejb.TimerService;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.NoSuchObjectLocalException;
+import jakarta.ejb.ScheduleExpression;
+import jakarta.ejb.Timer;
+import jakarta.ejb.TimerService;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
@@ -47,12 +48,13 @@ import org.jboss.as.controller.client.helpers.MeasurementUnit;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.descriptions.ResourceDescriptionResolver;
 import org.jboss.as.controller.operations.validation.ModelTypeValidator;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponent;
+import org.jboss.as.ejb3.logging.EjbLogger;
+import org.jboss.as.ejb3.timerservice.TimerImpl;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 /**
- * Attribute definition for the list of timers associated with an EJB.
+ * Attribute definition for the list of timers associated with an Jakarta Enterprise Beans.
  *
  * @author Brian Stansberry (c) 2011 Red Hat Inc.
  */
@@ -65,6 +67,7 @@ public class TimerAttributeDefinition extends ListAttributeDefinition {
     public static final String NEXT_TIMEOUT = "next-timeout";
     public static final String CALENDAR_TIMER = "calendar-timer";
     public static final String PERSISTENT = "persistent";
+    public static final String INFO = "info";
     public static final String SCHEDULE = "schedule";
     public static final String DAY_OF_MONTH = "day-of-month";
     public static final String DAY_OF_WEEK = "day-of-week";
@@ -121,6 +124,7 @@ public class TimerAttributeDefinition extends ListAttributeDefinition {
         addAttributeDescription(resolver, locale, bundle, valueTypeNode, ModelType.LONG, true, MeasurementUnit.EPOCH_MILLISECONDS, NEXT_TIMEOUT);
         addAttributeDescription(resolver, locale, bundle, valueTypeNode, ModelType.BOOLEAN, true, null, CALENDAR_TIMER);
         addAttributeDescription(resolver, locale, bundle, valueTypeNode, ModelType.BOOLEAN, true, null, PERSISTENT);
+        addAttributeDescription(resolver, locale, bundle, valueTypeNode, ModelType.STRING, true, null, INFO);
         final ModelNode sched = addAttributeDescription(resolver, locale, bundle, valueTypeNode, ModelType.OBJECT, true, null, SCHEDULE);
         final ModelNode schedValType = sched.get(VALUE_TYPE);
         addAttributeDescription(resolver, locale, bundle, schedValType, ModelType.STRING, true, null, SCHEDULE, YEAR);
@@ -159,6 +163,7 @@ public class TimerAttributeDefinition extends ListAttributeDefinition {
                 addNextTimeout(timer, timerNode, name);
                 addCalendarTimer(timer, timerNode, name);
                 addPersistent(timer, timerNode, name);
+                addInfo(timer, timerNode, name);
                 addSchedule(timer, timerNode, name);
             }
         }
@@ -236,6 +241,22 @@ public class TimerAttributeDefinition extends ListAttributeDefinition {
             final ModelNode detailNode = timerNode.get(PERSISTENT);
             boolean b = timer.isPersistent();
             detailNode.set(b);
+        } catch (IllegalStateException e) {
+            // ignore
+        } catch (NoSuchObjectLocalException e) {
+            // ignore
+        } catch (EJBException e) {
+            logTimerFailure(componentName, e);
+        }
+    }
+
+    private static void addInfo(Timer timer, ModelNode timerNode, final String componentName) {
+        try {
+            final Serializable info = (timer instanceof TimerImpl) ? ((TimerImpl) timer).getCachedTimerInfo() : timer.getInfo();
+            if (info != null) {
+                final ModelNode detailNode = timerNode.get(INFO);
+                detailNode.set(info.toString());
+            }
         } catch (IllegalStateException e) {
             // ignore
         } catch (NoSuchObjectLocalException e) {

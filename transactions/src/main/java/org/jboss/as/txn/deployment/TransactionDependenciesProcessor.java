@@ -41,7 +41,7 @@ import java.util.List;
 
 
 /**
- * Looks for usage of the @Transactional CDI interceptor (JTA 1.2) or the @TransactionScoped CDI context (JTA 1.2)
+ * Looks for usage of the @Transactional Jakarta Contexts and Dependency Injection interceptor (JTA 1.2) or the @TransactionScoped Jakarta Contexts and Dependency Injection context (JTA 1.2)
  * and adds the org.jboss.jts module dependency if they are found.
  *
  * Also adds the transaction API to deployments
@@ -71,7 +71,7 @@ public class TransactionDependenciesProcessor implements DeploymentUnitProcessor
         final List<AnnotationInstance> transactionalAnnotations = compositeIndex.getAnnotations(DotName.createSimple(Transactional.class.getName()));
         final List<AnnotationInstance> transactionScopedAnnotations = compositeIndex.getAnnotations(DotName.createSimple(TransactionScoped.class.getName()));
 
-        if (transactionalAnnotations.size() > 0 || transactionScopedAnnotations.size() > 0) {
+        if (!transactionalAnnotations.isEmpty() || !transactionScopedAnnotations.isEmpty()) {
             addJTSModuleDependencyToDeployment(unit);
         }
     }
@@ -81,10 +81,5 @@ public class TransactionDependenciesProcessor implements DeploymentUnitProcessor
         final ModuleLoader moduleLoader = Module.getBootModuleLoader();
         final ModuleSpecification moduleSpec = unit.getAttachment(Attachments.MODULE_SPECIFICATION);
         moduleSpec.addSystemDependency(new ModuleDependency(moduleLoader, JTS_MODULE, false, false, true, false));
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
     }
 }

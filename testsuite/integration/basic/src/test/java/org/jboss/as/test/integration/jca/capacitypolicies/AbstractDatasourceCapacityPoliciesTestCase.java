@@ -31,6 +31,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 import static org.junit.Assert.fail;
+import static org.wildfly.common.Assert.checkNotNullParamWithNullPointerException;
 
 import java.lang.reflect.ReflectPermission;
 import java.sql.Connection;
@@ -39,7 +40,7 @@ import java.util.Map;
 import java.io.FilePermission;
 import java.util.PropertyPermission;
 import java.util.concurrent.TimeUnit;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -67,7 +68,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 /**
- * Integration test for JCA capacity policies JBJCA-986 using datasource/xa-datasource
+ * Integration test for Jakarta Connectors capacity policies JBJCA-986 using datasource/xa-datasource
  *
  * @author <a href="mailto:msimka@redhat.com">Martin Simka</a>
  */
@@ -118,7 +119,7 @@ public abstract class AbstractDatasourceCapacityPoliciesTestCase extends JcaMgmt
                 JcaTestsUtil.class,
                 TimeoutUtil.class);
         jar.addAsManifestResource(new StringAsset("Dependencies: javax.inject.api,org.jboss.as.connector," +
-                "org.jboss.as.controller,org.jboss.dmr,org.jboss.as.cli,org.jboss.staxmapper," +
+                "org.jboss.as.controller,org.jboss.dmr,org.jboss.staxmapper," +
                 "org.jboss.ironjacamar.impl, org.jboss.ironjacamar.jdbcadapters,org.jboss.remoting\n"), "MANIFEST.MF");
         jar.addAsManifestResource(createPermissionsXmlAsset(
                 new RemotingPermission("createEndpoint"),
@@ -249,11 +250,7 @@ public abstract class AbstractDatasourceCapacityPoliciesTestCase extends JcaMgmt
 
                     if (!capacityConfiguration.getCapacityDecrementerProperties().isEmpty()) {
                         Map<String, String> properties = capacityConfiguration.getCapacityDecrementerProperties();
-                        for (String key : properties.keySet()) {
-                            ModelNode props = new ModelNode();
-                            props.add(key, properties.get(key));
-                            addOperation.get("capacity-incrementer-properties").set(props);
-                        }
+                        addProperties(addOperation, properties);
                     }
                 }
 
@@ -263,11 +260,7 @@ public abstract class AbstractDatasourceCapacityPoliciesTestCase extends JcaMgmt
 
                     if (!capacityConfiguration.getCapacityIncrementerProperties().isEmpty()) {
                         Map<String, String> properties = capacityConfiguration.getCapacityIncrementerProperties();
-                        for (String key : properties.keySet()) {
-                            ModelNode props = new ModelNode();
-                            props.add(key, properties.get(key));
-                            addOperation.get("capacity-incrementer-properties").set(props);
-                        }
+                        addProperties(addOperation, properties);
                     }
                 }
             }
@@ -289,6 +282,14 @@ public abstract class AbstractDatasourceCapacityPoliciesTestCase extends JcaMgmt
             writeAttribute(xa ? XA_DS_ADDRESS : DS_ADDRESS, ENABLED, "true");
             reload();
         }
+
+        private static void addProperties(ModelNode addOperation, Map<String, String> properties) {
+            for (Map.Entry<String, String> entry : properties.entrySet()) {
+                ModelNode props = new ModelNode();
+                props.add(entry.getKey(), entry.getValue());
+                addOperation.get("capacity-incrementer-properties").set(props);
+            }
+        }
     }
 
     static class CapacityConfiguration {
@@ -306,15 +307,16 @@ public abstract class AbstractDatasourceCapacityPoliciesTestCase extends JcaMgmt
 
         void addCapacityDecrementerProperty(String name, String value) {
             if (capacityDecrementerClass == null) { throw new IllegalStateException("capacityDecrementerClass isn't set"); }
-            if (name == null) { throw new NullPointerException("name"); }
-            if (value == null) { throw new NullPointerException("value"); }
+            checkNotNullParamWithNullPointerException("name", name);
+            checkNotNullParamWithNullPointerException("value", value);
+
             capacityDecrementerProperties.put(name, value);
         }
 
         void addCapacityIncrementerProperty(String name, String value) {
             if (capacityIncrementerClass == null) { throw new IllegalStateException("capacityIncrementerClass isn't set"); }
-            if (name == null) { throw new NullPointerException("name"); }
-            if (value == null) { throw new NullPointerException("value"); }
+            checkNotNullParamWithNullPointerException("name", name);
+            checkNotNullParamWithNullPointerException("value", value);
             capacityIncrementerProperties.put(name, value);
         }
 

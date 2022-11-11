@@ -57,6 +57,12 @@ public class ElytronSecurityDomainContextImpl implements SecurityDomainContext {
     public String getSecurityDomain() {
         return this.securityDomain.toString();
     }
+
+    @Override
+    public SecurityDomain getElytronSecurityDomain() {
+        return this.securityDomain;
+    }
+
     //TODO:refactor/deprecate this after elytron?
     @Override
     public Set<Principal> getUserRoles(Principal principal) {
@@ -76,6 +82,7 @@ public class ElytronSecurityDomainContextImpl implements SecurityDomainContext {
         if (identity == null) {
             return false;
         }
+        this.currentIdentity.set(identity);
         SubjectUtil.fromSecurityIdentity(identity, subject);
         return true;
     }

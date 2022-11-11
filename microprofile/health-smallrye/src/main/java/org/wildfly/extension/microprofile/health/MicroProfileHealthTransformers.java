@@ -45,9 +45,14 @@ public class MicroProfileHealthTransformers implements ExtensionTransformerRegis
     public void registerTransformers(SubsystemTransformerRegistration registration) {
         ChainedTransformationDescriptionBuilder builder = TransformationDescriptionBuilder.Factory.createChainedSubystemInstance(registration.getCurrentSubsystemVersion());
 
+        registerTransformers_WildFly_24(builder.createBuilder(MicroProfileHealthExtension.VERSION_3_0_0, MicroProfileHealthExtension.VERSION_2_0_0));
         registerTransformers_WildFly_17(builder.createBuilder(MicroProfileHealthExtension.VERSION_2_0_0, MicroProfileHealthExtension.VERSION_1_0_0));
 
-        builder.buildAndRegister(registration, new ModelVersion[] { MicroProfileHealthExtension.VERSION_1_0_0});
+        builder.buildAndRegister(registration, new ModelVersion[] { MicroProfileHealthExtension.VERSION_2_0_0, MicroProfileHealthExtension.VERSION_1_0_0});
+    }
+
+    private void registerTransformers_WildFly_24(ResourceTransformationDescriptionBuilder subsystem) {
+        rejectDefinedAttributeWithDefaultValue(subsystem, MicroProfileHealthSubsystemDefinition.EMPTY_STARTUP_CHECKS_STATUS);
     }
 
     private void registerTransformers_WildFly_17(ResourceTransformationDescriptionBuilder subsystem) {
@@ -59,11 +64,9 @@ public class MicroProfileHealthTransformers implements ExtensionTransformerRegis
      * Reject the attributes if they are defined or discard them if they are undefined or set to their default value.
      */
     private static void rejectDefinedAttributeWithDefaultValue(ResourceTransformationDescriptionBuilder builder, AttributeDefinition... attrs) {
-        for (AttributeDefinition attr : attrs) {
-            builder.getAttributeBuilder()
-                    .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(attr.getDefaultValue()), attr)
-                    .addRejectCheck(DEFINED, attr);
-        }
+        builder.getAttributeBuilder()
+                .setDiscard(DiscardAttributeChecker.DEFAULT_VALUE, attrs)
+                .addRejectCheck(DEFINED, attrs);
     }
 
 }

@@ -30,9 +30,10 @@ a standalone server. By default, it runs on port 9990:
 ----
 <management-interfaces>
  [...]
- <http-interface security-realm="ManagementRealm">
-  <socket-binding http="management-http"/>
- </http-interface>
+  <http-interface http-authentication-factory="management-http-authentication">
+    <http-upgrade enabled="true" sasl-authentication-factory="management-sasl-authentication"/>
+    <socket-binding http="management-http"/>
+  </http-interface>
 <management-interfaces>
 ----
 
@@ -61,6 +62,56 @@ Default URL
 By default the web interface can be accessed here:
 http://localhost:9990/console.
 
+=== Custom HTTP Headers
+
+For the responses returned from the HTTP management interface it is also possible to define custom constant HTTP headers that will be added to any response based on matching a configured prefix against the request path.
+
+As an example it could be desirable to add a HTTP header `X-Help` which points users to the correct location to obtain assistance.  The following management operation can be executed within the CLI to activate returning this header on all requests.
+
+[source,options="nowrap"]
+----
+[standalone@localhost:9990 /]  /core-service=management/management-interface=http-interface: \
+    write-attribute(name=constant-headers, value=[{path="/", \
+    headers=[{name="X-Help", value="wildfly.org"}]}])
+----
+
+The responses to all requests to the HTTP management interface will now include the header `X-Help` with the value `wildfly.org`.
+
+The resulting configuration will look like: -
+
+[source,xml,options="nowrap"]
+----
+<management-interfaces>
+  <http-interface http-authentication-factory="management-http-authentication">
+    <http-upgrade enabled="true" sasl-authentication-factory="management-sasl-authentication"/>
+        <socket-binding http="management-http"/>
+        <constant-headers>
+            <header-mapping path="/">
+                <header name="X-Help" value="wildfly.org"/>
+            </header-mapping>
+        </constant-headers>
+    </http-interface>
+</management-interfaces>
+----
+
+The example here has illustrated adding a single header for all requests matching the path prefix `/` i.e. every request.  More advanced mappings can be defined by specifying a mapping for a more specific path prefix such as `/management`.
+
+If a request matches multiple mappings such as a request to `/management` where mappings for `/` and `/management` have been specified the headers from all of the mappings will be applied to the corresponding request.
+
+Within a single mapping it is also possible to define multiple headers which should be set on the corresponding response.
+
+As the `constant-headers` attribute is set verification will be performed to verify that the HTTP headers specified are only making use of allowed characters as specified in the HTTP specification RFCs.
+
+Additionally as they have special handling within the management interface overriding the following headers is disallowed and attempts to set these will result in an error being reported.
+
+ * `Connection`
+ * `Content-Length`
+ * `Content-Type`
+ * `Date`
+ * `Transfer-Encoding`
+
+The configured headers are set at the very end of processing the request immediately before the response is returned to the client, this will mean any of the configured headers will override the same headers set by the corresponding endpoint.
+
 include::Command_Line_Interface.adoc[leveloffset=+1]
 
 include::Default_HTTP_Interface_Security.adoc[leveloffset=+1]
@@ -85,8 +136,8 @@ Details on how to use the CLI can be found in the
 
 WildFly stores its configuration in centralized XML configuration files,
 one per server for standalone servers and, for managed domains, one per
-host with an additional domain wide policy controlled by the master
-host. These files are meant to be human-readable and human editable.
+host with an additional domain wide policy controlled by the Domain Controller.
+These files are meant to be human-readable and human editable.
 
 [TIP]
 
@@ -125,7 +176,7 @@ with the _[line-through]*c*_ or _-server-config_ command line argument:
 In a managed domain, the XML files are found in the
 `domain/configuration` directory. There are two types of configuration
 files – one per host, and then a single domain-wide file managed by the
-master host, aka the Domain Controller. (For more on the types of
+primary Host Controller, aka the Domain Controller. (For more on the types of
 processes in a managed domain, see <<Operating_modes,Operating
 Modes>>.)
 
@@ -146,20 +197,20 @@ standard variants:
 
 [cols=",",options="header"]
 |=======================================================================
-|host-master.xml |A configuration that specifies the Host Controller
-should become the master, aka the Domain Controller. No servers will be
-started by this Host Controller, which is a recommended setup for a
-production master.
+|host-primary.xml |A configuration that specifies the Host Controller
+should become the primary Host Controller, aka the Domain Controller.
+No servers will be started by this Host Controller, which is a recommended
+setup for a production Domain Controller.
 
-|host-slave.xml |A configuration that specifies the Host Controller
-should not become master and instead should register with a remote
-master and be controlled by it. This configuration launches servers,
+|host-secondary.xml |A configuration that specifies the Host Controller
+should not become the primary Host Controller and instead should register with a remote
+primary Host Controller and be controlled by it. This configuration launches servers,
 although a user will likely wish to modify how many servers are launched
 and what server groups they belong to.
 
 |host.xml |The default host configuration, tailored for an easy out of
 the box experience experimenting with a managed domain. This
-configuration specifies the Host Controller should become the master,
+configuration specifies the Host Controller should become the primary Host Controller,
 aka the Domain Controller, but it also launches a couple of servers.
 |=======================================================================
 
@@ -168,14 +219,14 @@ the _ _--host-config__ command line argument:
 
 [source,options="nowrap"]
 ----
-$ bin/domain.sh --host-config=host-master.xml
+$ bin/domain.sh --host-config=host-primary.xml
 ----
 
 [[domain-wide-configuration-domain.xml]]
 ==== Domain Wide Configuration – domain.xml
 
 Once a Host Controller has processed its host-specific configuration, it
-knows whether it is configured to act as the master Domain Controller.
+knows whether it is configured to act as the Domain Controller.
 If it is, it must parse the domain wide configuration file, by default
 located at `domain/configuration/domain.xml`. This file contains the
 bulk of the settings that should be applied to the servers in the domain
@@ -192,16 +243,16 @@ $ bin/domain.sh --domain-config=domain-production.xml
 ----
 
 That argument is only relevant for hosts configured to act as the
-master.
+Domain Controller.
 
-A slave Host Controller does not usually parse the domain wide
-configuration file. A slave gets the domain wide configuration from the
-remote master Domain Controller when it registers with it. A slave also
+A secondary Host Controller does not usually parse the domain wide
+configuration file. A secondary Host Controller gets the domain wide configuration from the
+remote Domain Controller when it registers with it. A secondary Host Controller also
 will not persist changes to a `domain.xml` file if one is present on the
 filesystem. For that reason it is recommended that no `domain.xml` be
-kept on the filesystem of hosts that will only run as slaves.
+kept on the filesystem of hosts that will only run as secondary Host Controllers.
 
-A slave can be configured to keep a locally persisted copy of the domain
-wide configuration and then use it on boot (in case the master is not
+A secondary Host Controller can be configured to keep a locally persisted copy of the domain
+wide configuration and then use it on boot (in case the Domain Controller is not
 available.) See _--backup and --cached-dc_ under
 <<Command_line_parameters,Command line parameters>>.

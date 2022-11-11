@@ -32,6 +32,7 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 
 import org.jboss.as.clustering.controller.Attribute;
+import org.jboss.as.clustering.logging.ClusteringLogger;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.AttributeParser;
 import org.jboss.as.controller.PathAddress;
@@ -62,9 +63,17 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         ModelNode operation = Util.createAddOperation(address);
         operations.put(address, operation);
 
+        String defaultStack = null;
+
         if (!this.schema.since(JGroupsSchema.VERSION_3_0)) {
-            String defaultStack = require(reader, XMLAttribute.DEFAULT_STACK);
-            setAttribute(reader, defaultStack, operation, JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_STACK);
+            defaultStack = require(reader, XMLAttribute.DEFAULT_STACK);
+            // Fabricate a default channel
+            PathAddress channelAddress = address.append(ChannelResourceDefinition.pathElement("ee"));
+            ModelNode channelOperation = Util.createAddOperation(channelAddress);
+            channelOperation.get(ChannelResourceDefinition.Attribute.STACK.getName()).set(defaultStack);
+            channelOperation.get(ChannelResourceDefinition.Attribute.CLUSTER.getName()).set("ejb");
+            operations.put(channelAddress, channelOperation);
+            operation.get(JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_CHANNEL.getName()).set(channelAddress.getLastElement().getValue());
         }
 
         while (reader.hasNext() && (reader.nextTag() != XMLStreamConstants.END_ELEMENT)) {
@@ -78,13 +87,13 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                 }
                 case STACKS: {
                     if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
-                        this.parseStacks(reader, address, operations);
+                        defaultStack = this.parseStacks(reader, address, operations, defaultStack);
                         break;
                     }
                 }
                 case STACK: {
                     if (!this.schema.since(JGroupsSchema.VERSION_3_0)) {
-                        this.parseStack(reader, address, operations);
+                        this.parseStack(reader, address, operations, defaultStack);
                         break;
                     }
                 }
@@ -97,8 +106,6 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         // Version prior to 4_0 schema did not require stack being defined,
         // thus iterate over channel add operations and set the stack explicitly.
         if (!this.schema.since(JGroupsSchema.VERSION_4_0)) {
-            ModelNode defaultStack = operation.get(JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_STACK.getName());
-
             for (Map.Entry<PathAddress, ModelNode> entry : operations.entrySet()) {
                 PathAddress opAddr = entry.getKey();
                 if (opAddr.getLastElement().getKey().equals(ChannelResourceDefinition.WILDCARD_PATH.getKey())) {
@@ -237,16 +244,19 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         }
     }
 
-    private void parseStacks(XMLExtendedStreamReader reader, PathAddress address, Map<PathAddress, ModelNode> operations) throws XMLStreamException {
+    private String parseStacks(XMLExtendedStreamReader reader, PathAddress address, Map<PathAddress, ModelNode> operations, String legacyDefaultStack) throws XMLStreamException {
 
-        ModelNode operation = operations.get(address);
+        String defaultStack = legacyDefaultStack;
 
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             ParseUtils.requireNoNamespaceAttribute(reader, i);
             XMLAttribute attribute = XMLAttribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case DEFAULT: {
-                    readAttribute(reader, i, operation, JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_STACK);
+                    if (this.schema.since(JGroupsSchema.VERSION_9_0)) {
+                        throw ParseUtils.unexpectedAttribute(reader, i);
+                    }
+                    defaultStack = reader.getAttributeValue(i);
                     break;
                 }
                 default: {
@@ -259,7 +269,7 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
             XMLElement element = XMLElement.forName(reader.getLocalName());
             switch (element) {
                 case STACK: {
-                    this.parseStack(reader, address, operations);
+                    this.parseStack(reader, address, operations, defaultStack);
                     break;
                 }
                 default: {
@@ -267,9 +277,10 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                 }
             }
         }
+        return defaultStack;
     }
 
-    private void parseStack(XMLExtendedStreamReader reader, PathAddress subsystemAddress, Map<PathAddress, ModelNode> operations) throws XMLStreamException {
+    private void parseStack(XMLExtendedStreamReader reader, PathAddress subsystemAddress, Map<PathAddress, ModelNode> operations, String defaultStack) throws XMLStreamException {
         String name = require(reader, XMLAttribute.NAME);
         PathAddress address = subsystemAddress.append(StackResourceDefinition.pathElement(name));
         ModelNode operation = Util.createAddOperation(address);
@@ -303,12 +314,17 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                     break;
                 }
                 case PROTOCOL: {
-                    this.parseProtocol(reader, address, operations);
+                    // If protocol contains socket-binding attribute, parse as a socket-protocol
+                    if (reader.getAttributeValue(null, SocketProtocolResourceDefinition.Attribute.SOCKET_BINDING.getDefinition().getXmlName()) != null) {
+                        this.parseSocketProtocol(reader, address, operations);
+                    } else {
+                        this.parseProtocol(reader, address, operations);
+                    }
                     break;
                 }
                 case RELAY: {
                     if (this.schema.since(JGroupsSchema.VERSION_2_0)) {
-                        this.parseRelay(reader, address, operations);
+                        this.parseRelay(reader, address, operations, defaultStack);
                         break;
                     }
                 }
@@ -359,10 +375,6 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         for (int i = 0; i < reader.getAttributeCount(); i++) {
             XMLAttribute attribute = XMLAttribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
-                case SHARED: {
-                    readAttribute(reader, i, operation, TransportResourceDefinition.Attribute.SHARED);
-                    break;
-                }
                 case SOCKET_BINDING: {
                     readAttribute(reader, i, operation, TransportResourceDefinition.Attribute.SOCKET_BINDING);
                     break;
@@ -371,22 +383,16 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                     readAttribute(reader, i, operation, TransportResourceDefinition.Attribute.DIAGNOSTICS_SOCKET_BINDING);
                     break;
                 }
-                case DEFAULT_EXECUTOR: {
-                    readAttribute(reader, i, operation, TransportResourceDefinition.ThreadingAttribute.DEFAULT_EXECUTOR);
+                case SHARED:
+                case DEFAULT_EXECUTOR:
+                case OOB_EXECUTOR:
+                case TIMER_EXECUTOR:
+                case THREAD_FACTORY:
+                    if (this.schema.since(JGroupsSchema.VERSION_9_0)) {
+                        throw ParseUtils.unexpectedAttribute(reader, i);
+                    }
+                    ClusteringLogger.ROOT_LOGGER.attributeIgnored(attribute.getLocalName(), reader.getLocalName());
                     break;
-                }
-                case OOB_EXECUTOR: {
-                    readAttribute(reader, i, operation, TransportResourceDefinition.ThreadingAttribute.OOB_EXECUTOR);
-                    break;
-                }
-                case TIMER_EXECUTOR: {
-                    readAttribute(reader, i, operation, TransportResourceDefinition.ThreadingAttribute.TIMER_EXECUTOR);
-                    break;
-                }
-                case THREAD_FACTORY: {
-                    readAttribute(reader, i, operation, TransportResourceDefinition.ThreadingAttribute.THREAD_FACTORY);
-                    break;
-                }
                 case SITE: {
                     if (this.schema.since(JGroupsSchema.VERSION_1_1)) {
                         readAttribute(reader, i, operation, TransportResourceDefinition.Attribute.SITE);
@@ -426,30 +432,14 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                         break;
                     }
                 }
-                case INTERNAL_THREAD_POOL: {
-                    if (this.schema.since(JGroupsSchema.VERSION_6_0)) {
-                        throw ParseUtils.unexpectedElement(reader);
-                    }
-                    if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
-                        this.parseThreadPool(ThreadPoolResourceDefinition.INTERNAL, reader, address, operations);
-                        break;
-                    }
-                }
-                case OOB_THREAD_POOL: {
-                    if (this.schema.since(JGroupsSchema.VERSION_6_0)) {
-                        throw ParseUtils.unexpectedElement(reader);
-                    }
-                    if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
-                        this.parseThreadPool(ThreadPoolResourceDefinition.OOB, reader, address, operations);
-                        break;
-                    }
-                }
+                case INTERNAL_THREAD_POOL:
+                case OOB_THREAD_POOL:
                 case TIMER_THREAD_POOL: {
                     if (this.schema.since(JGroupsSchema.VERSION_6_0)) {
                         throw ParseUtils.unexpectedElement(reader);
                     }
                     if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
-                        this.parseThreadPool(ThreadPoolResourceDefinition.TIMER, reader, address, operations);
+                        ParseUtils.requireNoContent(reader);
                         break;
                     }
                 }
@@ -627,10 +617,6 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         switch (attribute) {
             case TYPE: {
                 // Already parsed
-                break;
-            }
-            case SOCKET_BINDING: {
-                readAttribute(reader, index, operation, GenericProtocolResourceDefinition.DeprecatedAttribute.SOCKET_BINDING);
                 break;
             }
             case DATA_SOURCE: {
@@ -828,7 +814,7 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                     if (this.schema.since(JGroupsSchema.VERSION_6_0)) {
                         throw ParseUtils.unexpectedAttribute(reader, i);
                     }
-                    readAttribute(reader, i, operation, pool.getQueueLength());
+                    ClusteringLogger.ROOT_LOGGER.attributeIgnored(attribute.getLocalName(), reader.getLocalName());
                     break;
                 case KEEPALIVE_TIME:
                     readAttribute(reader, i, operation, pool.getKeepAliveTime());
@@ -841,7 +827,7 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         ParseUtils.requireNoContent(reader);
     }
 
-    private void parseRelay(XMLExtendedStreamReader reader, PathAddress stackAddress, Map<PathAddress, ModelNode> operations) throws XMLStreamException {
+    private void parseRelay(XMLExtendedStreamReader reader, PathAddress stackAddress, Map<PathAddress, ModelNode> operations, String defaultStack) throws XMLStreamException {
         PathAddress address = stackAddress.append(RelayResourceDefinition.PATH);
         ModelNode operation = Util.createAddOperation(address);
         operations.put(address, operation);
@@ -865,7 +851,7 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
             XMLElement element = XMLElement.forName(reader.getLocalName());
             switch (element) {
                 case REMOTE_SITE: {
-                    this.parseRemoteSite(reader, address, operations);
+                    this.parseRemoteSite(reader, address, operations, defaultStack);
                     break;
                 }
                 case PROPERTY: {
@@ -879,16 +865,16 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         }
     }
 
-    private void parseRemoteSite(XMLExtendedStreamReader reader, PathAddress relayAddress, Map<PathAddress, ModelNode> operations) throws XMLStreamException {
+    private void parseRemoteSite(XMLExtendedStreamReader reader, PathAddress relayAddress, Map<PathAddress, ModelNode> operations, String defaultStack) throws XMLStreamException {
         String site = require(reader, XMLAttribute.NAME);
         PathAddress address = relayAddress.append(RemoteSiteResourceDefinition.pathElement(site));
         ModelNode operation = Util.createAddOperation(address);
         operations.put(address, operation);
 
         String cluster = null;
+        String stack = defaultStack;
 
         for (int i = 0; i < reader.getAttributeCount(); i++) {
-            String value = reader.getAttributeValue(i);
             XMLAttribute attribute = XMLAttribute.forName(reader.getAttributeLocalName(i));
             switch (attribute) {
                 case NAME: {
@@ -899,33 +885,19 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
                     if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
                         throw ParseUtils.unexpectedAttribute(reader, i);
                     }
-                    readAttribute(reader, i, operation, RemoteSiteResourceDefinition.DeprecatedAttribute.STACK);
+                    stack = reader.getAttributeValue(i);
                     break;
                 }
                 case CLUSTER: {
                     if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
                         throw ParseUtils.unexpectedAttribute(reader, i);
                     }
-                    cluster = value;
+                    cluster = reader.getAttributeValue(i);
                     break;
                 }
                 case CHANNEL: {
                     if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
                         readAttribute(reader, i, operation, RemoteSiteResourceDefinition.Attribute.CHANNEL);
-
-                        // We need to populate the deprecated STACK attribute so that we have enough context for transforming the add operation
-                        PathAddress subsystemAddress = PathAddress.pathAddress(JGroupsSubsystemResourceDefinition.PATH);
-                        PathAddress channelAddress = subsystemAddress.append(ChannelResourceDefinition.pathElement(value));
-                        ModelNode channelOperation = operations.get(channelAddress);
-                        if (channelOperation != null) {
-                            String stack;
-                            if (channelOperation.hasDefined(ChannelResourceDefinition.Attribute.STACK.getName())) {
-                                stack = channelOperation.get(ChannelResourceDefinition.Attribute.STACK.getName()).asString();
-                            } else {
-                                stack = operations.get(subsystemAddress).get(JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_STACK.getName()).asString();
-                            }
-                            setAttribute(reader, stack, operation, RemoteSiteResourceDefinition.DeprecatedAttribute.STACK);
-                        }
                         break;
                     }
                 }
@@ -938,7 +910,6 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
         if (this.schema.since(JGroupsSchema.VERSION_3_0)) {
             require(reader, operation, RemoteSiteResourceDefinition.Attribute.CHANNEL);
         } else {
-            require(reader, operation, RemoteSiteResourceDefinition.DeprecatedAttribute.STACK);
             String channel = (cluster != null) ? cluster : site;
             setAttribute(reader, channel, operation, RemoteSiteResourceDefinition.Attribute.CHANNEL);
 
@@ -946,7 +917,6 @@ public class JGroupsSubsystemXMLReader implements XMLElementReader<List<ModelNod
             PathAddress subsystemAddress = PathAddress.pathAddress(JGroupsSubsystemResourceDefinition.PATH);
             PathAddress channelAddress = subsystemAddress.append(ChannelResourceDefinition.pathElement(channel));
             ModelNode channelOperation = Util.createAddOperation(channelAddress);
-            String stack = operation.get(RemoteSiteResourceDefinition.DeprecatedAttribute.STACK.getName()).asString();
             setAttribute(reader, stack, channelOperation, ChannelResourceDefinition.Attribute.STACK);
             operations.put(channelAddress, channelOperation);
         }

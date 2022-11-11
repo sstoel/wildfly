@@ -31,7 +31,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.core.Application;
 
 import org.jboss.as.jaxrs.JaxrsAnnotations;
 import org.jboss.as.jaxrs.logging.JaxrsLogger;
@@ -63,13 +63,13 @@ import static org.jboss.resteasy.plugins.server.servlet.ResteasyContextParameter
 import static org.jboss.resteasy.plugins.server.servlet.ResteasyContextParameters.RESTEASY_SCAN_RESOURCES;
 
 /**
- * Processor that finds jax-rs classes in the deployment
+ * Processor that finds Jakarta RESTful Web Services classes in the deployment
  *
  * @author Stuart Douglas
  */
 public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
 
-    private static final DotName DECORATOR = DotName.createSimple("javax.decorator.Decorator");
+    private static final DotName DECORATOR = DotName.createSimple("jakarta.decorator.Decorator");
 
     public static final DotName APPLICATION = DotName.createSimple(Application.class.getName());
     private static final String ORG_APACHE_CXF = "org.apache.cxf";
@@ -129,7 +129,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
         List<ParamValueMetaData> contextParamList = webdata.getContextParams();
         if (contextParamList !=null) {
             for(ParamValueMetaData param: contextParamList) {
-                if ("javax.ws.rs.core.Application".equals(param.getParamName())) {
+                if ("jakarta.ws.rs.core.Application".equals(param.getParamName())) {
                     appClazzList.add(param.getParamValue());
                 }
             }
@@ -140,7 +140,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                 List<ParamValueMetaData> initParamList = servlet.getInitParam();
                 if (initParamList != null) {
                     for(ParamValueMetaData param: initParamList) {
-                        if ("javax.ws.rs.core.Application".equals(param.getParamName())) {
+                        if ("jakarta.ws.rs.core.Application".equals(param.getParamName())) {
                             appClazzList.add(param.getParamValue());
                         }
                     }
@@ -195,10 +195,10 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
 
                     Set<String> scannedResourceClasses = resteasyDeploymentData.getScannedResourceClasses();
                     for (Class<?> cClazz : clazzSet) {
-                        if (cClazz.isAnnotationPresent(javax.ws.rs.Path.class)) {
+                        if (cClazz.isAnnotationPresent(jakarta.ws.rs.Path.class)) {
                             final ClassInfo info = resourceMap.get(cClazz.getName());
                             if (info != null) {
-                                if (info.annotations().containsKey(DECORATOR)) {
+                                if (info.annotationsMap().containsKey(DECORATOR)) {
                                     //we do not add decorators as resources
                                     //we can't pick up on programatically added decorators, but that is such an edge case it should not really matter
                                     continue;
@@ -215,11 +215,6 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                 }
             }
         }
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
     }
 
     public static final Set<String> BOOT_CLASSES = new HashSet<String>();
@@ -347,7 +342,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                     //see WFLY-9752
                     continue;
                 }
-                if(info.annotations().containsKey(DECORATOR)) {
+                if(info.annotationsMap().containsKey(DECORATOR)) {
                     //we do not add decorators as resources
                     //we can't pick up on programatically added decorators, but that is such an edge case it should not really matter
                     continue;
@@ -369,7 +364,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                         //see WFLY-9752
                         continue;
                     }
-                    if(info.annotations().containsKey(DECORATOR)) {
+                    if(info.annotationsMap().containsKey(DECORATOR)) {
                         //we do not add decorators as providers
                         //we can't pick up on programatically added decorators, but that is such an edge case it should not really matter
                         continue;
@@ -393,7 +388,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                     continue;
                 }
 
-                if(implementor.annotations().containsKey(DECORATOR)) {
+                if(implementor.annotationsMap().containsKey(DECORATOR)) {
                     //we do not add decorators as resources
                     //we can't pick up on programatically added decorators, but that is such an edge case it should not really matter
                     continue;
@@ -422,7 +417,7 @@ public class JaxrsScanningProcessor implements DeploymentUnitProcessor {
                 servlet.setServletClass(HttpServlet30Dispatcher.class.getName());
                 servlet.setAsyncSupported(true);
                 ParamValueMetaData param = new ParamValueMetaData();
-                param.setParamName("javax.ws.rs.Application");
+                param.setParamName("jakarta.ws.rs.Application");
                 param.setParamValue(servletClass);
                 List<ParamValueMetaData> params = servlet.getInitParam();
                 if (params == null) {

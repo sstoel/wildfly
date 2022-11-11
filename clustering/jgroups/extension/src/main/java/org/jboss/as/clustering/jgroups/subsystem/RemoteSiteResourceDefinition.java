@@ -32,18 +32,11 @@ import org.jboss.as.clustering.controller.ResourceServiceHandler;
 import org.jboss.as.clustering.controller.RestartParentResourceRegistration;
 import org.jboss.as.clustering.controller.SimpleResourceServiceHandler;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
-import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.transform.TransformationContext;
-import org.jboss.as.controller.transform.description.AttributeConverter;
-import org.jboss.as.controller.transform.description.DiscardAttributeChecker;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
-import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.wildfly.clustering.jgroups.spi.JGroupsRequirement;
 
@@ -87,7 +80,7 @@ public class RemoteSiteResourceDefinition extends ChildResourceDefinition<Manage
         private final AttributeDefinition definition;
 
         Attribute(String name, ModelType type) {
-            this.definition = this.apply(new SimpleAttributeDefinitionBuilder(name, ModelType.STRING)
+            this.definition = this.apply(new SimpleAttributeDefinitionBuilder(name, type)
                     .setRequired(true)
                     .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
                     ).build();
@@ -96,74 +89,6 @@ public class RemoteSiteResourceDefinition extends ChildResourceDefinition<Manage
         @Override
         public AttributeDefinition getDefinition() {
             return this.definition;
-        }
-    }
-
-    enum DeprecatedAttribute implements org.jboss.as.clustering.controller.Attribute {
-        STACK("stack", ModelType.STRING, JGroupsModel.VERSION_3_0_0),
-        CLUSTER("cluster", ModelType.STRING, JGroupsModel.VERSION_3_0_0),
-        ;
-        private final AttributeDefinition definition;
-
-        DeprecatedAttribute(String name, ModelType type, JGroupsModel deprecation) {
-            this.definition = new SimpleAttributeDefinitionBuilder(name, ModelType.STRING)
-                    .setRequired(false)
-                    .setAllowExpression(true)
-                    .setDeprecated(deprecation.getVersion())
-                    .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
-                    .build();
-        }
-
-        @Override
-        public AttributeDefinition getDefinition() {
-            return this.definition;
-        }
-    }
-
-    static SimpleAttributeDefinitionBuilder createBuilder(String name, ModelType type) {
-        return new SimpleAttributeDefinitionBuilder(name, ModelType.STRING)
-            .setAllowExpression(true)
-            .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
-        ;
-    }
-
-    @SuppressWarnings("deprecation")
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        ResourceTransformationDescriptionBuilder builder = parent.addChildResource(WILDCARD_PATH);
-
-        if (JGroupsModel.VERSION_3_0_0.requiresTransformation(version)) {
-            AttributeConverter converter = new AttributeConverter() {
-                @Override
-                public void convertOperationParameter(PathAddress address, String name, ModelNode value, ModelNode operation, TransformationContext context) {
-                    // Nothing to convert
-                }
-
-                @Override
-                public void convertResourceAttribute(PathAddress address, String name, ModelNode value, TransformationContext context) {
-                    ModelNode remoteSite = context.readResourceFromRoot(address).getModel();
-                    String channelName = remoteSite.get(Attribute.CHANNEL.getName()).asString();
-                    if (DeprecatedAttribute.STACK.getName().equals(name)) {
-                        PathAddress subsystemAddress = address.subAddress(0, address.size() - 3);
-                        PathAddress channelAddress = subsystemAddress.append(ChannelResourceDefinition.pathElement(channelName));
-                        ModelNode channel = context.readResourceFromRoot(channelAddress).getModel();
-
-                        if (channel.hasDefined(ChannelResourceDefinition.Attribute.STACK.getName())) {
-                            value.set(channel.get(ChannelResourceDefinition.Attribute.STACK.getName()).asString());
-                        } else {
-                            ModelNode subsystem = context.readResourceFromRoot(subsystemAddress).getModel();
-                            value.set(subsystem.get(JGroupsSubsystemResourceDefinition.Attribute.DEFAULT_STACK.getName()).asString());
-                        }
-                    } else if (DeprecatedAttribute.CLUSTER.getName().equals(name)) {
-                        value.set(channelName);
-                    } else {
-                        throw new IllegalStateException();
-                    }
-                }
-            };
-            builder.getAttributeBuilder()
-                    .setValueConverter(converter, DeprecatedAttribute.STACK.getDefinition(), DeprecatedAttribute.CLUSTER.getDefinition())
-                    .setDiscard(DiscardAttributeChecker.ALWAYS, Attribute.CHANNEL.getDefinition())
-                    .end();
         }
     }
 
@@ -180,7 +105,6 @@ public class RemoteSiteResourceDefinition extends ChildResourceDefinition<Manage
 
         ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver())
                 .addAttributes(Attribute.class)
-                .addAttributes(DeprecatedAttribute.class)
                 .addCapabilities(Capability.class)
                 ;
         ResourceServiceHandler handler = new SimpleResourceServiceHandler(RemoteSiteConfigurationServiceConfigurator::new);

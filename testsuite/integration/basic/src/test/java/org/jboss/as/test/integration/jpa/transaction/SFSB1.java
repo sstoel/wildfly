@@ -23,17 +23,17 @@
 package org.jboss.as.test.integration.jpa.transaction;
 
 import java.util.HashSet;
-import javax.annotation.Resource;
-import javax.ejb.SessionContext;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
-import javax.persistence.EntityManager;
-import javax.persistence.NoResultException;
-import javax.persistence.PersistenceContext;
-import javax.persistence.Query;
-import javax.persistence.TypedQuery;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.ejb.SessionContext;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
+import jakarta.persistence.TypedQuery;
+import jakarta.transaction.UserTransaction;
 
 /**
  * stateful session bean
@@ -126,7 +126,7 @@ public class SFSB1 {
     }
 
     // return true if the queried Employee is detached as required by JPA 2.0 section 3.8.6
-    // For a transaction scoped persistence context non jta-tx invocation, entities returned from Query
+    // For a transaction scoped persistence context non Jakarta Transactions tx invocation, entities returned from Query
     // must be detached.
     public boolean isQueryEmployeeDetached(int id) {
         TypedQuery<Employee> q = em.createQuery("SELECT e FROM Employee e where e.id=:id", Employee.class);

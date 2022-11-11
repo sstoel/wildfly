@@ -35,13 +35,13 @@ import static org.junit.Assert.assertNull;
 
 import java.io.File;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.DeliveryMode;
-import javax.jms.Destination;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.JMSException;
-import javax.jms.TextMessage;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.DeliveryMode;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSException;
+import jakarta.jms.TextMessage;
 import javax.naming.Context;
 import javax.naming.NamingException;
 
@@ -52,6 +52,7 @@ import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.integration.common.jms.JMSOperationsProvider;
+import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.dmr.ModelNode;
 import org.junit.After;
 import org.junit.Before;
@@ -95,7 +96,7 @@ public class ExportImportJournalTestCase {
 
         try (JMSContext context = cf.createContext("guest", "guest")) {
             JMSConsumer consumer = context.createConsumer(destination);
-            String text = consumer.receiveBody(String.class, 5000);
+            String text = consumer.receiveBody(String.class, TimeoutUtil.adjust(5000));
             if (expectReceivedMessage) {
                 assertNotNull(text);
                 assertEquals(expectedText, text);
@@ -137,13 +138,13 @@ public class ExportImportJournalTestCase {
         sendMessage(remoteContext, jmsQueueLookup, text);
 
         // reload in admin-only mode
-        executeReloadAndWaitForCompletion(managementClient.getControllerClient(), true);
+        executeReloadAndWaitForCompletion(managementClient, true);
 
         // export the journal (must be performed in admin-only mode)
         String dumpFilePath = exportJournal();
 
         // reload in normal mode
-        executeReloadAndWaitForCompletion(managementClient.getControllerClient(), false);
+        executeReloadAndWaitForCompletion(managementClient, false);
 
         // remove all messages
         removeAllMessagesFromQueue(jmsQueueName);

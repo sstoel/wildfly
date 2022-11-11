@@ -22,17 +22,19 @@
 
 package org.jboss.as.test.integration.rar;
 
+import static org.wildfly.common.Assert.checkNotNullParam;
+
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
-import javax.resource.NotSupportedException;
-import javax.resource.ResourceException;
-import javax.resource.spi.ConnectionEvent;
-import javax.resource.spi.ConnectionEventListener;
-import javax.resource.spi.ConnectionRequestInfo;
-import javax.resource.spi.LocalTransaction;
-import javax.resource.spi.ManagedConnection;
-import javax.resource.spi.ManagedConnectionMetaData;
+import jakarta.resource.NotSupportedException;
+import jakarta.resource.ResourceException;
+import jakarta.resource.spi.ConnectionEvent;
+import jakarta.resource.spi.ConnectionEventListener;
+import jakarta.resource.spi.ConnectionRequestInfo;
+import jakarta.resource.spi.LocalTransaction;
+import jakarta.resource.spi.ManagedConnection;
+import jakarta.resource.spi.ManagedConnectionMetaData;
 import javax.security.auth.Subject;
 import javax.transaction.xa.XAResource;
 
@@ -51,7 +53,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
     /**
      * Listeners
      */
-    private List<javax.resource.spi.ConnectionEventListener> listeners;
+    private List<jakarta.resource.spi.ConnectionEventListener> listeners;
 
 
     /**
@@ -69,7 +71,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
      */
     public HelloWorldManagedConnection(HelloWorldManagedConnectionFactory mcf) {
         this.mcf = mcf;
-        this.listeners = new ArrayList<javax.resource.spi.ConnectionEventListener>();
+        this.listeners = new ArrayList<jakarta.resource.spi.ConnectionEventListener>();
         this.connection = null;
 
     }
@@ -142,9 +144,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
      */
 
     public void addConnectionEventListener(ConnectionEventListener listener) {
-
-        if (listener == null)
-            throw new IllegalArgumentException("Listener is null");
+        checkNotNullParam("listener", listener);
 
         listeners.add(listener);
 
@@ -159,9 +159,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
      * @param listener Already registered connection event listener to be removed
      */
     public void removeConnectionEventListener(ConnectionEventListener listener) {
-
-        if (listener == null)
-            throw new IllegalArgumentException("Listener is null");
+        checkNotNullParam("listener", listener);
 
         listeners.remove(listener);
 
@@ -169,7 +167,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
 
 
     /**
-     * Returns an <code>javax.resource.spi.LocalTransaction</code> instance.
+     * Returns an <code>jakarta.resource.spi.LocalTransaction</code> instance.
      *
      * @return LocalTransaction instance
      * @throws ResourceException generic exception if operation fails
@@ -230,7 +228,7 @@ public class HelloWorldManagedConnection implements ManagedConnection {
 
         ConnectionEvent event = new ConnectionEvent(this, ConnectionEvent.CONNECTION_CLOSED);
         event.setConnectionHandle(handle);
-        for (javax.resource.spi.ConnectionEventListener cel : listeners) {
+        for (jakarta.resource.spi.ConnectionEventListener cel : listeners) {
             cel.connectionClosed(event);
         }
     }

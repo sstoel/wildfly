@@ -32,6 +32,7 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 /**
  * @author Paul Ferraro
  */
+@org.junit.Ignore("WFLY-16973")
 public class SingletonDeploymentJBossAllTestCase extends SingletonDeploymentTestCase {
 
     private static final String MODULE_NAME = SingletonDeploymentJBossAllTestCase.class.getSimpleName();
@@ -41,13 +42,13 @@ public class SingletonDeploymentJBossAllTestCase extends SingletonDeploymentTest
         super(MODULE_NAME, DEPLOYMENT_NAME);
     }
 
-    @Deployment(name = DEPLOYMENT_HELPER_1, managed = false, testable = false)
+    @Deployment(name = SINGLETON_DEPLOYMENT_1, managed = false, testable = false)
     @TargetsContainer(NODE_1)
     public static Archive<?> deployment0() {
         return createDeployment();
     }
 
-    @Deployment(name = DEPLOYMENT_HELPER_2, managed = false, testable = false)
+    @Deployment(name = SINGLETON_DEPLOYMENT_2, managed = false, testable = false)
     @TargetsContainer(NODE_2)
     public static Archive<?> deployment1() {
         return createDeployment();

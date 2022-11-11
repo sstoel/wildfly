@@ -22,7 +22,7 @@
   ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
   -->
 
-<module xmlns="urn:jboss:module:1.8" name="com.sun.jsf-impl:${jsf-impl-name}-${jsf-version}">
+<module xmlns="urn:jboss:module:1.9" name="com.sun.jsf-impl:${jsf-impl-name}-${jsf-version}">
     <properties>
         <property name="jboss.api" value="private"/>
     </properties>
@@ -33,10 +33,18 @@
                 <include path="META-INF/**"/>
             </imports>
         </module>
-        <module name="javaee.api"/>
+        <module name="javax.annotation.api"/>
+        <module name="javax.servlet.api"/>
+        <module name="javax.servlet.jsp.api"/>
+        <module name="javax.websocket.api" />
+        <module name="javax.validation.api"/>
+        <module name="javax.json.api"/>
+        <module name="javax.ejb.api"/>
+        <module name="javax.xml.bind.api"/>
+        <module name="org.glassfish.jakarta.el"/>
+        <module name="javax.api"/>
         <module name="javax.servlet.jstl.api"/>
-        <module name="org.apache.xerces" services="import"/>
-        <module name="org.apache.xalan" services="import"/>
+        <module name="java.xml"/>
         <module name="org.jboss.weld.core"/>
         <module name="org.jboss.weld.spi"/>
 
@@ -45,12 +53,6 @@
         <module name="org.apache.commons.codec"/>
         <module name="org.apache.commons.beanutils"/>
         <module name="org.apache.commons.digester"/>
-
-        <!-- TODO WFLY-5966 validate the need for these and remove if not needed.
-             Prior to WFLY-5922 they were exported by javax.ejb.api and
-             reexported by javaee.api. -->
-        <module name="javax.xml.rpc.api"/>
-        <module name="javax.rmi.api"/>
     </dependencies>
 
     <resources>

@@ -23,7 +23,7 @@ package org.wildfly.test.integration.elytron.principaltransformers;
 
 import java.net.MalformedURLException;
 import java.net.URL;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -172,7 +172,7 @@ public class ChainedPrincipalTransformerTestCase {
                         "/subsystem=elytron/chained-principal-transformer=%s:add(principal-transformers=[" + REGEX_TRANSFORMED_FIRST
                         + "," + REGEX_TRANSFORMED_SECOND + "])");
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         @Override
@@ -191,7 +191,7 @@ public class ChainedPrincipalTransformerTestCase {
                 cli.sendLine(String.format("/subsystem=elytron/regex-principal-transformer=%s:remove()", REGEX_TRANSFORMER_B));
                 cli.sendLine(String.format("/subsystem=elytron/regex-principal-transformer=%s:remove()", REGEX_TRANSFORMER_A));
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         private PropertyFileBasedDomain prepareSingleConfiguration(CLIWrapper cli, String elytronName, String transformerName,

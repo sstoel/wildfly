@@ -5,7 +5,7 @@
 
 EE Concurrency Utilities (JSR 236) is a technology introduced with Java
 EE 7, which adapts well known Java SE concurrency utilities to the Java
-EE application environment specifics. The Java EE application server is
+EE application environment specifics. The Jakarta EE application server is
 responsible for the creation (and shutdown) of every instance of the EE
 Concurrency Utilities, and provide these to the applications, ready to
 use.
@@ -13,7 +13,7 @@ use.
 The EE Concurrency Utilities support the propagation of the invocation
 context, capturing the existent context in the application threads to
 use in their own threads, the same way a logged-in user principal is
-propagated when a servlet invokes an EJB asynchronously. The propagation
+propagated when a servlet invokes an Jakarta Enterprise Beans asynchronously. The propagation
 of the invocation context includes, by default, the class loading, JNDI
 and security contexts.
 
@@ -25,19 +25,18 @@ Configuration. To learn how to configure EE Concurrency Utilities please
 refer to link:Admin_Guide{outfilesuffix}#EE_Concurrency_Utilities_Configuration[EE Concurrency
 Utilities Configuration]. Additionally, the EE subsystem configuration
 also includes the configuration of which instance should be considered
-the default instance mandated by the Java EE specification, and such
+the default instance mandated by the Jakarta EE specification, and such
 configuration is covered by
-link:Default_EE_Bindings_Configuration.html[Default EE Bindings
-Configuration].
+link:Admin_Guide{outfilesuffix}#EE_Default_Bindings_Configuration[Default EE Bindings Configuration].
 
 [[context-service]]
 == Context Service
 
-The Context Service ( `javax.enterprise.concurrent.ContextService`) is a
+The Context Service ( `jakarta.enterprise.concurrent.ContextService`) is a
 brand new concurrency utility, which applications may use to build
 contextual proxies from existing objects.
 
-A contextual proxy is an object that sets a invocation context, captured
+A contextual proxy is an object that sets an invocation context, captured
 when created, whenever is invoked, before delegating the invocation to
 the original object.
 
@@ -78,20 +77,20 @@ ContextService contextService = InitialContext.doLookup("java:comp/DefaultContex
 
 [NOTE]
 
-As mandated by the Java EE specification, the default Context Service
+As mandated by the Jakarta EE specification, the default Context Service
 instance's JNDI name is `java:comp/DefaultContextService`.
 
 [[managed-thread-factory]]
 == Managed Thread Factory
 
 The Managed Thread Factory (
-`javax.enterprise.concurrent.ManagedThreadFactory`) allows Java EE
+`jakarta.enterprise.concurrent.ManagedThreadFactory`) allows Java EE
 applications to create Java threads. It is an extension of Java SE's
 Thread Factory ( `java.util.concurrent.ThreadFactory`) adapted to the
-Java EE platform specifics.
+Jakarta EE platform specifics.
 
 Managed Thread Factory instances are managed by the application server,
-thus Java EE applications are forbidden to invoke any lifecycle related
+thus Jakarta EE applications are forbidden to invoke any lifecycle related
 method.
 
 In case the Managed Thread Factory is configured to use a Context
@@ -100,7 +99,7 @@ creation is requested, and such context is propagated to the thread's
 Runnable execution.
 
 Managed Thread Factory threads implement
-`javax.enterprise.concurrent.ManageableThread`, which allows an
+`jakarta.enterprise.concurrent.ManageableThread`, which allows an
 application to learn about termination status.
 
 Usage example:
@@ -142,21 +141,21 @@ ManagedThreadFactory managedThreadFactory = InitialContext.doLookup("java:comp/D
 
 [NOTE]
 
-As mandated by the Java EE specification, the default Managed Thread
+As mandated by the Jakarta EE specification, the default Managed Thread
 Factory instance's JNDI name is `java:comp/DefaultManagedThreadFactory`.
 
 [[managed-executor-service]]
 == Managed Executor Service
 
 The Managed Executor Service (
-`javax.enterprise.concurrent.ManagedExecutorService`) allows Java EE
+`jakarta.enterprise.concurrent.ManagedExecutorService`) allows Java EE
 applications to submit tasks for asynchronous execution. It is an
 extension of Java SE's Executor Service (
-`java.util.concurrent.ExecutorService`) adapted to the Java EE platform
+`java.util.concurrent.ExecutorService`) adapted to the Jakarta EE platform
 requirements.
 
 Managed Executor Service instances are managed by the application
-server, thus Java EE applications are forbidden to invoke any lifecycle
+server, thus Jakarta EE applications are forbidden to invoke any lifecycle
 related method.
 
 In case the Managed Executor Service is configured to use a Context
@@ -202,7 +201,7 @@ ManagedExecutorService managedExecutorService = InitialContext.doLookup("java:co
 
 [NOTE]
 
-As mandated by the Java EE specification, the default Managed Executor
+As mandated by the Jakarta EE specification, the default Managed Executor
 Service instance's JNDI name is
 `java:comp/DefaultManagedExecutorService`.
 
@@ -210,14 +209,14 @@ Service instance's JNDI name is
 == Managed Scheduled Executor Service
 
 The Managed Scheduled Executor Service (
-`javax.enterprise.concurrent.ManagedScheduledExecutorService`) allows
-Java EE applications to schedule tasks for asynchronous execution. It is
+`jakarta.enterprise.concurrent.ManagedScheduledExecutorService`) allows
+Jakarta EE applications to schedule tasks for asynchronous execution. It is
 an extension of Java SE's Executor Service (
 `java.util.concurrent.ScheduledExecutorService`) adapted to the Java EE
 platform requirements.
 
 Managed Scheduled Executor Service instances are managed by the
-application server, thus Java EE applications are forbidden to invoke
+application server, thus Jakarta EE applications are forbidden to invoke
 any lifecycle related method.
 
 In case the Managed Scheduled Executor Service is configured to use a
@@ -263,6 +262,6 @@ ManagedScheduledExecutorService managedScheduledExecutorService = InitialContext
 
 [NOTE]
 
-As mandated by the Java EE specification, the default Managed Scheduled
+As mandated by the Jakarta EE specification, the default Managed Scheduled
 Executor Service instance's JNDI name is
 `java:comp/DefaultManagedScheduledExecutorService`.

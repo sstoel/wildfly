@@ -25,15 +25,14 @@ package org.jboss.as.ejb3.subsystem.deployment;
 import java.util.Map;
 
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ListAttributeDefinition;
+import org.jboss.as.controller.ObjectMapAttributeDefinition;
 import org.jboss.as.controller.ObjectTypeAttributeDefinition;
 import org.jboss.as.controller.OperationContext;
-import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathElement;
-import org.jboss.as.controller.PrimitiveListAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
+import org.jboss.as.controller.StringListAttributeDefinition;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
@@ -51,8 +50,32 @@ import org.jboss.dmr.ModelType;
  */
 public abstract class AbstractEJBComponentResourceDefinition extends SimpleResourceDefinition {
 
-    public static final SimpleAttributeDefinition COMPONENT_CLASS_NAME = new SimpleAttributeDefinitionBuilder("component-class-name", ModelType.STRING)
+     static final SimpleAttributeDefinition COMPONENT_CLASS_NAME = new SimpleAttributeDefinitionBuilder("component-class-name", ModelType.STRING)
             .setValidator(new StringLengthValidator(1))
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final StringListAttributeDefinition JNDI_NAMES = StringListAttributeDefinition.Builder.of("jndi-names")
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final StringListAttributeDefinition BUSINESS_LOCAL = StringListAttributeDefinition.Builder.of("business-local")
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final StringListAttributeDefinition BUSINESS_REMOTE = StringListAttributeDefinition.Builder.of("business-remote")
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final SimpleAttributeDefinition TIMEOUT_METHOD = new SimpleAttributeDefinitionBuilder("timeout-method", ModelType.STRING)
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final StringListAttributeDefinition ASYNC_METHODS = StringListAttributeDefinition.Builder.of("async-methods")
+            .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
+            .build();
+
+     static final SimpleAttributeDefinition TRANSACTION_TYPE = new SimpleAttributeDefinitionBuilder("transaction-type", ModelType.STRING)
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
             .build();
 
@@ -80,7 +103,10 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME, AttributeAccess.Flag.COUNTER_METRIC)
             .build();
 
-    private static final AttributeDefinition METHODS = ObjectTypeAttributeDefinition.Builder.of("methods", EXECUTION_TIME, INVOCATIONS, WAIT_TIME)
+    private static final AttributeDefinition METHODS = ObjectMapAttributeDefinition.Builder.of(
+            "methods",
+            ObjectTypeAttributeDefinition.Builder.of("complex", EXECUTION_TIME, INVOCATIONS, WAIT_TIME)
+            .build())
             .setRequired(false)
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
             .build();
@@ -90,7 +116,7 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME)
             .build();
 
-    public static final ListAttributeDefinition DECLARED_ROLES = new PrimitiveListAttributeDefinition.Builder("declared-roles", ModelType.STRING)
+    public static final StringListAttributeDefinition DECLARED_ROLES = StringListAttributeDefinition.Builder.of("declared-roles")
             .setRequired(false)
             .setElementValidator(new StringLengthValidator(1))
             .setStorageRuntime()
@@ -128,7 +154,7 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
     public static final SimpleAttributeDefinition POOL_MAX_SIZE = new SimpleAttributeDefinitionBuilder("pool-max-size", ModelType.INT, false)
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME).build();
 
-    private final EJBComponentType componentType;
+    final EJBComponentType componentType;
 
     public AbstractEJBComponentResourceDefinition(final EJBComponentType componentType) {
         super(PathElement.pathElement(componentType.getResourceType()),
@@ -143,8 +169,18 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
         resourceRegistration.registerReadOnlyAttribute(SECURITY_DOMAIN, handler);
         resourceRegistration.registerReadOnlyAttribute(RUN_AS_ROLE, handler);
         resourceRegistration.registerReadOnlyAttribute(DECLARED_ROLES, handler);
+        resourceRegistration.registerReadOnlyAttribute(TRANSACTION_TYPE, handler);
+
+        if (!componentType.equals(EJBComponentType.MESSAGE_DRIVEN)) {
+            resourceRegistration.registerReadOnlyAttribute(JNDI_NAMES, handler);
+            resourceRegistration.registerReadOnlyAttribute(BUSINESS_LOCAL, handler);
+            resourceRegistration.registerReadOnlyAttribute(BUSINESS_REMOTE, handler);
+            resourceRegistration.registerReadOnlyAttribute(ASYNC_METHODS, handler);
+        }
+
         if (componentType.hasTimer()) {
             resourceRegistration.registerReadOnlyAttribute(TimerAttributeDefinition.INSTANCE, handler);
+            resourceRegistration.registerReadOnlyAttribute(TIMEOUT_METHOD, handler);
         }
 
         if (componentType.hasPool()) {
@@ -159,51 +195,51 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
         if (componentType.equals(EJBComponentType.STATEFUL)) {
             resourceRegistration.registerMetric(CACHE_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
-                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
-                    context.getResult().set(((StatefulSessionComponent)component).getCache().getCacheSize());
+                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
+                    context.getResult().set(((StatefulSessionComponent) component).getCache().getCacheSize());
                 }
             });
             resourceRegistration.registerMetric(PASSIVATED_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
-                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
-                    context.getResult().set(((StatefulSessionComponent)component).getCache().getPassivatedCount());
+                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
+                    context.getResult().set(((StatefulSessionComponent) component).getCache().getPassivatedCount());
                 }
             });
             resourceRegistration.registerMetric(TOTAL_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
-                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
-                    context.getResult().set(((StatefulSessionComponent)component).getCache().getTotalSize());
+                protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
+                    context.getResult().set(((StatefulSessionComponent) component).getCache().getTotalSize());
                 }
             });
         }
 
         resourceRegistration.registerMetric(EXECUTION_TIME, new AbstractRuntimeMetricsHandler() {
             @Override
-            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
+            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
                 context.getResult().set(component.getInvocationMetrics().getExecutionTime());
             }
         });
         resourceRegistration.registerMetric(INVOCATIONS, new AbstractRuntimeMetricsHandler() {
             @Override
-            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
+            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
                 context.getResult().set(component.getInvocationMetrics().getInvocations());
             }
         });
         resourceRegistration.registerMetric(PEAK_CONCURRENT_INVOCATIONS, new AbstractRuntimeMetricsHandler() {
             @Override
-            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
+            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
                 context.getResult().set(component.getInvocationMetrics().getPeakConcurrent());
             }
         });
         resourceRegistration.registerMetric(WAIT_TIME, new AbstractRuntimeMetricsHandler() {
             @Override
-            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
+            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
                 context.getResult().set(component.getInvocationMetrics().getWaitTime());
             }
         });
         resourceRegistration.registerMetric(METHODS, new AbstractRuntimeMetricsHandler() {
             @Override
-            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) throws OperationFailedException {
+            protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
                 context.getResult().setEmptyObject();
                 for (final Map.Entry<String, InvocationMetrics.Values> entry : component.getInvocationMetrics().getMethods().entrySet()) {
                     final InvocationMetrics.Values values = entry.getValue();
@@ -223,8 +259,11 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
     @Override
     public void registerChildren(ManagementResourceRegistration resourceRegistration) {
         super.registerChildren(resourceRegistration);
-        // /deployment=DU/**/subsystem=ejb3/*=EJBName/service=timer-service
-        final AbstractEJBComponentRuntimeHandler<?> handler = componentType.getRuntimeHandler();
-        resourceRegistration.registerSubModel(new TimerServiceResourceDefinition(handler));
+
+        if (componentType.hasTimer()) {
+            // /deployment=DU/**/subsystem=ejb3/*=EJBName/service=timer-service
+            final AbstractEJBComponentRuntimeHandler<?> handler = componentType.getRuntimeHandler();
+            resourceRegistration.registerSubModel(new TimerServiceResourceDefinition(handler));
+        }
     }
 }

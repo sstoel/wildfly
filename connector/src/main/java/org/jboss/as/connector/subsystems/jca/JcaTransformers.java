@@ -1,71 +1,68 @@
 /*
- * Copyright 2017 Red Hat, Inc.
+ * JBoss, Home of Professional Open Source.
+ * Copyright 2021, Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags. See the copyright.txt file in the
+ * distribution for a full listing of individual contributors.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
 package org.jboss.as.connector.subsystems.jca;
 
 import static org.jboss.as.connector.subsystems.jca.JcaDistributedWorkManagerDefinition.PATH_DISTRIBUTED_WORK_MANAGER;
+import static org.jboss.as.connector.subsystems.jca.JcaExtension.SUBSYSTEM_NAME;
 import static org.jboss.as.connector.subsystems.jca.JcaWorkManagerDefinition.PATH_WORK_MANAGER;
 
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.transform.ExtensionTransformerRegistration;
 import org.jboss.as.controller.transform.SubsystemTransformerRegistration;
+import org.jboss.as.controller.transform.description.AttributeConverter;
 import org.jboss.as.controller.transform.description.ChainedTransformationDescriptionBuilder;
-import org.jboss.as.controller.transform.description.DiscardAttributeChecker;
-import org.jboss.as.controller.transform.description.RejectAttributeChecker;
 import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.as.controller.transform.description.TransformationDescriptionBuilder;
-import org.jboss.dmr.ModelNode;
 
-/**
- *
- * @author Emmanuel Hugonnet (c) 2017 Red Hat, inc.
- */
-public class JcaTransformers implements ExtensionTransformerRegistration{
+public class JcaTransformers implements ExtensionTransformerRegistration {
 
-    private static final ModelVersion EAP_6_2 = ModelVersion.create(1, 2, 0);
-    private static final ModelVersion EAP_7_0 = ModelVersion.create(4, 0, 0);
+    private static final ModelVersion EAP_7_4 = ModelVersion.create(5, 0, 0);
 
     @Override
     public String getSubsystemName() {
-        return JcaExtension.SUBSYSTEM_NAME;
+        return SUBSYSTEM_NAME;
     }
 
     @Override
     public void registerTransformers(SubsystemTransformerRegistration subsystemRegistration) {
         ChainedTransformationDescriptionBuilder chainedBuilder = TransformationDescriptionBuilder.Factory.createChainedSubystemInstance(subsystemRegistration.getCurrentSubsystemVersion());
-        ResourceTransformationDescriptionBuilder parentBuilder = chainedBuilder.createBuilder(subsystemRegistration.getCurrentSubsystemVersion(), EAP_7_0);
-        ResourceTransformationDescriptionBuilder builder = parentBuilder.addChildResource(PATH_DISTRIBUTED_WORK_MANAGER);
-        builder.getAttributeBuilder()
-                .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(false, true, ModelNode.FALSE),
-                        JcaDistributedWorkManagerDefinition.DWmParameters.ELYTRON_ENABLED.getAttribute())
-                .addRejectCheck(RejectAttributeChecker.DEFINED, JcaDistributedWorkManagerDefinition.DWmParameters.ELYTRON_ENABLED.getAttribute())
-                .end();
-        builder = parentBuilder.addChildResource(PATH_WORK_MANAGER);
-        builder.getAttributeBuilder()
-                .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(false, true, ModelNode.FALSE),
-                        JcaWorkManagerDefinition.WmParameters.ELYTRON_ENABLED.getAttribute())
-                .addRejectCheck(RejectAttributeChecker.DEFINED, JcaWorkManagerDefinition.WmParameters.ELYTRON_ENABLED.getAttribute())
-                .end();
-
-        parentBuilder = chainedBuilder.createBuilder(EAP_7_0, EAP_6_2);
-        parentBuilder.rejectChildResource(JcaDistributedWorkManagerDefinition.PATH_DISTRIBUTED_WORK_MANAGER);
-        parentBuilder.discardChildResource(TracerDefinition.PATH_TRACER);
+        get500TransformationDescription(chainedBuilder.createBuilder(subsystemRegistration.getCurrentSubsystemVersion(), EAP_7_4));
 
         chainedBuilder.buildAndRegister(subsystemRegistration, new ModelVersion[]{
-                EAP_6_2,
-                EAP_7_0,
+                EAP_7_4
         });
     }
+
+    private static void get500TransformationDescription(ResourceTransformationDescriptionBuilder parentBuilder) {
+        parentBuilder.addChildResource(PATH_WORK_MANAGER)
+            .getAttributeBuilder()
+                .setValueConverter(AttributeConverter.DEFAULT_VALUE,
+                        JcaWorkManagerDefinition.WmParameters.ELYTRON_ENABLED.getAttribute())
+                .end();
+        parentBuilder.addChildResource(PATH_DISTRIBUTED_WORK_MANAGER)
+            .getAttributeBuilder()
+                .setValueConverter(AttributeConverter.DEFAULT_VALUE,
+                        JcaDistributedWorkManagerDefinition.DWmParameters.ELYTRON_ENABLED.getAttribute())
+                .end();
+    }
+
 }

@@ -25,7 +25,7 @@ package org.jboss.as.testsuite.integration.secman.propertypermission;
 import static org.jboss.as.testsuite.integration.secman.propertypermission.SystemPropertiesSetup.PROPERTY_NAME;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -33,10 +33,10 @@ import java.net.URI;
 import java.net.URL;
 import java.security.AccessControlException;
 
-import javax.ejb.EJBException;
+import jakarta.ejb.EJBException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.hamcrest.CoreMatchers;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -132,7 +132,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where PropertyPermission for all properties is granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where PropertyPermission for all properties is granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -144,7 +144,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where not all PropertyPermissions are granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where not all PropertyPermissions are granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -156,7 +156,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where no PropertyPermission is granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where no PropertyPermission is granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -168,7 +168,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where PropertyPermission for all properties is granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where PropertyPermission for all properties is granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -180,7 +180,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where not all PropertyPermissions are granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where not all PropertyPermissions are granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -192,7 +192,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Check standard java property access for EJB in ear, where no PropertyPermission is granted.
+     * Check standard java property access for Jakarta Enterprise Beans in ear, where no PropertyPermission is granted.
      *
      * @param webAppURL
      * @throws Exception
@@ -335,7 +335,7 @@ public class EarModulesPPTestCase extends AbstractPPTestsWithJSP {
     }
 
     /**
-     * Checks access to a system property on the server using EJB.
+     * Checks access to a system property on the server using Jakarta Enterprise Beans.
      *
      * @param moduleName
      * @param propertyName

@@ -46,7 +46,6 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.dmr.ValueExpression;
 import org.jboss.msc.service.ServiceController;
-import org.jboss.security.SecurityConstants;
 import org.wildfly.extension.undertow.filters.FilterDefinitions;
 import org.wildfly.extension.undertow.handlers.HandlerDefinitions;
 
@@ -88,6 +87,12 @@ class UndertowRootDefinition extends PersistentResourceDefinition {
                     .setAllowExpression(true)
                     .setDefaultValue(new ModelNode().set(new ValueExpression("${jboss.node.name}")))
                     .build();
+    protected static final SimpleAttributeDefinition OBFUSCATE_SESSION_ROUTE =
+            new SimpleAttributeDefinitionBuilder(Constants.OBFUSCATE_SESSION_ROUTE, ModelType.BOOLEAN, true)
+                    .setRestartAllServices()
+                    .setAllowExpression(true)
+                    .setDefaultValue(ModelNode.FALSE)
+                    .build();
     protected static final SimpleAttributeDefinition STATISTICS_ENABLED =
             new SimpleAttributeDefinitionBuilder(Constants.STATISTICS_ENABLED, ModelType.BOOLEAN, true)
                     .setRestartAllServices()
@@ -97,14 +102,15 @@ class UndertowRootDefinition extends PersistentResourceDefinition {
     protected static final SimpleAttributeDefinition DEFAULT_SECURITY_DOMAIN =
             new SimpleAttributeDefinitionBuilder(Constants.DEFAULT_SECURITY_DOMAIN, ModelType.STRING, true)
                     .setAllowExpression(true)
-                    .setDefaultValue(new ModelNode(SecurityConstants.DEFAULT_APPLICATION_POLICY))
+                    .setDefaultValue(new ModelNode("other"))
                     .addAccessConstraint(SensitiveTargetAccessConstraintDefinition.SECURITY_DOMAIN_REF)
                     .setRestartAllServices()
                     .build();
 
 
     static final ApplicationSecurityDomainDefinition APPLICATION_SECURITY_DOMAIN = ApplicationSecurityDomainDefinition.INSTANCE;
-    static final AttributeDefinition[] ATTRIBUTES = { DEFAULT_VIRTUAL_HOST, DEFAULT_SERVLET_CONTAINER, DEFAULT_SERVER, INSTANCE_ID, STATISTICS_ENABLED, DEFAULT_SECURITY_DOMAIN };
+    static final AttributeDefinition[] ATTRIBUTES = { DEFAULT_VIRTUAL_HOST, DEFAULT_SERVLET_CONTAINER, DEFAULT_SERVER, INSTANCE_ID,
+            OBFUSCATE_SESSION_ROUTE, STATISTICS_ENABLED, DEFAULT_SECURITY_DOMAIN };
     static final PersistentResourceDefinition[] CHILDREN = {
             ByteBufferPoolDefinition.INSTANCE,
             BufferCacheDefinition.INSTANCE,

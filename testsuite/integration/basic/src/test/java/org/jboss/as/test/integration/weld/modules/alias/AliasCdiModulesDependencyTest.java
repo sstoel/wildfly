@@ -34,7 +34,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 import java.io.File;
 
 /**
@@ -55,7 +55,7 @@ public class AliasCdiModulesDependencyTest {
         testModuleImpl = ModuleUtils.createTestModuleWithEEDependencies(IMPL_MODULE_NAME);
         testModuleImpl.addResource("test-module.jar")
             .addClasses(ModuleBean.class)
-            .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+            .addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         testModuleImpl.create();
 
         // load the module.xml file and use it to create module, we need this to have Module B as exported dependency
@@ -79,7 +79,7 @@ public class AliasCdiModulesDependencyTest {
     public static WebArchive getDeployment() throws Exception {
         doSetup();
         return ShrinkWrap.create(WebArchive.class)
-            .addClasses(AliasCdiModulesDependencyTest.class, WarBean.class)
+            .addClasses(AliasCdiModulesDependencyTest.class, WarBean.class, TestModule.class)
             .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml")
             .addAsManifestResource(new StringAsset("Dependencies: test." + ALIAS_MODULE_NAME + " meta-inf export\n"), "MANIFEST.MF");
     }

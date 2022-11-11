@@ -32,6 +32,7 @@ import java.io.InputStreamReader;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Hashtable;
 import java.util.Vector;
 
@@ -397,6 +398,8 @@ public class CNCtx implements javax.naming.Context {
             return url;
         } else {
             InputStream in = null;
+            Throwable originalException = null;
+            String retValue = null;
             try {
                 URL u = new URL(url);
                 in = u.openStream();
@@ -405,27 +408,52 @@ public class CNCtx implements javax.naming.Context {
                     String str;
                     while ((str = bufin.readLine()) != null) {
                         if (str.startsWith("IOR:")) {
-                            return str;
+                            retValue = str;
+                            break;
                         }
                     }
                 }
             } catch (IOException e) {
                 NamingException ne = IIOPLogger.ROOT_LOGGER.invalidURLOrIOR(url);
                 ne.setRootCause(e);
-                throw ne;
+                originalException = ne;
+            } catch (Throwable ex) {
+                if (ex instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                originalException = ex;
             } finally {
-                try {
-                    if (in != null) {
+                Throwable suppressed = originalException; // OK to be null
+                if (in != null) {
+                    try {
                         in.close();
+                    } catch (IOException e) {
+                        NamingException ne = IIOPLogger.ROOT_LOGGER.invalidURLOrIOR(url);
+                        ne.setRootCause(e);
+                        if (suppressed != null) {
+                            suppressed.addSuppressed(ne);
+                        } else {
+                            suppressed = ne;
+                        }
                     }
-                } catch (IOException e) {
-                    NamingException ne = IIOPLogger.ROOT_LOGGER.invalidURLOrIOR(url);
-                    ne.setRootCause(e);
-                    throw ne;
+                }
+                if (suppressed != null) {
+                    if (suppressed instanceof RuntimeException) {
+                        throw (RuntimeException) suppressed;
+                    }
+                    if (suppressed instanceof Error) {
+                        throw (Error) suppressed;
+                    }
+                    if (suppressed instanceof NamingException) {
+                        throw (NamingException) suppressed;
+                    }
                 }
             }
-            throw IIOPLogger.ROOT_LOGGER.urlDoesNotContainIOR(url);
+            if (retValue != null) {
+                return retValue;
+            }
         }
+        throw IIOPLogger.ROOT_LOGGER.urlDoesNotContainIOR(url);
     }
 
 
@@ -672,7 +700,7 @@ public class CNCtx implements javax.naming.Context {
      */
     private void callUnbind(NameComponent[] path) throws NamingException {
         if (_nc == null)
-            throw IIOPLogger.ROOT_LOGGER.notANamingContext(path.toString());
+            throw IIOPLogger.ROOT_LOGGER.notANamingContext(Arrays.toString(path));
         try {
             _nc.unbind(path);
         } catch (NotFound e) {
@@ -932,7 +960,7 @@ public class CNCtx implements javax.naming.Context {
     private javax.naming.Context callBindNewContext(NameComponent[] path)
             throws NamingException {
         if (_nc == null)
-            throw IIOPLogger.ROOT_LOGGER.notANamingContext(path.toString());
+            throw IIOPLogger.ROOT_LOGGER.notANamingContext(Arrays.toString(path));
         try {
             NamingContext nctx = _nc.bind_new_context(path);
             return new CNCtx(_orb, nctx, _env, makeFullName(path));

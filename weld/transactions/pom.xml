@@ -10,27 +10,88 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-      <version>18.0.0.Beta1-SNAPSHOT</version>
+      <version>28.0.0.Beta1-SNAPSHOT</version>
    </parent>
 
-   <artifactId>wildfly-weld-transactions</artifactId>
+   <artifactId>wildfly-weld-transactions-legacy-namespace</artifactId>
    <name>WildFly: Weld Transactions</name>
 
    <dependencies>
 
       <dependency>
-         <groupId>${project.groupId}</groupId>
-         <artifactId>wildfly-weld-spi</artifactId>
+         <groupId>org.jboss.msc</groupId>
+         <artifactId>jboss-msc</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jboss.spec.javax.transaction</groupId>
+         <artifactId>jboss-transaction-api_1.3_spec</artifactId>
+      </dependency>
+
+      <dependency>
+         <groupId>org.jboss.weld</groupId>
+         <artifactId>weld-spi</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+
+      <dependency>
+         <groupId>org.wildfly.core</groupId>
+         <artifactId>wildfly-server</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
       </dependency>
 
       <dependency>
          <groupId>${project.groupId}</groupId>
-         <artifactId>wildfly-weld-common</artifactId>
+         <artifactId>wildfly-naming</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
       </dependency>
 
       <dependency>
          <groupId>${project.groupId}</groupId>
-         <artifactId>wildfly-transactions</artifactId>
+         <artifactId>wildfly-weld-spi-legacy-namespace</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+
+      <dependency>
+         <groupId>${project.groupId}</groupId>
+         <artifactId>wildfly-weld-common-legacy-namespace</artifactId>
+         <exclusions>
+            <exclusion>
+               <groupId>*</groupId>
+               <artifactId>*</artifactId>
+            </exclusion>
+         </exclusions>
+      </dependency>
+
+      <dependency>
+         <groupId>org.wildfly.transaction</groupId>
+         <artifactId>wildfly-transaction-client</artifactId>
       </dependency>
 
    </dependencies>

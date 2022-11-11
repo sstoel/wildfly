@@ -30,6 +30,7 @@ import java.util.Map;
 
 import org.jboss.as.connector.dynamicresource.StatisticsResourceDefinition;
 import org.jboss.as.connector.metadata.deployment.ResourceAdapterDeployment;
+import org.jboss.as.connector.subsystems.common.jndi.Util;
 import org.jboss.as.connector.subsystems.resourceadapters.CommonAttributes;
 import org.jboss.as.connector.subsystems.resourceadapters.Constants;
 import org.jboss.as.controller.PathAddress;
@@ -65,10 +66,11 @@ public class ConnectionDefinitionStatisticsService implements Service<Management
      */
     public ConnectionDefinitionStatisticsService(final ManagementResourceRegistration registration,
                                                  final String jndiName,
+                                                 final boolean useJavaContext,
                                                  final String poolName,
                                                  final boolean statsEnabled) {
         super();
-        this.jndiName = jndiName;
+        this.jndiName = Util.cleanJndiName(jndiName, useJavaContext);
         if (registration.isAllowsOverride()) {
             overrideRegistration = registration.registerOverrideModel(poolName, new OverrideDescriptionProvider() {
                 @Override
@@ -103,12 +105,10 @@ public class ConnectionDefinitionStatisticsService implements Service<Management
                     if (cf.getManagedConnectionFactory() != null && cf.getManagedConnectionFactory().getStatistics() != null) {
                         StatisticsPlugin extendStats = cf.getManagedConnectionFactory().getStatistics();
                         extendStats.setEnabled(statsEnabled);
-                        if (extendStats.getNames().size() != 0) {
-
-                            if (extendStats.getNames().size() != 0 && overrideRegistration.getSubModel(PathAddress.pathAddress(peExtendedStats)) == null) {
-                                overrideRegistration.registerSubModel(new StatisticsResourceDefinition(peExtendedStats, CommonAttributes.RESOURCE_NAME, extendStats));
-                            }
-
+                        if (!extendStats.getNames().isEmpty()
+                                && overrideRegistration.getSubModel(PathAddress.pathAddress(peExtendedStats)) == null) {
+                            overrideRegistration.registerSubModel(new StatisticsResourceDefinition(peExtendedStats,
+                                    CommonAttributes.RESOURCE_NAME, extendStats));
                         }
                     }
                 }
@@ -119,13 +119,10 @@ public class ConnectionDefinitionStatisticsService implements Service<Management
                     if (cm.getPool() != null && cm.getJndiName() != null && cm.getJndiName().equals(jndiName)) {
                         StatisticsPlugin poolStats = cm.getPool().getStatistics();
                         poolStats.setEnabled(statsEnabled);
-
-                        if (poolStats.getNames().size() != 0) {
-
-                            if (poolStats.getNames().size() != 0 && overrideRegistration.getSubModel(PathAddress.pathAddress(pePoolStats)) == null) {
-                                overrideRegistration.registerSubModel(new StatisticsResourceDefinition(pePoolStats, CommonAttributes.RESOURCE_NAME, poolStats));
-                            }
-
+                        if (!poolStats.getNames().isEmpty()
+                                && overrideRegistration.getSubModel(PathAddress.pathAddress(pePoolStats)) == null) {
+                            overrideRegistration.registerSubModel(
+                                    new StatisticsResourceDefinition(pePoolStats, CommonAttributes.RESOURCE_NAME, poolStats));
                         }
                     }
                 }

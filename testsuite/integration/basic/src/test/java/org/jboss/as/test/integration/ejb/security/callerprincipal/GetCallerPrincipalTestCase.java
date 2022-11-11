@@ -26,18 +26,18 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 
 import java.util.concurrent.Callable;
 
-import javax.jms.DeliveryMode;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
-import javax.jms.ObjectMessage;
-import javax.jms.Queue;
-import javax.jms.QueueConnection;
-import javax.jms.QueueConnectionFactory;
-import javax.jms.QueueSession;
-import javax.jms.Session;
-import javax.jms.TemporaryQueue;
-import javax.jms.TextMessage;
+import jakarta.jms.DeliveryMode;
+import jakarta.jms.Message;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.ObjectMessage;
+import jakarta.jms.Queue;
+import jakarta.jms.QueueConnection;
+import jakarta.jms.QueueConnectionFactory;
+import jakarta.jms.QueueSession;
+import jakarta.jms.Session;
+import jakarta.jms.TemporaryQueue;
+import jakarta.jms.TextMessage;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
@@ -126,7 +126,8 @@ public class GetCallerPrincipalTestCase {
                 .addClass(ITestResultsSingleton.class)
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "MANIFEST.MF-single", "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "permissions.xml");
         jar.addPackage(CommonCriteria.class.getPackage());
         return jar;
     }
@@ -140,7 +141,8 @@ public class GetCallerPrincipalTestCase {
                 .addAsResource(GetCallerPrincipalTestCase.class.getPackage(), "roles.properties", "roles.properties")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "MANIFEST.MF-bean", "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "permissions.xml");
         jar.addPackage(CommonCriteria.class.getPackage());
         return jar;
     }
@@ -154,7 +156,8 @@ public class GetCallerPrincipalTestCase {
                 .addAsResource(GetCallerPrincipalTestCase.class.getPackage(), "roles.properties", "roles.properties")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "MANIFEST.MF-bean", "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "jboss-permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "jboss-permissions.xml");
         jar.addPackage(CommonCriteria.class.getPackage());
         return jar;
     }
@@ -167,7 +170,8 @@ public class GetCallerPrincipalTestCase {
                 .addAsResource(GetCallerPrincipalTestCase.class.getPackage(), "roles.properties", "roles.properties")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "MANIFEST.MF-bean", "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "permissions.xml");
         jar.addPackage(CommonCriteria.class.getPackage());
         return jar;
     }
@@ -186,7 +190,8 @@ public class GetCallerPrincipalTestCase {
                 .addAsResource(GetCallerPrincipalTestCase.class.getPackage(), "roles.properties", "roles.properties")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(GetCallerPrincipalTestCase.class.getPackage(), "MANIFEST.MF-test", "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "permissions.xml");
         jar.addPackage(CommonCriteria.class.getPackage());
         return jar;
     }
@@ -198,25 +203,21 @@ public class GetCallerPrincipalTestCase {
     @Test
     public void testStatelessLifecycle() throws Exception {
         deployer.deploy("slsb");
-        final Callable<Void> callable = () -> {
-            ITestResultsSingleton results = this.getResultsSingleton();
-            IBeanLifecycleCallback bean = (IBeanLifecycleCallback) initialContext.lookup("ejb:/slsb//" + SLSBLifecycleCallback.class.getSimpleName() + "!" + IBeanLifecycleCallback.class.getName());
-            log.trace("Stateless bean returns: " + bean.get());
+        ITestResultsSingleton results = this.getResultsSingleton();
+        IBeanLifecycleCallback bean = (IBeanLifecycleCallback) initialContext.lookup("ejb:/slsb//" + SLSBLifecycleCallback.class.getSimpleName() + "!" + IBeanLifecycleCallback.class.getName());
+        log.trace("Stateless bean returns: " + bean.get());
 
-            Assert.assertEquals(OK + "start", results.getSlsb("postconstruct"));
+        Assert.assertEquals(OK + "start", results.getSlsb("postconstruct"));
 
-            deployer.undeploy("slsb");
+        deployer.undeploy("slsb");
 
-            Assert.assertEquals(OK + "stop", results.getSlsb("predestroy"));
-            return null;
-        };
-        Util.switchIdentitySCF("user1", "password1", callable);
+        Assert.assertEquals(OK + "stop", results.getSlsb("predestroy"));
     }
 
     @Test
     public void testStatefulLifecycle() throws Exception {
         deployer.deploy("sfsb");
-        final Callable<Void> callable = () -> {
+        try {
             ITestResultsSingleton results = this.getResultsSingleton();
             IBeanLifecycleCallback bean = (IBeanLifecycleCallback) initialContext.lookup("ejb:/sfsb//" + SFSBLifecycleCallback.class.getSimpleName() + "!" + IBeanLifecycleCallback.class.getName() + "?stateful");
             log.trace("Stateful bean returns: " + bean.get());
@@ -226,10 +227,6 @@ public class GetCallerPrincipalTestCase {
             bean.remove();
 
             Assert.assertEquals(LOCAL_USER +  "stop", results.getSfsb("predestroy"));
-            return null;
-        };
-        try {
-            Util.switchIdentitySCF("user1", "password1", callable);
         } finally {
             deployer.undeploy("sfsb");
         }

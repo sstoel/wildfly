@@ -21,14 +21,10 @@
  */
 package org.wildfly.clustering.web.session;
 
-import javax.servlet.ServletContext;
+import java.util.function.Supplier;
 
-import org.wildfly.clustering.ee.Recordable;
-import org.wildfly.clustering.web.IdentifierFactory;
-
-public interface SessionManagerConfiguration {
-    ServletContext getServletContext();
-    IdentifierFactory<String> getIdentifierFactory();
+public interface SessionManagerConfiguration<SC> {
+    SC getServletContext();
+    Supplier<String> getIdentifierFactory();
     SessionExpirationListener getExpirationListener();
-    Recordable<ImmutableSession> getInactiveSessionRecorder();
 }

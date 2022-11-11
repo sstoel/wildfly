@@ -31,8 +31,8 @@ import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.registry.AttributeAccess.Flag;
 import org.jboss.dmr.ModelType;
-import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
-import org.wildfly.clustering.infinispan.spi.InfinispanDefaultCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanDefaultCacheRequirement;
 
 /**
  * Definition of the /subsystem=distributable-web/infinispan-single-sign-on-management=* resource.
@@ -48,7 +48,7 @@ public class InfinispanSSOManagementResourceDefinition extends SSOManagementReso
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setAllowExpression(false)
                         .setRequired(true)
-                        .setCapabilityReference(new CapabilityReference(Capability.SSO_MANAGEMENT_PROVIDER, InfinispanDefaultCacheRequirement.CACHE))
+                        .setCapabilityReference(new CapabilityReference(Capability.SSO_MANAGEMENT_PROVIDER, InfinispanDefaultCacheRequirement.CONFIGURATION))
                         ;
             }
         },
@@ -56,7 +56,7 @@ public class InfinispanSSOManagementResourceDefinition extends SSOManagementReso
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setAllowExpression(false)
-                        .setCapabilityReference(new CapabilityReference(Capability.SSO_MANAGEMENT_PROVIDER, InfinispanCacheRequirement.CACHE, CACHE_CONTAINER))
+                        .setCapabilityReference(new CapabilityReference(Capability.SSO_MANAGEMENT_PROVIDER, InfinispanCacheRequirement.CONFIGURATION, CACHE_CONTAINER))
                         ;
             }
         },

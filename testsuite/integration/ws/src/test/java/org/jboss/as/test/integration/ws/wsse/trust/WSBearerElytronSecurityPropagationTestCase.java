@@ -32,8 +32,8 @@ import java.net.URLClassLoader;
 import java.util.StringTokenizer;
 
 import javax.xml.namespace.QName;
-import javax.xml.ws.BindingProvider;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.BindingProvider;
+import jakarta.xml.ws.Service;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
@@ -77,7 +77,7 @@ public class WSBearerElytronSecurityPropagationTestCase {
         WebArchive archive = ShrinkWrap.create(WebArchive.class, BEARER_STS_DEP + ".war");
         archive
                 .setManifest(new StringAsset("Manifest-Version: 1.0\n"
-                        + "Dependencies: org.jboss.ws.cxf.jbossws-cxf-client,org.jboss.ws.cxf.sts annotations\n"))
+                        + "Dependencies: org.jboss.ws.cxf.jbossws-cxf-client,org.jboss.ws.cxf.sts export services\n"))
                 .addClass(org.jboss.as.test.integration.ws.wsse.trust.stsbearer.STSBearerCallbackHandler.class)
                 .addClass(org.jboss.as.test.integration.ws.wsse.trust.stsbearer.SampleSTSBearer.class)
                 .addClass(org.jboss.as.test.integration.ws.wsse.trust.shared.WSTrustAppUtils.class)
@@ -117,10 +117,6 @@ public class WSBearerElytronSecurityPropagationTestCase {
     @OperateOnDeployment(BEARER_SERVER_DEP)
     @WrapThreadContextClassLoader
     public void testBearer() throws Exception {
-        // TLSv1.2 seems buggy on JDK-11 (Invalid ECDH ServerKeyExchange signature)
-        String originalProtocols = System.getProperty("https.protocols");
-        System.setProperty("https.protocols", "TLSv1.1");
-
         Bus bus = BusFactory.newInstance().createBus();
         try {
             BusFactory.setThreadDefaultBus(bus);
@@ -132,13 +128,10 @@ public class WSBearerElytronSecurityPropagationTestCase {
             WSTrustTestUtils.setupWsseAndSTSClientBearer((BindingProvider) proxy, bus);
             assertEquals("alice&alice", proxy.sayHello());
 
+        } catch (Exception e) {
+            throw e;
         } finally {
             bus.shutdown(true);
-            if (originalProtocols == null) {
-                System.clearProperty("https.protocols");
-            } else {
-                System.setProperty("https.protocols", originalProtocols);
-            }
         }
     }
 

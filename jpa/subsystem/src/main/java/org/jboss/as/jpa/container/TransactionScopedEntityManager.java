@@ -65,6 +65,7 @@ public class TransactionScopedEntityManager extends AbstractEntityManager implem
     private transient TransactionSynchronizationRegistry transactionSynchronizationRegistry;
     private transient TransactionManager transactionManager;
     private transient Boolean deferDetach;
+    private transient Boolean skipQueryDetach;
 
     public TransactionScopedEntityManager(String puScopedName, Map properties, EntityManagerFactory emf, SynchronizationType synchronizationType, TransactionSynchronizationRegistry transactionSynchronizationRegistry, TransactionManager transactionManager) {
         this.puScopedName = puScopedName;
@@ -203,7 +204,21 @@ public class TransactionScopedEntityManager extends AbstractEntityManager implem
     }
 
     /**
-     * throw error if jta transaction already has an UNSYNCHRONIZED persistence context and a SYNCHRONIZED persistence context
+     * return true if non-tx invocations should defer detaching of query results until entity manager is closed.
+     * Note that this is an extension for compatibility with JBoss application server 5.0/6.0 (see WFLY-12674)
+     */
+    @Override
+    protected boolean skipQueryDetach() {
+        if (skipQueryDetach == null)
+            skipQueryDetach =
+                    (true == Configuration.skipQueryDetach(emf.getProperties())? Boolean.TRUE : Boolean.FALSE);
+        return skipQueryDetach.booleanValue();
+    }
+
+
+
+    /**
+     * throw error if Jakarta Transactions transaction already has an UNSYNCHRONIZED persistence context and a SYNCHRONIZED persistence context
      * is requested.  We are only fussy in this test, if the target component persistence context is SYNCHRONIZED.
      *
      * WFLY-7075 introduces two extensions, allow a (transaction) joined UNSYNCHRONIZED persistence context to be treated as SYNCHRONIZED,

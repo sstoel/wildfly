@@ -23,34 +23,37 @@ package org.jboss.as.ejb3.tx;
 
 import static org.jboss.as.ejb3.tx.util.StatusHelper.statusAsString;
 
+import java.lang.reflect.Method;
 import java.lang.reflect.UndeclaredThrowableException;
 import java.rmi.RemoteException;
-
-import javax.ejb.EJBException;
-import javax.ejb.EJBTransactionRolledbackException;
-import javax.ejb.NoSuchEJBException;
-import javax.ejb.NoSuchEntityException;
-import javax.ejb.TransactionAttributeType;
-import javax.transaction.HeuristicMixedException;
-import javax.transaction.HeuristicRollbackException;
-import javax.transaction.RollbackException;
-import javax.transaction.Status;
-import javax.transaction.SystemException;
-import javax.transaction.Transaction;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.EJBTransactionRolledbackException;
+import jakarta.ejb.NoSuchEJBException;
+import jakarta.ejb.NoSuchEntityException;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.transaction.HeuristicMixedException;
+import jakarta.transaction.HeuristicRollbackException;
+import jakarta.transaction.RollbackException;
+import jakarta.transaction.Status;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.Transaction;
 
 import org.jboss.as.ee.component.Component;
-import org.jboss.as.ejb3.logging.EjbLogger;
+import org.jboss.as.ee.component.ComponentView;
 import org.jboss.as.ejb3.component.EJBComponent;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.MethodIntfHelper;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.invocation.ImmediateInterceptorFactory;
 import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorContext;
 import org.jboss.invocation.InterceptorFactory;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.wildfly.transaction.client.AbstractTransaction;
 import org.wildfly.transaction.client.ContextTransactionManager;
 
 /**
+ * NOTE: References in this file to Enterprise JavaBeans(EJB) refer to the Jakarta Enterprise Beans unless otherwise noted.
+ *
  * Ensure the correct exceptions are thrown based on both caller
  * transactional context and supported Transaction Attribute Type
  * <p/>
@@ -115,6 +118,7 @@ public class CMTTxInterceptor implements Interceptor {
         } catch (HeuristicMixedException | SystemException | HeuristicRollbackException e) {
             throw new EJBException(e);
         }
+
     }
 
     private void endTransaction(final Transaction tx, final Throwable outerEx) {
@@ -127,12 +131,15 @@ public class CMTTxInterceptor implements Interceptor {
 
     public Object processInvocation(InterceptorContext invocation) throws Exception {
         final EJBComponent component = (EJBComponent) invocation.getPrivateData(Component.class);
+
         final ContextTransactionManager tm = ContextTransactionManager.getInstance();
         final int oldTimeout = tm.getTransactionTimeout();
         try {
-            final MethodIntf methodIntf = MethodIntfHelper.of(invocation);
-            final TransactionAttributeType attr = component.getTransactionAttributeType(methodIntf, invocation.getMethod());
-            final int timeoutInSeconds = component.getTransactionTimeout(methodIntf, invocation.getMethod());
+            final MethodInterfaceType methodIntf = MethodIntfHelper.of(invocation);
+            final Method method = invocation.getMethod();
+            final TransactionAttributeType attr = component.getTransactionAttributeType(methodIntf, method);
+            final int timeoutInSeconds = component.getTransactionTimeout(methodIntf, method);
+
             switch (attr) {
                 case MANDATORY:
                     return mandatory(invocation, component);
@@ -141,6 +148,15 @@ public class CMTTxInterceptor implements Interceptor {
                 case NOT_SUPPORTED:
                     return notSupported(invocation, component);
                 case REQUIRED:
+                    final ComponentView view = invocation.getPrivateData(ComponentView.class);
+                    if (view != null && view.isAsynchronous(method)) {
+                        // EJB 3.2 4.5.3 Transactions
+                        // The client’s transaction context does not propagate with an asynchronous method invocation. From the
+                        // Bean Provider’s point of view, there is never a transaction context flowing in from the client. This
+                        // means, for example, that the semantics of the REQUIRED transaction attribute on an asynchronous
+                        // method are exactly the same as REQUIRES_NEW.
+                        return requiresNew(invocation, component, timeoutInSeconds);
+                    }
                     return required(invocation, component, timeoutInSeconds);
                 case REQUIRES_NEW:
                     return requiresNew(invocation, component, timeoutInSeconds);
@@ -232,7 +248,8 @@ public class CMTTxInterceptor implements Interceptor {
         final ContextTransactionManager tm = ContextTransactionManager.getInstance();
         tm.begin();
         final AbstractTransaction tx = tm.getTransaction();
-        final Object result;
+        Object result = null;
+        Exception except = null;
         try {
             result = invocation.proceed();
         } catch (Throwable t) {
@@ -243,7 +260,13 @@ public class CMTTxInterceptor implements Interceptor {
                 } catch (EJBException | RemoteException e) {
                     throw e;
                 } catch (RuntimeException e) {
-                    throw ae != null ? e : new EJBException(e);
+                    if (ae != null && !ae.isRollback()) {
+                        except = e;
+                    } else if(ae != null && ae.isRollback()) {
+                        throw e;
+                    } else {
+                        throw new EJBException(e);
+                    }
                 } catch (Exception e) {
                     throw e;
                 } catch (Error e) {
@@ -259,6 +282,11 @@ public class CMTTxInterceptor implements Interceptor {
         }
         boolean rolledBack = safeGetStatus(tx) == Status.STATUS_MARKED_ROLLBACK;
         endTransaction(tx);
+
+        if (except!=null) {
+            throw except;
+        }
+
         if (rolledBack) ourTxRolledBack();
         return result;
     }

@@ -21,18 +21,21 @@
  */
 package org.jboss.as.security;
 
+import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.ListAttributeDefinition;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
 
 /**
  * @author Jason T. Greene
  */
-public class AuditResourceDefinition extends SimpleResourceDefinition {
+class AuditResourceDefinition extends SimpleResourceDefinition {
 
     static final AuditResourceDefinition INSTANCE = new AuditResourceDefinition();
 
@@ -42,10 +45,11 @@ public class AuditResourceDefinition extends SimpleResourceDefinition {
     private AuditResourceDefinition() {
         super(SecurityExtension.PATH_AUDIT_CLASSIC,
                 SecurityExtension.getResourceDescriptionResolver(Constants.AUDIT),
-                AuditResourceDefinitionAdd.INSTANCE, new SecurityDomainReloadRemoveHandler());
+                new AuditResourceDefinitionAdd(), ModelOnlyRemoveStepHandler.INSTANCE);
         setDeprecated(SecurityExtension.DEPRECATED_SINCE);
     }
 
+    @Override
     public void registerAttributes(final ManagementResourceRegistration resourceRegistration) {
         resourceRegistration.registerReadWriteAttribute(PROVIDER_MODULES, new LegacySupport.LegacyModulesAttributeReader(Constants.PROVIDER_MODULE), new LegacySupport.LegacyModulesAttributeWriter(Constants.PROVIDER_MODULE));
     }
@@ -56,21 +60,14 @@ public class AuditResourceDefinition extends SimpleResourceDefinition {
         resourceRegistration.registerSubModel(new MappingProviderModuleDefinition(Constants.PROVIDER_MODULE));
     }
 
-    static class AuditResourceDefinitionAdd extends SecurityDomainReloadAddHandler {
-        static final AuditResourceDefinitionAdd INSTANCE = new AuditResourceDefinitionAdd();
+    static class AuditResourceDefinitionAdd extends AbstractAddStepHandler {
 
         @Override
-        protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-
+        protected void populateModel(OperationContext context, ModelNode operation, Resource resource) throws OperationFailedException {
+            if (operation.hasDefined(PROVIDER_MODULES.getName())) {
+                context.addStep(new ModelNode(), operation, LEGACY_ADD_HANDLER, OperationContext.Stage.MODEL, true);
+            }
         }
-
-        @Override
-               protected void updateModel(OperationContext context, ModelNode operation) throws OperationFailedException {
-                   super.updateModel(context, operation);
-                   if (operation.hasDefined(PROVIDER_MODULES.getName())) {
-                       context.addStep(new ModelNode(), operation, LEGACY_ADD_HANDLER, OperationContext.Stage.MODEL, true);
-                   }
-               }
     }
 
 }

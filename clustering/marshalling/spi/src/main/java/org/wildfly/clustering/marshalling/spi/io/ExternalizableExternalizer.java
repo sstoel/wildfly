@@ -25,6 +25,7 @@ import java.io.Externalizable;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.lang.reflect.InvocationTargetException;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 
@@ -50,10 +51,10 @@ public class ExternalizableExternalizer<T extends Externalizable> implements Ext
 
     @Override
     public T readObject(ObjectInput input) throws IOException, ClassNotFoundException {
-        PrivilegedExceptionAction<T> action = new PrivilegedExceptionAction<T>() {
+        PrivilegedExceptionAction<T> action = new PrivilegedExceptionAction<>() {
             @Override
-            public T run() throws InstantiationException, IllegalAccessException {
-                return ExternalizableExternalizer.this.getTargetClass().newInstance();
+            public T run() throws InstantiationException, IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+                return ExternalizableExternalizer.this.getTargetClass().getConstructor().newInstance();
             }
         };
         try {

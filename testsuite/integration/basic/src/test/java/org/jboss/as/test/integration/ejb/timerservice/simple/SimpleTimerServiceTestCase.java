@@ -23,8 +23,8 @@ package org.jboss.as.test.integration.ejb.timerservice.simple;
 
 import java.util.Date;
 
-import javax.ejb.Timer;
-import javax.ejb.TimerConfig;
+import jakarta.ejb.Timer;
+import jakarta.ejb.TimerConfig;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
@@ -112,6 +112,11 @@ public class SimpleTimerServiceTestCase {
         Assert.assertTrue(AnnotationTimerServiceBean.awaitTimerCall());
         bean1.resetTimerServiceCalled();
         Assert.assertTrue(AnnotationTimerServiceBean.awaitTimerCall());
+
+        //verifies that timer1 equals itself and does not equal null
+        Assert.assertTrue(timer1.equals(timer1));
+        Assert.assertFalse(timer1.equals(null));
+
         timer1.cancel();
 
         TimedObjectTimerServiceBean bean2 = (TimedObjectTimerServiceBean) ctx.lookup("java:module/" + TimedObjectTimerServiceBean.class.getSimpleName());

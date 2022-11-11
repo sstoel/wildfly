@@ -22,13 +22,10 @@
 
 package org.jboss.as.messaging.test;
 
-import static org.jboss.as.messaging.MessagingExtension.VERSION_1_3_0;
 import static org.jboss.as.messaging.MessagingExtension.VERSION_1_4_0;
 import static org.jboss.as.messaging.test.MessagingDependencies.getHornetQDependencies;
 import static org.jboss.as.messaging.test.MessagingDependencies.getMessagingGAV;
 import static org.jboss.as.messaging.test.ModelFixers.PATH_FIXER;
-import static org.jboss.as.model.test.ModelTestControllerVersion.EAP_6_2_0;
-import static org.jboss.as.model.test.ModelTestControllerVersion.EAP_6_3_0;
 import static org.jboss.as.model.test.ModelTestControllerVersion.EAP_6_4_0;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -66,20 +63,6 @@ public class MessagingSubsystem30TestCase extends AbstractLegacySubsystemBaseTes
     }
 
     @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[] {
-            "/subsystem-templates/messaging.xml",
-            "/subsystem-templates/messaging-hornetq-colocated.xml"
-        };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
-    }
-
-    @Override
     protected Properties getResolvedProperties() {
         Properties properties = new Properties();
         properties.put("messaging.cluster.user.name", "myClusterUser");
@@ -103,38 +86,6 @@ public class MessagingSubsystem30TestCase extends AbstractLegacySubsystemBaseTes
         KernelServicesBuilder builder = createKernelServicesBuilder(EAP_6_4_0, VERSION_1_4_0, PATH_FIXER, "empty_subsystem_3_0.xml");
 
         doTestRejectExpressions_1_4_0(builder);
-    }
-
-    @Test
-    public void testTransformersEAP_6_3_0() throws Exception {
-        testTransformers(EAP_6_3_0, VERSION_1_3_0, PATH_FIXER);
-    }
-
-    @Test
-    public void testRejectExpressionsEAP_6_3_0() throws Exception {
-        KernelServicesBuilder builder = createKernelServicesBuilder(EAP_6_3_0, VERSION_1_3_0, PATH_FIXER, "empty_subsystem_3_0.xml");
-
-        doTestRejectExpressions_1_3_0(builder);
-    }
-
-    @Test
-    public void testTransformersEAP_6_2_0() throws Exception {
-        testTransformers(EAP_6_2_0, VERSION_1_3_0, PATH_FIXER);
-    }
-
-    @Test
-    public void testRejectExpressionsEAP_6_2_0() throws Exception {
-        KernelServicesBuilder builder = createKernelServicesBuilder(EAP_6_2_0, VERSION_1_3_0, PATH_FIXER, "empty_subsystem_3_0.xml");
-
-        doTestRejectExpressions_1_3_0(builder);
-    }
-
-  private void doTestRejectExpressions_1_3_0(KernelServicesBuilder builder) throws Exception {
-        KernelServices mainServices = builder.build();
-        assertTrue(mainServices.isSuccessfulBoot());
-        KernelServices legacyServices = mainServices.getLegacyServices(VERSION_1_3_0);
-        assertNotNull(legacyServices);
-        assertTrue(legacyServices.isSuccessfulBoot());
     }
 
     private void doTestRejectExpressions_1_4_0(KernelServicesBuilder builder) throws Exception {

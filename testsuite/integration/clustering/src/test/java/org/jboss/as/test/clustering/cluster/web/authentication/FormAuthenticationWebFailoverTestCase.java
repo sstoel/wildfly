@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
@@ -53,14 +53,18 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.security.common.elytron.ServletElytronDomainSetup;
 
 /**
  * Validates that a user remains authenticated following failover when using FORM authentication.
  * @author Paul Ferraro
  */
 @RunWith(Arquillian.class)
-@ServerSetup(WebSecurityDomainSetup.class)
+@ServerSetup({FormAuthenticationWebFailoverTestCase.ElytronDomainSetupOverride.class, FormAuthenticationWebFailoverTestCase.ServletElytronDomainSetupOverride.class})
 public class FormAuthenticationWebFailoverTestCase extends AbstractClusteringTestCase {
+
+    private static final String MODULE_NAME = BasicAuthenticationWebFailoverTestCase.class.getSimpleName();
+    private static final String SECURITY_DOMAIN_NAME = "authentication";
 
     @Deployment(name = DEPLOYMENT_1, managed = false, testable = false)
     @TargetsContainer(NODE_1)
@@ -75,12 +79,10 @@ public class FormAuthenticationWebFailoverTestCase extends AbstractClusteringTes
     }
 
     private static Archive<?> getDeployment() {
-        WebArchive war = ShrinkWrap.create(WebArchive.class, "form-authentication.war");
+        WebArchive war = ShrinkWrap.create(WebArchive.class, MODULE_NAME + ".war");
         war.addClass(SecureServlet.class);
         war.setWebXML(SecureServlet.class.getPackage(), "web-form.xml");
         war.addAsWebInfResource(SecureServlet.class.getPackage(), "jboss-web.xml", "jboss-web.xml");
-        war.addAsResource(SecureServlet.class.getPackage(), "users.properties", "users.properties");
-        war.addAsResource(SecureServlet.class.getPackage(), "roles.properties", "roles.properties");
         war.addAsWebResource(SecureServlet.class.getPackage(), "login.html", "login.html");
         war.addAsWebResource(SecureServlet.class.getPackage(), "error.html", "error.html");
         return war;
@@ -147,6 +149,20 @@ public class FormAuthenticationWebFailoverTestCase extends AbstractClusteringTes
             } finally {
                 HttpClientUtils.closeQuietly(response);
             }
+        }
+    }
+
+    static class ElytronDomainSetupOverride extends ElytronDomainServerSetupTask {
+
+        public ElytronDomainSetupOverride() {
+            super(SECURITY_DOMAIN_NAME);
+        }
+    }
+
+    static class ServletElytronDomainSetupOverride extends ServletElytronDomainSetup {
+
+        protected ServletElytronDomainSetupOverride() {
+            super(SECURITY_DOMAIN_NAME, false);
         }
     }
 }

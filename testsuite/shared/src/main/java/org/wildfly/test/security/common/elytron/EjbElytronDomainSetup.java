@@ -55,6 +55,8 @@ public class EjbElytronDomainSetup implements ServerSetupTask {
 
     private final String securityDomainName;
 
+    private String saslAuthenticationFactoryValue = null;
+
     public EjbElytronDomainSetup() {
         this(DEFAULT_SECURITY_DOMAIN_NAME);
     }
@@ -115,6 +117,12 @@ public class EjbElytronDomainSetup implements ServerSetupTask {
         steps.add(addSaslAuthentication);
 
         // remoting connection with sasl-authentication-factory
+
+        ModelNode saslAuthenticationFactoryNode = Utils.applyRead(managementClient.getControllerClient() ,Util.getReadAttributeOperation(remotingConnectorAddress, "sasl-authentication-factory"), false);
+        if(saslAuthenticationFactoryNode.isDefined()){
+            saslAuthenticationFactoryValue = saslAuthenticationFactoryNode.asString();
+        }
+
         ModelNode updateRemotingConnector = Util.getWriteAttributeOperation(remotingConnectorAddress, "sasl-authentication-factory", getSaslAuthenticationName());
         steps.add(updateRemotingConnector);
 
@@ -126,13 +134,20 @@ public class EjbElytronDomainSetup implements ServerSetupTask {
         applyUpdate(managementClient.getControllerClient(), compositeOp, false);
         // TODO: add {"allow-resource-service-restart" => true} to ejbDomainAddress write-attribute operation once WFLY-8793 / JBEAP-10955 is fixed
         //       and remove this reload
-        ServerReload.reloadIfRequired(managementClient.getControllerClient());
+        ServerReload.reloadIfRequired(managementClient);
     }
 
     @Override
     public void tearDown(final ManagementClient managementClient, final String containerId) {
         try {
-            applyUpdate(managementClient.getControllerClient(), Util.getWriteAttributeOperation(remotingConnectorAddress, "sasl-authentication-factory", "application-sasl-authentication"), false);
+            ModelNode restoreSaslOperation;
+            if (saslAuthenticationFactoryValue != null) {
+                restoreSaslOperation = Util.getWriteAttributeOperation(remotingConnectorAddress, "sasl-authentication-factory", saslAuthenticationFactoryValue);
+            } else {
+                restoreSaslOperation = Util.getUndefineAttributeOperation(remotingConnectorAddress, "sasl-authentication-factory");
+            }
+
+            applyUpdate(managementClient.getControllerClient(), restoreSaslOperation, false);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -141,7 +156,7 @@ public class EjbElytronDomainSetup implements ServerSetupTask {
         // TODO: add {"allow-resource-service-restart" => true} to ejbDomainAddress write-attribute operation once WFLY-8793 / JBEAP-10955 is fixed
         //       and remove this reload
         try {
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

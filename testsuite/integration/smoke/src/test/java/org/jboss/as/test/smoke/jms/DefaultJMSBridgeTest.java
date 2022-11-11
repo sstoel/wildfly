@@ -28,16 +28,16 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.UUID;
 
-import javax.annotation.Resource;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.DeliveryMode;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
-import javax.jms.Queue;
-import javax.jms.Session;
-import javax.jms.TextMessage;
+import jakarta.annotation.Resource;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.DeliveryMode;
+import jakarta.jms.Message;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Queue;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 
 import org.apache.activemq.artemis.api.jms.ActiveMQJMSConstants;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -49,13 +49,12 @@ import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
-import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * JMS bridge test.
+ * Jakarta Messaging bridge test.
  *
  * @author Jeff Mesnil (c) 2012 Red Hat Inc.
  */
@@ -85,15 +84,14 @@ public class DefaultJMSBridgeTest {
                 .addClass(CreateQueueSetupTask.class)
                 .addAsManifestResource(
                         EmptyAsset.INSTANCE,
-                        ArchivePaths.create("beans.xml"))
-                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller-client,org.jboss.dmr,org.jboss.as.cli\n"), "MANIFEST.MF");
+                        ArchivePaths.create("beans.xml"));
     }
 
     /**
      * Send a message on the source queue
      * Consumes it on the target queue
      *
-     * The test will pass since a JMS Bridge has been created to bridge the source destination to the target destination.
+     * The test will pass since a Jakarta Messaging Bridge has been created to bridge the source destination to the target destination.
      */
     @Test
     public void sendAndReceiveMessage() throws Exception {
@@ -124,7 +122,7 @@ public class DefaultJMSBridgeTest {
             assertNotNull("did not receive expected message", receivedMessage);
             assertTrue(receivedMessage instanceof TextMessage);
             assertEquals(text, ((TextMessage) receivedMessage).getText());
-            assertTrue("got header set by the JMS bridge", receivedMessage.getStringProperty(ActiveMQJMSConstants.AMQ_MESSAGING_BRIDGE_MESSAGE_ID_LIST) == null);
+            assertTrue("got header set by the Jakarta Messaging bridge", receivedMessage.getStringProperty(ActiveMQJMSConstants.AMQ_MESSAGING_BRIDGE_MESSAGE_ID_LIST) == null);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

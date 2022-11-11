@@ -22,6 +22,10 @@
 
 package org.wildfly.iiop.openjdk;
 
+import static org.wildfly.iiop.openjdk.logging.IIOPLogger.ROOT_LOGGER;
+import static org.wildfly.iiop.openjdk.Capabilities.IIOP_CAPABILITY;
+import static org.wildfly.iiop.openjdk.Capabilities.LEGACY_SECURITY;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -30,16 +34,16 @@ import java.util.Properties;
 
 import javax.net.ssl.SSLContext;
 
+import com.sun.corba.se.impl.orbutil.ORBConstants;
+import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathAddress;
-import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.naming.InitialContext;
-import org.jboss.as.naming.service.DefaultNamespaceContextSelectorService;
 import org.jboss.as.network.SocketBinding;
 import org.jboss.as.server.AbstractDeploymentChainStep;
 import org.jboss.as.server.DeploymentProcessorTarget;
@@ -66,7 +70,6 @@ import org.wildfly.iiop.openjdk.logging.IIOPLogger;
 import org.wildfly.iiop.openjdk.naming.jndi.JBossCNCtxFactory;
 import org.wildfly.iiop.openjdk.rmi.DelegatingStubFactoryFactory;
 import org.wildfly.iiop.openjdk.security.NoSSLSocketFactory;
-import org.wildfly.iiop.openjdk.security.LegacySSLSocketFactory;
 import org.wildfly.iiop.openjdk.security.SSLSocketFactory;
 import org.wildfly.iiop.openjdk.service.CorbaNamingService;
 import org.wildfly.iiop.openjdk.service.CorbaORBService;
@@ -74,9 +77,6 @@ import org.wildfly.iiop.openjdk.service.CorbaPOAService;
 import org.wildfly.iiop.openjdk.service.IORSecConfigMetaDataService;
 import org.wildfly.security.auth.client.AuthenticationContext;
 import org.wildfly.security.manager.WildFlySecurityManager;
-
-import com.sun.corba.se.impl.orbutil.ORBConstants;
-import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 
 /**
  * <p>
@@ -122,6 +122,20 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
         ConfigValidator.validateConfig(context, model);
     }
 
+    @Override
+    protected void recordCapabilitiesAndRequirements(OperationContext context, ModelNode operation, Resource resource)
+            throws OperationFailedException {
+        super.recordCapabilitiesAndRequirements(context, operation, resource);
+
+        if (IIOPExtension.SUBSYSTEM_NAME.equals(context.getCurrentAddressValue())) {
+            ModelNode model = resource.getModel();
+            String security = IIOPRootDefinition.SECURITY.resolveModelAttribute(context, model).asStringOrNull();
+            if (SecurityAllowedValues.IDENTITY.toString().equals(security)) {
+                context.registerAdditionalCapabilityRequirement(LEGACY_SECURITY, IIOP_CAPABILITY, Constants.ORB_INIT_SECURITY);
+            }
+        }
+    }
+
     protected void launchServices(final OperationContext context, final ModelNode model) throws OperationFailedException {
 
         IIOPLogger.ROOT_LOGGER.activatingSubsystem();
@@ -145,6 +159,7 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
         InitialContext.addUrlContextFactory("iiop", JBossCNCtxFactory.INSTANCE);
 
         context.addStep(new AbstractDeploymentChainStep() {
+            @Override
             public void execute(DeploymentProcessorTarget processorTarget) {
                 processorTarget.addDeploymentProcessor(IIOPExtension.SUBSYSTEM_NAME, Phase.DEPENDENCIES,
                         Phase.DEPENDENCIES_IIOP_OPENJDK, new IIOPDependencyProcessor());
@@ -172,8 +187,7 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
         // if a security domain has been specified, add a dependency to the domain service.
         String securityDomain = props.getProperty(Constants.SECURITY_SECURITY_DOMAIN);
         if (securityDomain != null) {
-            builder.requires(context.getCapabilityServiceName(Capabilities.LEGACY_SECURITY_DOMAIN_CAPABILITY, securityDomain, null));
-            builder.requires(DefaultNamespaceContextSelectorService.SERVICE_NAME);
+            throw ROOT_LOGGER.runtimeSecurityDomainUnsupported();
         }
 
         // add dependencies to the ssl context services if needed.
@@ -276,29 +290,10 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
      * @throws OperationFailedException if an error occurs while resolving the properties.
      */
     protected Properties getConfigurationProperties(OperationContext context, ModelNode model) throws OperationFailedException {
-        Properties props = new Properties();
+        Properties properties = new Properties();
 
-        getResourceProperties(props, IIOPRootDefinition.INSTANCE, context, model);
-
-
-        // check if the node contains a list of generic properties.
-        ModelNode configNode = model.get(Constants.CONFIGURATION);
-        if (configNode.hasDefined(Constants.PROPERTIES)) {
-            for (Property property : configNode.get(Constants.PROPERTIES).get(Constants.PROPERTY)
-                    .asPropertyList()) {
-                String name = property.getName();
-                String value = property.getValue().get(Constants.PROPERTY_VALUE).asString();
-                props.setProperty(name, value);
-            }
-        }
-        return props;
-    }
-
-    private void getResourceProperties(final Properties properties, PersistentResourceDefinition resource,
-            OperationContext context, ModelNode model) throws OperationFailedException {
-        for (AttributeDefinition attrDefinition : resource.getAttributes()) {
+        for (AttributeDefinition attrDefinition : IIOPRootDefinition.INSTANCE.getAttributes()) {
             if(attrDefinition instanceof PropertiesAttributeDefinition){
-                PropertiesAttributeDefinition pad=(PropertiesAttributeDefinition)attrDefinition;
                 ModelNode resolvedModelAttribute = attrDefinition.resolveModelAttribute(context, model);
                 if(resolvedModelAttribute.isDefined()) {
                     for (final Property prop : resolvedModelAttribute.asPropertyList()) {
@@ -320,6 +315,8 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 properties.setProperty(name, value);
             }
         }
+
+        return properties;
     }
 
     /**
@@ -334,10 +331,9 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
         // check which groups of initializers are to be installed.
         String installSecurity = (String) props.remove(Constants.ORB_INIT_SECURITY);
-        if (installSecurity.equalsIgnoreCase(Constants.CLIENT)) {
-            orbInitializers.addAll(Arrays.asList(IIOPInitializer.SECURITY_CLIENT.getInitializerClasses()));
-        } else if (installSecurity.equalsIgnoreCase(Constants.IDENTITY)) {
-            orbInitializers.addAll(Arrays.asList(IIOPInitializer.SECURITY_IDENTITY.getInitializerClasses()));
+        if (installSecurity.equalsIgnoreCase(Constants.CLIENT)  ||
+                installSecurity.equalsIgnoreCase(Constants.IDENTITY)) {
+            throw ROOT_LOGGER.legacySecurityUnsupported();
         } else if (installSecurity.equalsIgnoreCase(Constants.ELYTRON)) {
             final String authContext = props.getProperty(Constants.ORB_INIT_AUTH_CONTEXT);
             ElytronSASClientInterceptor.setAuthenticationContextName(authContext);
@@ -381,10 +377,7 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
                 props.setProperty(ORBConstants.SOCKET_FACTORY_CLASS_PROPERTY, SSLSocketFactory.class.getName());
             }
             else {
-                // if the config only has a legacy JSSE domain reference, install the LegacySSLSocketFactory.
-                final String securityDomain = props.getProperty(Constants.SECURITY_SECURITY_DOMAIN);
-                LegacySSLSocketFactory.setSecurityDomain(securityDomain);
-                props.setProperty(ORBConstants.SOCKET_FACTORY_CLASS_PROPERTY, LegacySSLSocketFactory.class.getName());
+                throw ROOT_LOGGER.legacySecurityUnsupported();
             }
             sslConfigured = true;
         } else {
@@ -406,7 +399,7 @@ public class IIOPSubsystemAdd extends AbstractBoottimeAddStepHandler {
         final IORASContextMetaData asContextMetaData = new IORASContextMetaData();
         asContextMetaData.setAuthMethod(IIOPRootDefinition.AUTH_METHOD.resolveModelAttribute(context, resourceModel).asString());
         if (resourceModel.hasDefined(IIOPRootDefinition.REALM.getName())) {
-            asContextMetaData.setRealm(IIOPRootDefinition.REALM.resolveModelAttribute(context, resourceModel).asString());
+            throw ROOT_LOGGER.runtimeSecurityRealmUnsupported();
         }
         asContextMetaData.setRequired(IIOPRootDefinition.REQUIRED.resolveModelAttribute(context, resourceModel).asBoolean());
         securityConfigMetaData.setAsContext(asContextMetaData);

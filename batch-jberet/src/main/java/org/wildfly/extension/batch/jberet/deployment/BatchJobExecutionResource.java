@@ -22,14 +22,11 @@
 
 package org.wildfly.extension.batch.jberet.deployment;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.function.Supplier;
-import javax.batch.runtime.JobExecution;
-import javax.batch.runtime.JobInstance;
+import java.util.stream.Collectors;
 
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
@@ -40,7 +37,7 @@ import org.jboss.dmr.ModelNode;
 import org.wildfly.extension.batch.jberet._private.BatchLogger;
 
 /**
- * Represents a dynamic resource for batch {@link javax.batch.runtime.JobExecution job executions}.
+ * Represents a dynamic resource for batch {@link jakarta.batch.runtime.JobExecution job executions}.
  *
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
  */
@@ -51,6 +48,19 @@ public class BatchJobExecutionResource implements Resource {
     private final String jobName;
     // Should be guarded by it's instance
     private final Set<String> children = new LinkedHashSet<>();
+
+    /**
+     * Last time when job names were refreshed
+     */
+    private volatile long lastRefreshedTime;
+
+    /**
+     * The minimum interval in milliseconds in which the job names are to be refreshed.
+     * If the interval period has elapsed from the last refresh time,
+     * any incoming refresh request will be performed; otherwise, it is ignored
+     * and the current result is returned.
+     */
+    private static final int refreshMinInterval = 3000;
 
     BatchJobExecutionResource(final WildFlyJobOperator jobOperator, final String jobName) {
         this(Factory.create(true), jobOperator, jobName);
@@ -216,17 +226,14 @@ public class BatchJobExecutionResource implements Resource {
      * guarded.
      */
     private void refreshChildren() {
-        final List<JobExecution> executions = new ArrayList<>();
-        // Casting to (Supplier<List<JobInstance>>) is done here on purpose as a workaround for a bug in 1.8.0_45
-        final List<JobInstance> instances = jobOperator.allowMissingJob((Supplier<List<JobInstance>>)() -> jobOperator.getJobInstances(jobName, 0, jobOperator.getJobInstanceCount(jobName))
-                , Collections.emptyList());
-        for (JobInstance instance : instances) {
-            executions.addAll(jobOperator.getJobExecutions(instance));
+        if (System.currentTimeMillis() - lastRefreshedTime < refreshMinInterval) {
+            return;
         }
+
+        final List<Long> executionIds = jobOperator.getJobExecutionsByJob(jobName);
+        final Set<String> asNames = executionIds.stream().map(Object::toString).collect(Collectors.toSet());
         children.clear();
-        for (JobExecution execution : executions) {
-            final String name = Long.toString(execution.getExecutionId());
-            children.add(name);
-        }
+        children.addAll(asNames);
+        lastRefreshedTime = System.currentTimeMillis();
     }
 }

@@ -30,7 +30,6 @@ import java.util.concurrent.Executor;
 import org.jboss.as.connector.security.ElytronSecurityIntegration;
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.txn.integration.JBossContextXATerminator;
-import org.jboss.jca.core.security.picketbox.PicketBoxSecurityIntegration;
 import org.jboss.jca.core.tx.jbossts.XATerminatorImpl;
 import org.jboss.jca.core.workmanager.WorkManagerCoordinator;
 import org.jboss.msc.inject.Injector;
@@ -75,7 +74,7 @@ public final class WorkManagerService implements Service<NamedWorkManager> {
 
     @Override
     public void start(StartContext context) throws StartException {
-        ROOT_LOGGER.debugf("Starting JCA WorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Starting Jakarta Connectors WorkManager: ", value.getName());
 
         BlockingExecutor longRunning = (BlockingExecutor) executorLong.getOptionalValue();
         if (longRunning != null) {
@@ -99,18 +98,14 @@ public final class WorkManagerService implements Service<NamedWorkManager> {
         if (value.isShutdown())
             value.cancelShutdown();
 
+        this.value.setSecurityIntegration(new ElytronSecurityIntegration());
 
-        if (this.value.isElytronEnabled()) {
-            this.value.setSecurityIntegration(new ElytronSecurityIntegration());
-        } else {
-            this.value.setSecurityIntegration(new PicketBoxSecurityIntegration());
-        }
-        ROOT_LOGGER.debugf("Started JCA WorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Started Jakarta Connectors WorkManager: ", value.getName());
     }
 
     @Override
     public void stop(StopContext context) {
-        ROOT_LOGGER.debugf("Stopping JCA WorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Stopping Jakarta Connectors WorkManager: ", value.getName());
 
         //shutting down immediately (synchronous method) the workmanager and release all works
         value.shutdown();
@@ -121,7 +116,7 @@ public final class WorkManagerService implements Service<NamedWorkManager> {
             WorkManagerCoordinator.getInstance().unregisterWorkManager(value);
         }
 
-        ROOT_LOGGER.debugf("Stopped JCA WorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Stopped Jakarta Connectors WorkManager: ", value.getName());
     }
 
     public Injector<Executor> getExecutorShortInjector() {

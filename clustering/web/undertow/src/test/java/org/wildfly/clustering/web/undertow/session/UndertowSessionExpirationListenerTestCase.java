@@ -31,6 +31,7 @@ import static org.mockito.Mockito.when;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.Map;
 
 import io.undertow.server.session.Session;
 import io.undertow.server.session.SessionListener;
@@ -40,6 +41,7 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
+import org.wildfly.clustering.ee.Recordable;
 import org.wildfly.clustering.web.session.ImmutableSession;
 import org.wildfly.clustering.web.session.ImmutableSessionAttributes;
 import org.wildfly.clustering.web.session.ImmutableSessionMetaData;
@@ -52,7 +54,7 @@ public class UndertowSessionExpirationListenerTestCase {
     public void sessionExpired() {
         Deployment deployment = mock(Deployment.class);
         UndertowSessionManager manager = mock(UndertowSessionManager.class);
-        SessionManager<LocalSessionContext, Batch> delegateManager = mock(SessionManager.class);
+        SessionManager<Map<String, Object>, Batch> delegateManager = mock(SessionManager.class);
         Batcher<Batch> batcher = mock(Batcher.class);
         Batch batch = mock(Batch.class);
         SessionListener listener = mock(SessionListener.class);
@@ -60,12 +62,13 @@ public class UndertowSessionExpirationListenerTestCase {
         ImmutableSessionAttributes attributes = mock(ImmutableSessionAttributes.class);
         ImmutableSessionMetaData metaData = mock(ImmutableSessionMetaData.class);
         ArgumentCaptor<Session> capturedSession = ArgumentCaptor.forClass(Session.class);
+        Recordable<ImmutableSessionMetaData> recorder = mock(Recordable.class);
 
         String expectedSessionId = "session";
         SessionListeners listeners = new SessionListeners();
         listeners.addSessionListener(listener);
 
-        SessionExpirationListener expirationListener = new UndertowSessionExpirationListener(deployment, listeners);
+        SessionExpirationListener expirationListener = new UndertowSessionExpirationListener(deployment, listeners, recorder);
 
         when(deployment.getSessionManager()).thenReturn(manager);
         when(manager.getSessionManager()).thenReturn(delegateManager);
@@ -76,11 +79,12 @@ public class UndertowSessionExpirationListenerTestCase {
         when(attributes.getAttributeNames()).thenReturn(Collections.emptySet());
         when(session.getMetaData()).thenReturn(metaData);
         when(metaData.getCreationTime()).thenReturn(Instant.now());
-        when(metaData.getLastAccessedTime()).thenReturn(Instant.now());
+        when(metaData.getLastAccessStartTime()).thenReturn(Instant.now());
         when(metaData.getMaxInactiveInterval()).thenReturn(Duration.ZERO);
 
         expirationListener.sessionExpired(session);
 
+        verify(recorder).record(metaData);
         verify(batcher).suspendBatch();
         verify(listener).sessionDestroyed(capturedSession.capture(), isNull(), same(SessionListener.SessionDestroyedReason.TIMEOUT));
         verify(batcher).resumeBatch(batch);

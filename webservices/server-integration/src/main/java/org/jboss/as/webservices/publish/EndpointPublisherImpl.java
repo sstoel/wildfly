@@ -23,10 +23,12 @@ package org.jboss.as.webservices.publish;
 
 import java.io.File;
 import java.security.AccessController;
+import java.util.concurrent.CountDownLatch;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.server.CurrentServiceContainer;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.web.host.ServletBuilder;
@@ -45,11 +47,13 @@ import org.jboss.metadata.javaee.spec.ParamValueMetaData;
 import org.jboss.metadata.web.jboss.JBossServletMetaData;
 import org.jboss.metadata.web.jboss.JBossWebMetaData;
 import org.jboss.metadata.web.spec.ServletMappingMetaData;
+import org.jboss.msc.service.LifecycleEvent;
+import org.jboss.msc.service.LifecycleListener;
 import org.jboss.msc.service.ServiceContainer;
-import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceRegistry;
+import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.jboss.msc.service.StabilityMonitor;
 import org.jboss.ws.common.deployment.DeploymentAspectManagerImpl;
 import org.jboss.ws.common.deployment.EndpointHandlerDeploymentAspect;
 import org.jboss.ws.common.integration.AbstractDeploymentAspect;
@@ -70,7 +74,7 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  * WS endpoint publisher, allows for publishing a WS endpoint on AS 7
  *
  * @author alessio.soldano@jboss.com
- * @since 12-Jul-2011
+ * @authro <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public final class EndpointPublisherImpl implements EndpointPublisher {
 
@@ -94,24 +98,25 @@ public final class EndpointPublisherImpl implements EndpointPublisher {
 
     @Override
     public Context publish(String context, ClassLoader loader, Map<String, String> urlPatternToClassNameMap) throws Exception {
-        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, null, null);
+        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, null, null, null);
     }
 
     @Override
     public Context publish(String context, ClassLoader loader, Map<String, String> urlPatternToClassNameMap, WebservicesMetaData metadata) throws Exception {
-        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, metadata, null);
+        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, metadata, null, null);
     }
 
     @Override
     public Context publish(String context, ClassLoader loader, Map<String, String> urlPatternToClassNameMap,
             WebservicesMetaData metadata, JBossWebservicesMetaData jbwsMetadata) throws Exception {
-        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, metadata, jbwsMetadata);
+        return publish(currentServiceContainer(), context, loader, urlPatternToClassNameMap, null, metadata, jbwsMetadata, null);
     }
 
     protected Context publish(ServiceTarget target, String context, ClassLoader loader,
-            Map<String, String> urlPatternToClassNameMap, JBossWebMetaData jbwmd, WebservicesMetaData metadata, JBossWebservicesMetaData jbwsMetadata)
+            Map<String, String> urlPatternToClassNameMap, JBossWebMetaData jbwmd, WebservicesMetaData metadata,
+            JBossWebservicesMetaData jbwsMetadata, CapabilityServiceSupport capabilityServiceSupport)
             throws Exception {
-        DeploymentUnit unit = doPrepare(context, loader, urlPatternToClassNameMap, jbwmd, metadata, jbwsMetadata);
+        DeploymentUnit unit = doPrepare(context, loader, urlPatternToClassNameMap, jbwmd, metadata, jbwsMetadata, capabilityServiceSupport);
         doDeploy(target, unit);
         return doPublish(target, unit);
     }
@@ -128,9 +133,11 @@ public final class EndpointPublisherImpl implements EndpointPublisher {
      * @return
      */
     protected DeploymentUnit doPrepare(String context, ClassLoader loader,
-            Map<String, String> urlPatternToClassNameMap, JBossWebMetaData jbwmd, WebservicesMetaData metadata, JBossWebservicesMetaData jbwsMetadata) {
+            Map<String, String> urlPatternToClassNameMap, JBossWebMetaData jbwmd, WebservicesMetaData metadata,
+            JBossWebservicesMetaData jbwsMetadata, CapabilityServiceSupport capabilityServiceSupport) {
         ClassLoader origClassLoader = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
-        WSEndpointDeploymentUnit unit = new WSEndpointDeploymentUnit(loader, context, urlPatternToClassNameMap, jbwmd, metadata, jbwsMetadata);
+        WSEndpointDeploymentUnit unit = new WSEndpointDeploymentUnit(loader, context, urlPatternToClassNameMap,
+                                                                     jbwmd, metadata, jbwsMetadata, capabilityServiceSupport);
         try {
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(ClassLoaderProvider.getDefaultProvider().getServerIntegrationClassLoader());
             WSDeploymentBuilder.getInstance().build(unit);
@@ -175,22 +182,28 @@ public final class EndpointPublisherImpl implements EndpointPublisher {
      * @throws Exception
      */
     protected Context doPublish(ServiceTarget target, DeploymentUnit unit) throws Exception {
-        Deployment deployment = unit.getAttachment(WSAttachmentKeys.DEPLOYMENT_KEY);
-        List<Endpoint> endpoints = deployment.getService().getEndpoints();
+        final Deployment deployment = unit.getAttachment(WSAttachmentKeys.DEPLOYMENT_KEY);
+        final List<Endpoint> endpoints = deployment.getService().getEndpoints();
         //If we're running in a Service, that will already have proper dependencies set on the installed endpoint services,
         //otherwise we need to explicitly wait for the endpoint services to be started before creating the webapp.
         if (!runningInService) {
             final ServiceRegistry registry = unit.getServiceRegistry();
-            final StabilityMonitor monitor = new StabilityMonitor();
+            final CountDownLatch latch = new CountDownLatch(endpoints.size());
+            final LifecycleListener listener = new LifecycleListener() {
+                @Override
+                public void handleEvent(final ServiceController<?> controller, final LifecycleEvent event) {
+                    if (event == LifecycleEvent.UP) {
+                        latch.countDown();
+                        controller.removeListener(this);
+                    }
+                }
+            };
+            ServiceName serviceName;
             for (Endpoint ep : endpoints) {
-                final ServiceName serviceName = EndpointService.getServiceName(unit, ep.getShortName());
-                monitor.addController(registry.getRequiredService(serviceName));
+                serviceName = EndpointService.getServiceName(unit, ep.getShortName());
+                registry.getRequiredService(serviceName).addListener(listener);
             }
-            try {
-                monitor.awaitStability();
-            } finally {
-                monitor.clear();
-            }
+            latch.await();
         }
         deployment.addAttachment(WebDeploymentController.class, startWebApp(host, unit)); //TODO simplify and use findChild later in destroy()/stopWebApp()
         return new Context(unit.getAttachment(WSAttachmentKeys.JBOSSWEB_METADATA_KEY).getContextRoot(), endpoints);

@@ -37,7 +37,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests that the Resource injection as specified by Java EE spec works as expected
+ * Tests that the Resource injection as specified by Jakarta EE spec works as expected
  * <p/>
  * User: Jaikiran Pai
  */
@@ -123,8 +123,8 @@ public class ResourceInjectionTestCase {
     }
 
     /**
-     * Tests that an EJB with a @Resource of type {@link javax.ejb.TimerService} deploys fine and the
-     * {@link javax.ejb.TimerService} is injected in the bean
+     * Tests that an EJB with a @Resource of type {@link jakarta.ejb.TimerService} deploys fine and the
+     * {@link jakarta.ejb.TimerService} is injected in the bean
      */
     @Test
     public void testTimerServiceInjection() {

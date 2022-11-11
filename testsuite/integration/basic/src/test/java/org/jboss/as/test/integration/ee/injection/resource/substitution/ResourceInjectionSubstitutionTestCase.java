@@ -31,15 +31,16 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.WRI
 
 import org.jboss.logging.Logger;
 
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.Destination;
-import javax.jms.MapMessage;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
-import javax.jms.Queue;
-import javax.jms.Session;
-import javax.jms.TextMessage;
+import jakarta.inject.Inject;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Destination;
+import jakarta.jms.MapMessage;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Queue;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 
@@ -76,6 +77,8 @@ public class ResourceInjectionSubstitutionTestCase {
 
     private SimpleSLSB slsb;
     private SimpleSFSB sfsb;
+    @Inject
+    private SimpleCDIBean cdiBean;
 
     static class SystemPropertySetup implements ServerSetupTask {
 
@@ -252,5 +255,15 @@ public class ResourceInjectionSubstitutionTestCase {
         } finally {
             con.close();
         }
+    }
+
+    /**
+     * Test resource injection with SFSB
+     */
+    @Test
+    public void testResourceInjectionSubstitutionCDI() {
+        Assert.assertTrue("@Resource with name wasn't injected in CDI bean", cdiBean.isResourceWithNameInjected());
+        Assert.assertTrue("@Resource with lookup wasn't injected in CDI bean", cdiBean.isResourceWithLookupNameInjected());
+        Assert.assertTrue("@Resource with mappedName wasn't injected in CDI bean", cdiBean.isResourceWithMappedNameInjected());
     }
 }

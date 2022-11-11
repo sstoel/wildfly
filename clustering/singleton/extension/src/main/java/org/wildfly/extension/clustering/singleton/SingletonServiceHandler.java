@@ -33,7 +33,6 @@ import org.jboss.as.controller.PathAddress;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.wildfly.clustering.service.AliasServiceBuilder;
 import org.wildfly.clustering.service.IdentityServiceConfigurator;
 import org.wildfly.clustering.singleton.SingletonRequirement;
 import org.wildfly.extension.clustering.singleton.SingletonResourceDefinition.Capability;
@@ -41,7 +40,7 @@ import org.wildfly.extension.clustering.singleton.SingletonResourceDefinition.Ca
 /**
  * @author Paul Ferraro
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({ "removal", "deprecation" })
 public class SingletonServiceHandler implements ResourceServiceHandler {
 
     @Override

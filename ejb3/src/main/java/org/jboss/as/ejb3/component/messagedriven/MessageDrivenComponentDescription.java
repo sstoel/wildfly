@@ -24,12 +24,12 @@ package org.jboss.as.ejb3.component.messagedriven;
 import static org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT;
 
 import java.util.Properties;
-
-import javax.ejb.MessageDrivenBean;
-import javax.ejb.TransactionManagementType;
-import javax.resource.spi.ResourceAdapter;
+import jakarta.ejb.MessageDrivenBean;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.resource.spi.ResourceAdapter;
 
 import org.jboss.as.connector.util.ConnectorServices;
+import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentConfiguration;
@@ -44,19 +44,18 @@ import org.jboss.as.ee.component.interceptors.InterceptorClassDescription;
 import org.jboss.as.ee.component.interceptors.InterceptorOrder;
 import org.jboss.as.ee.component.interceptors.InvocationType;
 import org.jboss.as.ee.metadata.MetadataCompleteMarker;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
 import org.jboss.as.ejb3.component.EJBViewDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.interceptors.CurrentInvocationContextInterceptor;
 import org.jboss.as.ejb3.component.pool.PoolConfig;
-import org.jboss.as.ejb3.component.pool.StrictMaxPoolConfigService;
 import org.jboss.as.ejb3.deployment.EjbJarDescription;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.tx.CMTTxInterceptor;
 import org.jboss.as.ejb3.tx.EjbBMTInterceptor;
 import org.jboss.as.ejb3.tx.LifecycleCMTTxInterceptor;
 import org.jboss.as.ejb3.tx.TimerCMTTxInterceptor;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
+import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.reflect.ClassReflectionIndex;
 import org.jboss.as.server.suspend.SuspendController;
@@ -65,6 +64,7 @@ import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorContext;
 import org.jboss.jca.core.spi.rar.ResourceAdapterRepository;
 import org.jboss.metadata.ejb.spec.MessageDrivenBeanMetaData;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.modules.ModuleLoader;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceBuilder;
@@ -75,6 +75,10 @@ import org.jboss.msc.service.ServiceName;
  * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class MessageDrivenComponentDescription extends EJBComponentDescription {
+
+    private static final String STRICT_MAX_POOL_CONFIG_CAPABILITY_NAME = "org.wildfly.ejb3.pool-config";
+    private static final String DEFAULT_MDB_POOL_CONFIG_CAPABILITY_NAME = "org.wildfly.ejb3.pool-config.mdb-default";
+
     private final Properties activationProps;
     private String resourceAdapterName;
     private boolean deliveryActive;
@@ -93,9 +97,9 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
      * @param defaultResourceAdapterName The default resource adapter name for this message driven bean. Cannot be null or empty string.
      */
     public MessageDrivenComponentDescription(final String componentName, final String componentClassName, final EjbJarDescription ejbJarDescription,
-                                             final ServiceName deploymentUnitServiceName, final String messageListenerInterfaceName, final Properties activationProps,
+                                             final DeploymentUnit deploymentUnit, final String messageListenerInterfaceName, final Properties activationProps,
                                              final String defaultResourceAdapterName, final MessageDrivenBeanMetaData descriptorData, final boolean defaultMdbPoolAvailable) {
-        super(componentName, componentClassName, ejbJarDescription, deploymentUnitServiceName, descriptorData);
+        super(componentName, componentClassName, ejbJarDescription, deploymentUnit, descriptorData);
         if (messageListenerInterfaceName == null || messageListenerInterfaceName.isEmpty()) {
             throw EjbLogger.ROOT_LOGGER.stringParamCannotBeNullOrEmpty("Message listener interface");
         }
@@ -108,7 +112,7 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
         this.messageListenerInterfaceName = messageListenerInterfaceName;
         this.defaultMdbPoolAvailable = defaultMdbPoolAvailable;
 
-        registerView(getEJBClassName(), MethodIntf.MESSAGE_ENDPOINT);
+        registerView(getEJBClassName(), MethodInterfaceType.MessageEndpoint);
         // add the interceptor which will invoke the setMessageDrivenContext() method on a MDB which implements
         // MessageDrivenBean interface
         this.addSetMessageDrivenContextMethodInvocationInterceptor();
@@ -132,12 +136,57 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
         }
         mdbComponentConfiguration.setComponentCreateServiceFactory(new MessageDrivenComponentCreateServiceFactory(messageListenerInterface));
 
-        // setup the configurator to inject the PoolConfig in the MessageDrivenComponentCreateService
         final MessageDrivenComponentDescription mdbComponentDescription = (MessageDrivenComponentDescription) mdbComponentConfiguration.getComponentDescription();
-        mdbComponentConfiguration.getCreateDependencies().add(new PoolInjectingConfigurator(mdbComponentDescription));
 
-        // setup the configurator to inject the resource adapter
-        mdbComponentConfiguration.getCreateDependencies().add(new ResourceAdapterInjectingConfiguration());
+        // setup a configurator to inject the PoolConfig in the MessageDrivenComponentCreateService
+        getConfigurators().add(new ComponentConfigurator() {
+            @Override
+            public void configure(DeploymentPhaseContext context, ComponentDescription description, ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
+                //get CapabilitySupport to resolve service names
+                final CapabilityServiceSupport support = context.getDeploymentUnit().getAttachment(CAPABILITY_SERVICE_SUPPORT);
+
+                MessageDrivenComponentDescription mdbDescription = (MessageDrivenComponentDescription) description;
+                configuration.getCreateDependencies().add(new DependencyConfigurator<Service<Component>>() {
+                    @Override
+                    public void configureDependency(ServiceBuilder<?> serviceBuilder, Service<Component> service) throws DeploymentUnitProcessingException {
+                        // add any dependencies here
+                        final MessageDrivenComponentCreateService mdbComponentCreateService = (MessageDrivenComponentCreateService) service;
+                        final String poolName = mdbComponentDescription.getPoolConfigName();
+                        // if no pool name has been explicitly set, then inject the *optional* "default mdb pool config"
+                        // If the default mdb pool config itself is not configured, then pooling is disabled for the bean
+                        if (poolName == null) {
+                            if (mdbComponentDescription.isDefaultMdbPoolAvailable()) {
+                                ServiceName defaultPoolConfigServiceName = support.getCapabilityServiceName(DEFAULT_MDB_POOL_CONFIG_CAPABILITY_NAME);
+                                serviceBuilder.addDependency(defaultPoolConfigServiceName, PoolConfig.class, mdbComponentCreateService.getPoolConfigInjector());
+                            }
+                        } else {
+                            // pool name has been explicitly set so the pool config is a required dependency
+                            ServiceName poolConfigServiceName = support.getCapabilityServiceName(STRICT_MAX_POOL_CONFIG_CAPABILITY_NAME, poolName);
+                            serviceBuilder.addDependency(poolConfigServiceName, PoolConfig.class, mdbComponentCreateService.getPoolConfigInjector());
+                        }
+                    }
+                });
+            }
+        });
+
+        // set up a configurator to inject ResourceAdapterService dependencies into the MessageDrivenComponentCreateService
+        getConfigurators().add(new ComponentConfigurator() {
+            @Override
+            public void configure(DeploymentPhaseContext context, ComponentDescription description, ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
+                //get CapabilitySupport to resolve service names
+                final CapabilityServiceSupport support = context.getDeploymentUnit().getAttachment(CAPABILITY_SERVICE_SUPPORT);
+                configuration.getCreateDependencies().add(new DependencyConfigurator<MessageDrivenComponentCreateService>() {
+                    @Override
+                    public void configureDependency(ServiceBuilder<?> serviceBuilder, MessageDrivenComponentCreateService service) throws DeploymentUnitProcessingException {
+                        final ServiceName raServiceName =
+                                ConnectorServices.getResourceAdapterServiceName(MessageDrivenComponentDescription.this.resourceAdapterName);
+                        // add the dependency on the RA service
+                        serviceBuilder.addDependency(ConnectorServices.RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, service.getResourceAdapterRepositoryInjector());
+                        serviceBuilder.addDependency(raServiceName, ResourceAdapter.class, service.getResourceAdapterInjector());
+                    }
+                });
+            }
+        });
 
         getConfigurators().add(new ComponentConfigurator() {
             @Override
@@ -154,7 +203,7 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
             }
         });
 
-        // add the bmt interceptor
+        // add the BMT interceptor
         if (TransactionManagementType.BEAN.equals(this.getTransactionManagementType())) {
             getConfigurators().add(new ComponentConfigurator() {
                 @Override
@@ -288,12 +337,12 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
     }
 
     /**
-     * Adds an interceptor to invoke the {@link MessageDrivenBean#setMessageDrivenContext(javax.ejb.MessageDrivenContext)}
+     * Adds an interceptor to invoke the {@link MessageDrivenBean#setMessageDrivenContext(jakarta.ejb.MessageDrivenContext)}
      * if the MDB implements the {@link MessageDrivenBean} interface
      */
     private void addSetMessageDrivenContextMethodInvocationInterceptor() {
         // add the setMessageDrivenContext(MessageDrivenContext) method invocation interceptor for MDB
-        // implementing the javax.ejb.MessageDrivenBean interface
+        // implementing the jakarta.ejb.MessageDrivenBean interface
         this.getConfigurators().add(new ComponentConfigurator() {
             @Override
             public void configure(DeploymentPhaseContext context, ComponentDescription description, ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
@@ -317,51 +366,8 @@ public class MessageDrivenComponentDescription extends EJBComponentDescription {
         return this.mdbPoolConfigName;
     }
 
-    private String getMessageListenerInterfaceName() {
+    public String getMessageListenerInterfaceName() {
         return messageListenerInterfaceName;
-    }
-
-    private static class PoolInjectingConfigurator implements DependencyConfigurator<Service<Component>> {
-
-        private final MessageDrivenComponentDescription mdbComponentDescription;
-
-        PoolInjectingConfigurator(final MessageDrivenComponentDescription mdbComponentDescription) {
-            this.mdbComponentDescription = mdbComponentDescription;
-        }
-
-        @Override
-        public void configureDependency(ServiceBuilder<?> serviceBuilder, Service<Component> service) {
-            final MessageDrivenComponentCreateService mdbComponentCreateService = (MessageDrivenComponentCreateService) service;
-            final String poolName = this.mdbComponentDescription.getPoolConfigName();
-            // if no pool name has been explicitly set, then inject the *optional* "default mdb pool config"
-            // If the default mdb pool config itself is not configured, then pooling is disabled for the bean
-            if (poolName == null) {
-                if (mdbComponentDescription.isDefaultMdbPoolAvailable()) {
-                    serviceBuilder.addDependency(StrictMaxPoolConfigService.DEFAULT_MDB_POOL_CONFIG_SERVICE_NAME,
-                            PoolConfig.class, mdbComponentCreateService.getPoolConfigInjector());
-                }
-            } else {
-                // pool name has been explicitly set so the pool config is a required dependency
-                serviceBuilder.addDependency(StrictMaxPoolConfigService.EJB_POOL_CONFIG_BASE_SERVICE_NAME.append(poolName),
-                        PoolConfig.class, mdbComponentCreateService.getPoolConfigInjector());
-            }
-        }
-    }
-
-    /**
-     * A dependency configurator which adds a dependency/injection into the {@link MessageDrivenComponentCreateService}
-     * for the appropriate resource adapter service
-     */
-    private class ResourceAdapterInjectingConfiguration implements DependencyConfigurator<MessageDrivenComponentCreateService> {
-
-        @Override
-        public void configureDependency(ServiceBuilder<?> serviceBuilder, MessageDrivenComponentCreateService service) {
-            final ServiceName raServiceName =
-                ConnectorServices.getResourceAdapterServiceName(MessageDrivenComponentDescription.this.resourceAdapterName);
-            // add the dependency on the RA service
-            serviceBuilder.addDependency(ConnectorServices.RA_REPOSITORY_SERVICE, ResourceAdapterRepository.class, service.getResourceAdapterRepositoryInjector());
-            serviceBuilder.addDependency(raServiceName, ResourceAdapter.class, service.getResourceAdapterInjector());
-        }
     }
 
     @Override

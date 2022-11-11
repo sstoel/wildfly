@@ -34,13 +34,11 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
-import javax.ejb.TimerService;
-import javax.ejb.TransactionAttributeType;
-import javax.ejb.TransactionManagementType;
-import javax.transaction.TransactionSynchronizationRegistry;
-import javax.transaction.UserTransaction;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.transaction.TransactionSynchronizationRegistry;
+import jakarta.transaction.UserTransaction;
 
-import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.ee.component.BasicComponentCreateService;
 import org.jboss.as.ee.component.ComponentConfiguration;
 import org.jboss.as.ee.component.ViewConfiguration;
@@ -49,11 +47,12 @@ import org.jboss.as.ejb3.component.interceptors.ShutDownInterceptorFactory;
 import org.jboss.as.ejb3.component.messagedriven.MessageDrivenComponentDescription;
 import org.jboss.as.ejb3.deployment.ApplicationExceptions;
 import org.jboss.as.ejb3.security.EJBSecurityMetaData;
-import org.jboss.as.ejb3.subsystem.ApplicationSecurityDomainService.ApplicationSecurityDomain;
 import org.jboss.as.ejb3.suspend.EJBSuspendHandlerService;
+import org.jboss.as.ejb3.timerservice.spi.ManagedTimerServiceFactory;
 import org.jboss.invocation.InterceptorFactory;
 import org.jboss.invocation.Interceptors;
 import org.jboss.invocation.proxy.MethodIdentifier;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.msc.inject.Injector;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.value.InjectedValue;
@@ -80,8 +79,6 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
 
     private final EJBSecurityMetaData securityMetaData;
 
-    private final TimerService timerService;
-
     private final Map<Method, InterceptorFactory> timeoutInterceptors;
 
     private final Method timeoutMethod;
@@ -96,19 +93,22 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
     private final String earApplicationName;
     private final String moduleName;
     private final String distinctName;
-    private final String policyContextID;
 
     private final InjectedValue<TransactionSynchronizationRegistry> transactionSynchronizationRegistryValue = new InjectedValue<TransactionSynchronizationRegistry>();
-    private final InjectedValue<ServerSecurityManager> serverSecurityManagerInjectedValue = new InjectedValue<>();
     private final InjectedValue<ControlPoint> controlPoint = new InjectedValue<>();
     private final InjectedValue<AtomicBoolean> exceptionLoggingEnabled = new InjectedValue<>();
-    private final InjectedValue<ApplicationSecurityDomain> applicationSecurityDomain = new InjectedValue<>();
+    private final InjectedValue<SecurityDomain> securityDomain = new InjectedValue<>();
     private final InjectedValue<Function> identityOutflowFunction = new InjectedValue<>();
     private final InjectedValue<EJBSuspendHandlerService> ejbSuspendHandler = new InjectedValue<>();
+    private final InjectedValue<ManagedTimerServiceFactory> timerServiceFactory = new InjectedValue<>();
 
     private final ShutDownInterceptorFactory shutDownInterceptorFactory;
 
+    private final boolean jaccRequired;
+    private final boolean legacyCompliantPrincipalPropagation;
     private final boolean securityRequired;
+
+    private final EJBComponentDescription componentDescription;
 
     /**
      * Construct a new instance.
@@ -121,9 +121,6 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         this.applicationExceptions = applicationExceptions;
         final EJBComponentDescription ejbComponentDescription = (EJBComponentDescription) componentConfiguration.getComponentDescription();
         this.transactionManagementType = ejbComponentDescription.getTransactionManagementType();
-
-        this.timerService = ejbComponentDescription.getTimerService();
-        this.policyContextID = ejbComponentDescription.getPolicyContextID();
 
         // CMTTx
         if (transactionManagementType.equals(TransactionManagementType.CONTAINER)) {
@@ -157,7 +154,7 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
             for (ViewConfiguration view : views) {
                 //TODO: Move this into a configurator
                 final EJBViewConfiguration ejbView = (EJBViewConfiguration) view;
-                final MethodIntf viewType = ejbView.getMethodIntf();
+                final MethodInterfaceType viewType = ejbView.getMethodIntf();
                 for (Method method : view.getProxyFactory().getCachedMethods()) {
                     // TODO: proxy factory exposes non-public methods, is this a bug in the no-interface view?
                     if (!Modifier.isPublic(method.getModifiers()))
@@ -181,14 +178,14 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         // TODO: use ClassReflectionIndex (low prio, because we store the result without class name) (which is a bug: AS7-905)
         Set<Method> lifeCycle = new HashSet<>(componentConfiguration.getLifecycleMethods());
         for (Method method : componentConfiguration.getComponentClass().getMethods()) {
-            this.processTxAttr(ejbComponentDescription, MethodIntf.BEAN, method);
+            this.processTxAttr(ejbComponentDescription, MethodInterfaceType.Bean, method);
             lifeCycle.remove(method);
         }
         //now handle non-public lifecycle methods declared on the bean class itself
         //see WFLY-4127
         for(Method method : lifeCycle)  {
             if(method.getDeclaringClass().equals(componentConfiguration.getComponentClass())) {
-                this.processTxAttr(ejbComponentDescription, MethodIntf.BEAN, method);
+                this.processTxAttr(ejbComponentDescription, MethodInterfaceType.Bean, method);
             }
         }
 
@@ -211,6 +208,9 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         this.distinctName = componentConfiguration.getComponentDescription().getModuleDescription().getDistinctName();
         this.shutDownInterceptorFactory = ejbComponentDescription.getShutDownInterceptorFactory();
         this.securityRequired = ejbComponentDescription.isSecurityRequired();
+        this.jaccRequired = ejbComponentDescription.requiresJacc();
+        this.legacyCompliantPrincipalPropagation = ejbComponentDescription.requiresLegacyCompliantPrincipalPropagation();
+        this.componentDescription = ejbComponentDescription;
     }
 
     @Override
@@ -254,13 +254,17 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         return this.applicationExceptions;
     }
 
-    protected void processTxAttr(final EJBComponentDescription ejbComponentDescription, final MethodIntf methodIntf, final Method method) {
+    EJBComponentDescription getComponentDescription() {
+        return componentDescription;
+    }
+
+    protected void processTxAttr(final EJBComponentDescription ejbComponentDescription, final MethodInterfaceType methodIntf, final Method method) {
         if (this.getTransactionManagementType().equals(TransactionManagementType.BEAN)) {
             // it's a BMT bean
             return;
         }
 
-        MethodIntf defaultMethodIntf = (ejbComponentDescription instanceof MessageDrivenComponentDescription) ? MethodIntf.MESSAGE_ENDPOINT : MethodIntf.BEAN;
+        MethodInterfaceType defaultMethodIntf = (ejbComponentDescription instanceof MessageDrivenComponentDescription) ? MethodInterfaceType.MessageEndpoint : MethodInterfaceType.Bean;
         TransactionAttributeType txAttr = ejbComponentDescription.getTransactionAttributes().getAttribute(methodIntf, method, defaultMethodIntf);
         MethodTransactionAttributeKey key = new MethodTransactionAttributeKey(methodIntf, MethodIdentifier.getIdentifierForMethod(method));
         if(txAttr != null) {
@@ -283,10 +287,6 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
 
     public Map<Method, InterceptorFactory> getTimeoutInterceptors() {
         return timeoutInterceptors;
-    }
-
-    public TimerService getTimerService() {
-        return timerService;
     }
 
     public Method getTimeoutMethod() {
@@ -345,24 +345,12 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         return this.ejbSuspendHandler.getValue();
     }
 
-    ServerSecurityManager getServerSecurityManager() {
-        return this.serverSecurityManagerInjectedValue.getOptionalValue();
-    }
-
-    Injector<ServerSecurityManager> getServerSecurityManagerInjector() {
-        return this.serverSecurityManagerInjectedValue;
-    }
-
     public ControlPoint getControlPoint() {
         return this.controlPoint.getOptionalValue();
     }
 
     public Injector<ControlPoint> getControlPointInjector() {
         return this.controlPoint;
-    }
-
-    public String getPolicyContextID() {
-        return this.policyContextID;
     }
 
     InjectedValue<AtomicBoolean> getExceptionLoggingEnabledInjector() {
@@ -373,22 +361,20 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
         return exceptionLoggingEnabled.getValue();
     }
 
-    Injector<ApplicationSecurityDomain> getApplicationSecurityDomainInjector() {
-        return applicationSecurityDomain;
-    }
-
-    public ApplicationSecurityDomain getApplicationSecurityDomain() {
-        return applicationSecurityDomain.getOptionalValue();
+    Injector<SecurityDomain> getSecurityDomainInjector() {
+        return securityDomain;
     }
 
     public SecurityDomain getSecurityDomain() {
-        ApplicationSecurityDomain applicationSecurityDomain = getApplicationSecurityDomain();
-        return applicationSecurityDomain != null ? applicationSecurityDomain.getSecurityDomain() : null;
+        return securityDomain.getOptionalValue();
     }
 
     public boolean isEnableJacc() {
-        ApplicationSecurityDomain applicationSecurityDomain = getApplicationSecurityDomain();
-        return applicationSecurityDomain != null ? applicationSecurityDomain.isEnableJacc() : false;
+        return jaccRequired;
+    }
+
+    public boolean isLegacyCompliantPrincipalPropagation() {
+        return legacyCompliantPrincipalPropagation;
     }
 
     Injector<Function> getIdentityOutflowFunctionInjector() {
@@ -405,5 +391,13 @@ public class EJBComponentCreateService extends BasicComponentCreateService {
 
     public boolean isSecurityRequired() {
         return securityRequired;
+    }
+
+    public ManagedTimerServiceFactory getTimerServiceFactory() {
+        return this.timerServiceFactory.getValue();
+    }
+
+    public Injector<ManagedTimerServiceFactory> getTimerServiceFactoryInjector() {
+        return this.timerServiceFactory;
     }
 }

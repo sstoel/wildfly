@@ -26,10 +26,11 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
 
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
-import javax.transaction.TransactionSynchronizationRegistry;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentInstance;
@@ -79,6 +80,8 @@ public class StatefulSessionSynchronizationInterceptorTestCase {
         when(component.getAccessTimeout(null)).thenReturn(defaultAccessTimeout());
         Cache<SessionID, StatefulSessionComponentInstance> cache = mock(Cache.class);
         when(component.getCache()).thenReturn(cache);
+        Supplier<SessionID> identifierFactory = mock(Supplier.class);
+        when(cache.getIdentifierFactory()).thenReturn(identifierFactory);
         final TransactionSynchronizationRegistry transactionSynchronizationRegistry = mock(TransactionSynchronizationRegistry.class);
         when(component.getTransactionSynchronizationRegistry()).thenReturn(transactionSynchronizationRegistry);
         when(transactionSynchronizationRegistry.getTransactionKey()).thenReturn("TX1");

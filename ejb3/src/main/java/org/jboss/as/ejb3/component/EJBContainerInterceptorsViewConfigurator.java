@@ -22,7 +22,19 @@
 
 package org.jboss.as.ejb3.component;
 
-import org.jboss.as.ee.logging.EeLogger;
+import static org.jboss.as.server.deployment.Attachments.REFLECTION_INDEX;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.ClassDescriptionTraversal;
 import org.jboss.as.ee.component.ComponentConfiguration;
@@ -37,6 +49,7 @@ import org.jboss.as.ee.component.ViewDescription;
 import org.jboss.as.ee.component.interceptors.InterceptorClassDescription;
 import org.jboss.as.ee.component.interceptors.InterceptorOrder;
 import org.jboss.as.ee.component.interceptors.UserInterceptorFactory;
+import org.jboss.as.ee.logging.EeLogger;
 import org.jboss.as.ee.utils.ClassLoadingUtils;
 import org.jboss.as.naming.ManagedReference;
 import org.jboss.as.naming.ValueManagedReference;
@@ -52,27 +65,10 @@ import org.jboss.invocation.InterceptorFactoryContext;
 import org.jboss.invocation.Interceptors;
 import org.jboss.invocation.proxy.MethodIdentifier;
 import org.jboss.modules.Module;
-import org.jboss.msc.value.CachedValue;
-import org.jboss.msc.value.ConstructedValue;
-import org.jboss.msc.value.Value;
-
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import static org.jboss.as.server.deployment.Attachments.REFLECTION_INDEX;
 
 /**
- * A {@link ViewConfigurator} which sets up the EJB view with the relevant {@link Interceptor}s
- * which will carry out invocation on the container-interceptor(s) applicable for an EJB, during an EJB method invocation
+ * A {@link ViewConfigurator} which sets up the Jakarta Enterprise Beans view with the relevant {@link Interceptor}s
+ * which will carry out invocation on the container-interceptor(s) applicable for an Jakarta Enterprise Beans, during an Jakarta Enterprise Beans method invocation
  *
  * @author Jaikiran Pai
  */
@@ -93,7 +89,7 @@ public class EJBContainerInterceptorsViewConfigurator implements ViewConfigurato
             return;
         }
         final EJBComponentDescription ejbComponentDescription = (EJBComponentDescription) componentDescription;
-        // we don't want to waste time processing if there are no container interceptors applicable for the EJB
+        // we don't want to waste time processing if there are no container interceptors applicable for the Jakarta Enterprise Beans
         final Set<InterceptorDescription> allContainerInterceptors = ejbComponentDescription.getAllContainerInterceptors();
         if (allContainerInterceptors == null || allContainerInterceptors.isEmpty()) {
             return;
@@ -144,7 +140,7 @@ public class EJBContainerInterceptorsViewConfigurator implements ViewConfigurato
         }
 
         // At this point we have each interceptor class mapped against their corresponding @AroundInvoke/@AroundTimeout InterceptorFactory(s)
-        // Let's now iterate over all the methods of the EJB view and apply the relevant InterceptorFactory(s) to that method
+        // Let's now iterate over all the methods of the Jakarta Enterprise Beans view and apply the relevant InterceptorFactory(s) to that method
         final List<InterceptorDescription> classLevelContainerInterceptors = ejbComponentDescription.getClassLevelContainerInterceptors();
         final Map<MethodIdentifier, List<InterceptorDescription>> methodLevelContainerInterceptors = ejbComponentDescription.getMethodLevelContainerInterceptors();
         final List<Method> viewMethods = viewConfiguration.getProxyFactory().getCachedMethods();
@@ -223,9 +219,9 @@ public class EJBContainerInterceptorsViewConfigurator implements ViewConfigurato
     }
 
     /**
-     * Traveses the interceptor class and its class hierarchy to find the aroundinvoke and aroundtimeout methods
+     * Traverses the interceptor class and its class hierarchy to find the around-invoke and around-timeout methods
      */
-    private class InterceptorClassDescriptionTraversal extends ClassDescriptionTraversal {
+    private static final class InterceptorClassDescriptionTraversal extends ClassDescriptionTraversal {
 
         private final EEModuleDescription moduleDescription;
         private final EJBComponentDescription ejbComponentDescription;
@@ -302,16 +298,20 @@ public class EJBContainerInterceptorsViewConfigurator implements ViewConfigurato
         }
 
         private InterceptorFactory createInterceptorFactoryForContainerInterceptor(final Method method, final Constructor interceptorConstructor) {
-            // The managed reference is going to be ConstructedValue, using the container-interceptor's constructor
-            final ConstructedValue interceptorInstanceValue = new ConstructedValue(interceptorConstructor, Collections.<Value<?>>emptyList());
             // we *don't* create multiple instances of the container-interceptor class, but we just reuse a single instance and it's *not*
-            // tied to the EJB component instance lifecycle.
-            final CachedValue cachedInterceptorInstanceValue = new CachedValue(interceptorInstanceValue);
-            // ultimately create the managed reference which is backed by the CachedValue
-            final ManagedReference interceptorInstanceRef = new ValueManagedReference(cachedInterceptorInstanceValue);
+            // tied to the Jakarta Enterprise Beans component instance lifecycle.
+            final ManagedReference interceptorInstanceRef = new ValueManagedReference(newInstance(interceptorConstructor));
             // return the ContainerInterceptorMethodInterceptorFactory which is responsible for creating an Interceptor
             // which can invoke the container-interceptor's around-invoke/around-timeout methods
             return new ContainerInterceptorMethodInterceptorFactory(interceptorInstanceRef, method);
+        }
+    }
+
+    private static Object newInstance(final Constructor ctor) {
+        try {
+            return ctor.newInstance(new Object[] {});
+        } catch (Exception e) {
+            throw new IllegalStateException(e.getMessage(), e);
         }
     }
 

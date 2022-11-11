@@ -50,8 +50,10 @@ public class BatchDeploymentDescriptorParser_1_0 implements XMLStreamConstants, 
     public BatchEnvironmentMetaData parse(final XMLExtendedStreamReader reader, final DeploymentUnit deploymentUnit) throws XMLStreamException {
         JobRepository jobRepository = null;
         String jobRepositoryName = null;
+        String dataSourceName = null;
         String jobExecutorName = null;
         Boolean restartJobsOnResume = null;
+        Integer executionRecordsLimit = null;
         boolean empty = true;
 
         while (reader.hasNext() && reader.nextTag() != END_ELEMENT) {
@@ -60,6 +62,8 @@ public class BatchDeploymentDescriptorParser_1_0 implements XMLStreamConstants, 
 
             // Process the job repository
             if (element == Element.JOB_REPOSITORY) {
+                executionRecordsLimit = parseExecutionRecordsLimit(reader);
+
                 // Only one repository can be defined
                 if (jobRepository != null || jobRepositoryName != null) {
                     BatchLogger.LOGGER.multipleJobRepositoriesFound();
@@ -73,12 +77,14 @@ public class BatchDeploymentDescriptorParser_1_0 implements XMLStreamConstants, 
                         } else if (jobRepositoryElement == Element.NAMED) {
                             jobRepositoryName = readRequiredAttribute(reader, Attribute.NAME);
                             ParseUtils.requireNoContent(reader);
+                        } else if (jobRepositoryElement == Element.JDBC) {
+                            dataSourceName = parseJdbcJobRepository(reader);
                         } else {
                             throw ParseUtils.unexpectedElement(reader);
                         }
                     }
                     // Log an error indicating the job-repository is empty, but continue as normal
-                    if (jobRepository == null && jobRepositoryName == null) {
+                    if (jobRepository == null && jobRepositoryName == null && dataSourceName == null) {
                         BatchLogger.LOGGER.emptyJobRepositoryElement(deploymentUnit.getName());
                     }
                 }
@@ -101,10 +107,22 @@ public class BatchDeploymentDescriptorParser_1_0 implements XMLStreamConstants, 
             BatchLogger.LOGGER.debugf("An empty batch element in the deployment descriptor was found for %s.", deploymentUnit.getName());
             return null;
         }
-        return new BatchEnvironmentMetaData(jobRepository, jobRepositoryName, jobExecutorName, restartJobsOnResume);
+        return new BatchEnvironmentMetaData(jobRepository, jobRepositoryName, dataSourceName, jobExecutorName,
+                restartJobsOnResume, executionRecordsLimit);
     }
 
-    private static String readRequiredAttribute(final XMLExtendedStreamReader reader, final Attribute attribute) throws XMLStreamException {
+    String parseJdbcJobRepository(final XMLExtendedStreamReader reader) throws XMLStreamException {
+        throw ParseUtils.unexpectedElement(reader);
+    }
+
+    Integer parseExecutionRecordsLimit(final XMLExtendedStreamReader reader) throws XMLStreamException {
+        if (reader.getAttributeCount() > 0) {
+            throw ParseUtils.unexpectedAttribute(reader, 0);
+        }
+        return null;
+    }
+
+    static String readRequiredAttribute(final XMLExtendedStreamReader reader, final Attribute attribute) throws XMLStreamException {
         final int attributeCount = reader.getAttributeCount();
         for (int i = 0; i < attributeCount; i++) {
             final Attribute current = Attribute.forName(reader.getAttributeLocalName(i));

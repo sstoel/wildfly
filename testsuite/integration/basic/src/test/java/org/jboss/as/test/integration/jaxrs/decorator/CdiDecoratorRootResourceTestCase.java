@@ -25,7 +25,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.net.URL;
 import java.util.concurrent.TimeUnit;
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.core.Application;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.RunAsClient;
@@ -41,7 +41,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests a JAX-RS deployment with an application bundled, that has no @ApplicationPath annotation.
+ * Tests a Jakarta RESTful Web Services deployment with an application bundled, that has no @ApplicationPath annotation.
  * <p/>
  * The container should register a servlet with the name that matches the application name
  * <p/>
@@ -65,7 +65,7 @@ public class CdiDecoratorRootResourceTestCase {
                 "        <url-pattern>/rest/*</url-pattern>\n" +
                 "    </servlet-mapping>\n" +
                 "\n"), "web.xml");
-        war.addAsWebInfResource(new StringAsset("<beans><decorators><class>" + ResourceDecorator.class.getName() + "</class></decorators></beans>"), "beans.xml");
+        war.addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"><decorators><class>" + ResourceDecorator.class.getName() + "</class></decorators></beans>"), "beans.xml");
         return war;
     }
 

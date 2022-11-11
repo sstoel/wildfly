@@ -24,33 +24,21 @@ package org.jboss.as.clustering.infinispan.subsystem;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
-import org.jboss.as.clustering.controller.Operation;
-import org.jboss.as.clustering.controller.OperationExecutor;
-import org.jboss.as.controller.OperationContext;
-import org.jboss.as.controller.OperationFailedException;
-import org.jboss.as.controller.PathAddress;
-import org.jboss.dmr.ModelNode;
-import org.jboss.msc.service.ServiceName;
-import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
-import org.wildfly.clustering.service.PassiveServiceSupplier;
+import org.jboss.as.clustering.controller.BinaryCapabilityNameResolver;
+import org.jboss.as.clustering.controller.FunctionExecutorRegistry;
 
 /**
  * Executor for partition handling operations.
  * @author Paul Ferraro
  */
-public class PartitionHandlingOperationExecutor implements OperationExecutor<AdvancedCache<?, ?>> {
+public class PartitionHandlingOperationExecutor extends CacheOperationExecutor<AdvancedCache<?, ?>> {
+
+    public PartitionHandlingOperationExecutor(FunctionExecutorRegistry<Cache<?, ?>> executors) {
+        super(executors, BinaryCapabilityNameResolver.GRANDPARENT_PARENT);
+    }
 
     @Override
-    public ModelNode execute(OperationContext context, ModelNode operation, Operation<AdvancedCache<?, ?>> executable) throws OperationFailedException {
-        PathAddress address = context.getCurrentAddress();
-        PathAddress cacheAddress = address.getParent();
-
-        String cacheName = cacheAddress.getLastElement().getValue();
-        String containerName = cacheAddress.getParent().getLastElement().getValue();
-
-        ServiceName name = InfinispanCacheRequirement.CACHE.getServiceName(context, containerName, cacheName);
-        Cache<?, ?> cache = new PassiveServiceSupplier<Cache<?, ?>>(context.getServiceRegistry(!executable.isReadOnly()), name).get();
-
-        return (cache != null) ? executable.execute(context, operation, cache.getAdvancedCache()) : null;
+    public AdvancedCache<?, ?> apply(Cache<?, ?> cache) {
+        return cache.getAdvancedCache();
     }
 }

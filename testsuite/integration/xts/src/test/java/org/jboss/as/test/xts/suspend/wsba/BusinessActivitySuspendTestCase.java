@@ -31,6 +31,7 @@ import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.test.xts.suspend.AbstractTestCase;
+import org.jboss.as.test.xts.util.DeploymentHelper;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.runner.RunWith;
 
@@ -44,13 +45,17 @@ public class BusinessActivitySuspendTestCase extends AbstractTestCase {
     @Deployment(name = EXECUTOR_SERVICE_ARCHIVE_NAME, testable = false)
     public static WebArchive getExecutorServiceArchive() {
         return getExecutorServiceArchiveBase().addClasses(BusinessActivityExecutionService.class,
-                BusinessActivityRemoteService.class, BusinessActivityParticipant.class);
+                BusinessActivityRemoteService.class, BusinessActivityParticipant.class)
+                .addAsManifestResource(DeploymentHelper.createPermissions(), "permissions.xml");
+
     }
 
     @TargetsContainer(REMOTE_SERVICE_CONTAINER)
     @Deployment(name = REMOTE_SERVICE_ARCHIVE_NAME, testable = false)
     public static WebArchive getRemoteServiceArchive() {
-        return getRemoteServiceArchiveBase().addClasses(BusinessActivityRemoteService.class, BusinessActivityParticipant.class);
+        return getRemoteServiceArchiveBase().addClasses(BusinessActivityRemoteService.class,
+                BusinessActivityParticipant.class)
+                .addAsManifestResource(DeploymentHelper.createPermissions(), "permissions.xml");
     }
 
     protected void assertParticipantInvocations(List<String> invocations) {

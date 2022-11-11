@@ -21,22 +21,21 @@
  */
 package org.jboss.as.test.integration.ejb.mdb.vaultedproperties;
 
-import javax.ejb.ActivationConfigProperty;
-import javax.ejb.MessageDriven;
-import javax.inject.Inject;
-import javax.jms.Destination;
-import javax.jms.JMSContext;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.TextMessage;
+import jakarta.ejb.ActivationConfigProperty;
+import jakarta.ejb.MessageDriven;
+import jakarta.inject.Inject;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.MessageListener;
+import jakarta.jms.TextMessage;
 
 /**
   * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2014 Red Hat inc.
  */
 @MessageDriven(activationConfig = {
-        // value was put in the vault by org.jboss.as.test.integration.ejb.mdb.vaultedproperties.MDBWithVaultedPropertiesTestCase.StoreVaultedPropertyTask
-        @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = "${VAULT::messaging::destination::1}")
+        @ActivationConfigProperty(propertyName = "destinationLookup", propertyValue = MDBWithVaultedPropertiesTestCase.DEPLOYMENT_PROP_EXPRESSION)
 })
 public class MDB implements MessageListener {
 

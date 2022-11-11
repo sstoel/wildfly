@@ -22,6 +22,8 @@
 
 package org.jboss.as.connector.subsystems.resourceadapters;
 
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATION;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATIONMILLIS;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BLOCKING_TIMEOUT_WAIT_MILLIS;
@@ -48,21 +50,19 @@ import static org.jboss.as.connector.subsystems.resourceadapters.Constants.AUTHE
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.BEANVALIDATION_GROUPS;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.BOOTSTRAP_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.CLASS_NAME;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.CONFIG_PROPERTIES;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.CONNECTABLE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ELYTRON_ENABLED;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ENABLED;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ENLISTMENT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ENLISTMENT_TRACE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.INTERLEAVING;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.JNDINAME;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.MCP;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.MODULE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.NOTXSEPARATEPOOL;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.NO_RECOVERY;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.PAD_XID;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERLUGIN_CLASSNAME;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERLUGIN_PROPERTIES;
+import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVER_PLUGIN_CLASSNAME;
+import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVER_PLUGIN_PROPERTIES;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_AUTHENTICATION_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_CREDENTIAL_REFERENCE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_ELYTRON_ENABLED;
@@ -77,7 +77,6 @@ import static org.jboss.as.connector.subsystems.resourceadapters.Constants.STATI
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.TRANSACTION_SUPPORT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.TRACKING;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.USE_CCM;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WM_ELYTRON_SECURITY_DOMAIN;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WM_SECURITY;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WM_SECURITY_DEFAULT_GROUPS;
@@ -101,7 +100,6 @@ public class CommonAttributes {
             MODULE,
             TRANSACTION_SUPPORT,
             BOOTSTRAP_CONTEXT,
-            CONFIG_PROPERTIES,
             BEANVALIDATION_GROUPS,
             WM_SECURITY,
             WM_SECURITY_MAPPING_REQUIRED,
@@ -115,7 +113,7 @@ public class CommonAttributes {
     };
     static final AttributeDefinition[] CONNECTION_DEFINITIONS_NODE_ATTRIBUTE = {
             CLASS_NAME,
-            JNDINAME,
+            JNDI_NAME,
             USE_JAVA_CONTEXT,
             ENABLED, CONNECTABLE, TRACKING,
             MAX_POOL_SIZE,
@@ -138,8 +136,8 @@ public class CommonAttributes {
             BACKGROUNDVALIDATION,
             USE_FAST_FAIL, VALIDATE_ON_MATCH, USE_CCM,
             SHARABLE, ENLISTMENT, ENLISTMENT_TRACE, MCP,
-            RECOVERLUGIN_CLASSNAME,
-            RECOVERLUGIN_PROPERTIES,
+            RECOVER_PLUGIN_CLASSNAME,
+            RECOVER_PLUGIN_PROPERTIES,
             RECOVERY_PASSWORD,
             RECOVERY_CREDENTIAL_REFERENCE,
             RECOVERY_SECURITY_DOMAIN,
@@ -162,7 +160,7 @@ public class CommonAttributes {
 
     static final AttributeDefinition[] ADMIN_OBJECTS_NODE_ATTRIBUTE = new AttributeDefinition[]{
             CLASS_NAME,
-            JNDINAME,
+            JNDI_NAME,
             USE_JAVA_CONTEXT,
             ENABLED
     };

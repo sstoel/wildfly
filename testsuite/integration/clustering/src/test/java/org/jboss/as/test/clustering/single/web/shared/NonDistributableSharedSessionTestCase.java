@@ -23,7 +23,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -106,7 +106,7 @@ public class NonDistributableSharedSessionTestCase {
             }
 
             // A distributable web application preserves its web sessions across server restarts, a non-distributable web application does not.
-            ServerReload.executeReloadAndWaitForCompletion(this.managementClient.getControllerClient());
+            ServerReload.executeReloadAndWaitForCompletion(this.managementClient);
 
             expected = 1;
             try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {

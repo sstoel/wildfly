@@ -15,27 +15,31 @@
  */
 package org.jboss.as.test.integration.messaging.jms.naming;
 
-import javax.annotation.Resource;
-import javax.ejb.Singleton;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSConnectionFactoryDefinition;
-import javax.jms.JMSConnectionFactoryDefinitions;
-import javax.jms.JMSContext;
-import javax.jms.JMSDestinationDefinition;
-import javax.jms.JMSProducer;
-import javax.jms.Queue;
+
+import static jakarta.ejb.TransactionAttributeType.NOT_SUPPORTED;
+
+import jakarta.annotation.Resource;
+import jakarta.ejb.Singleton;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSConnectionFactoryDefinition;
+import jakarta.jms.JMSConnectionFactoryDefinitions;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSDestinationDefinition;
+import jakarta.jms.JMSProducer;
+import jakarta.jms.Queue;
 
 @JMSDestinationDefinition(
     name = "java:app/jms/queue",
-    interfaceName = "javax.jms.Queue"
+    interfaceName = "jakarta.jms.Queue"
 )
 @JMSConnectionFactoryDefinitions(
     value = {
         @JMSConnectionFactoryDefinition(
             name = "java:app/jms/nonXAconnectionFactory",
             transactional = false,
-             properties = {
-                            "connectors=in-vm",}
+            properties = {
+                "connectors=${org.jboss.messaging.default-connector:in-vm}",}
         )
     }
 )
@@ -47,6 +51,7 @@ public class JMSSender {
     @Resource(lookup = "java:app/jms/queue")
     private Queue queue;
 
+    @TransactionAttribute(NOT_SUPPORTED)
     public void sendMessage(String payload) {
         try (JMSContext context = connectionFactory.createContext()) {
             JMSProducer producer = context.createProducer();

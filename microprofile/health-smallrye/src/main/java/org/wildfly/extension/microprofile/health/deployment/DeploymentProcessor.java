@@ -31,7 +31,8 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.weld.WeldCapability;
-import org.wildfly.extension.microprofile.health.HealthReporter;
+import org.jboss.modules.Module;
+import org.wildfly.extension.microprofile.health.MicroProfileHealthReporter;
 import org.wildfly.extension.microprofile.health.MicroProfileHealthSubsystemDefinition;
 import org.wildfly.extension.microprofile.health._private.MicroProfileHealthLogger;
 
@@ -42,6 +43,7 @@ public class DeploymentProcessor implements DeploymentUnitProcessor {
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
+        Module module = deploymentUnit.getAttachment(Attachments.MODULE);
 
         final CapabilityServiceSupport support = deploymentUnit.getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT);
 
@@ -55,15 +57,10 @@ public class DeploymentProcessor implements DeploymentUnitProcessor {
                     WELD_CAPABILITY_NAME);
         }
         if (weldCapability.isPartOfWeldDeployment(deploymentUnit)) {
-            final HealthReporter healthReporter = (HealthReporter) phaseContext.getServiceRegistry().getService(MicroProfileHealthSubsystemDefinition.HEALTH_REPORTER_SERVICE).getValue();
+            final MicroProfileHealthReporter healthReporter = (MicroProfileHealthReporter) phaseContext.getServiceRegistry().getService(MicroProfileHealthSubsystemDefinition.HEALTH_REPORTER_SERVICE).getValue();
 
-            weldCapability.registerExtensionInstance(new CDIExtension(healthReporter), deploymentUnit);
+            weldCapability.registerExtensionInstance(new CDIExtension(healthReporter, module), deploymentUnit);
         }
-
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
 
     }
 }

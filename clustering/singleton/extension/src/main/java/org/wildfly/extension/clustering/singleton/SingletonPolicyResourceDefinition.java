@@ -29,23 +29,22 @@ import org.jboss.as.clustering.controller.CapabilityReference;
 import org.jboss.as.clustering.controller.ChildResourceDefinition;
 import org.jboss.as.clustering.controller.ManagementResourceRegistration;
 import org.jboss.as.clustering.controller.ResourceDescriptor;
+import org.jboss.as.clustering.controller.ServiceValueExecutorRegistry;
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
 import org.jboss.as.clustering.controller.SimpleResourceRegistration;
 import org.jboss.as.clustering.controller.UnaryRequirementCapability;
 import org.jboss.as.clustering.controller.validation.IntRangeValidatorBuilder;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.transform.description.RejectAttributeChecker;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.wildfly.clustering.service.UnaryRequirement;
+import org.wildfly.clustering.singleton.Singleton;
+import org.wildfly.clustering.singleton.SingletonCacheRequirement;
+import org.wildfly.clustering.singleton.SingletonDefaultCacheRequirement;
 import org.wildfly.clustering.singleton.SingletonRequirement;
-import org.wildfly.clustering.spi.ClusteringCacheRequirement;
-import org.wildfly.clustering.spi.ClusteringDefaultCacheRequirement;
 
 /**
  * Definition of a singleton policy resource.
@@ -80,7 +79,7 @@ public class SingletonPolicyResourceDefinition extends ChildResourceDefinition<M
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setRequired(true)
-                        .setCapabilityReference(new CapabilityReference(Capability.POLICY, ClusteringDefaultCacheRequirement.SINGLETON_SERVICE_CONFIGURATOR_FACTORY))
+                        .setCapabilityReference(new CapabilityReference(Capability.POLICY, SingletonDefaultCacheRequirement.SINGLETON_SERVICE_CONFIGURATOR_FACTORY))
                         ;
             }
         },
@@ -88,7 +87,7 @@ public class SingletonPolicyResourceDefinition extends ChildResourceDefinition<M
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setRequired(false)
-                        .setCapabilityReference(new CapabilityReference(Capability.POLICY, ClusteringCacheRequirement.SINGLETON_SERVICE_CONFIGURATOR_FACTORY, CACHE_CONTAINER))
+                        .setCapabilityReference(new CapabilityReference(Capability.POLICY, SingletonCacheRequirement.SINGLETON_SERVICE_CONFIGURATOR_FACTORY, CACHE_CONTAINER))
                         ;
             }
         },
@@ -117,19 +116,6 @@ public class SingletonPolicyResourceDefinition extends ChildResourceDefinition<M
         }
     }
 
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        ResourceTransformationDescriptionBuilder builder = parent.addChildResource(WILDCARD_PATH);
-
-        if (SingletonModel.VERSION_2_0_0.requiresTransformation(version)) {
-            builder.getAttributeBuilder()
-                .addRejectCheck(RejectAttributeChecker.SIMPLE_EXPRESSIONS, Attribute.CACHE.getDefinition(), Attribute.CACHE_CONTAINER.getDefinition())
-                .end();
-        }
-
-        SingletonDeploymentResourceDefinition.buildTransformation(version, builder);
-        SingletonServiceResourceDefinition.buildTransformation(version, builder);
-    }
-
     SingletonPolicyResourceDefinition() {
         super(WILDCARD_PATH, SingletonExtension.SUBSYSTEM_RESOLVER.createChildResolver(WILDCARD_PATH));
     }
@@ -144,15 +130,16 @@ public class SingletonPolicyResourceDefinition extends ChildResourceDefinition<M
                 .addRequiredSingletonChildren(SimpleElectionPolicyResourceDefinition.PATH)
                 .setResourceTransformation(SingletonPolicyResource::new)
                 ;
-        ResourceServiceHandler handler = new SingletonPolicyServiceHandler();
+        ServiceValueExecutorRegistry<Singleton> executors = new ServiceValueExecutorRegistry<>();
+        ResourceServiceHandler handler = new SingletonPolicyServiceHandler(executors);
         new SimpleResourceRegistration(descriptor, handler).register(registration);
 
         new RandomElectionPolicyResourceDefinition().register(registration);
         new SimpleElectionPolicyResourceDefinition().register(registration);
 
         if (registration.isRuntimeOnlyRegistrationValid()) {
-            new SingletonDeploymentResourceDefinition().register(registration);
-            new SingletonServiceResourceDefinition().register(registration);
+            new SingletonDeploymentResourceDefinition(executors).register(registration);
+            new SingletonServiceResourceDefinition(executors).register(registration);
         }
 
         return registration;

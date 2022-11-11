@@ -21,7 +21,9 @@
  */
 package org.jboss.as.security;
 
+import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.ListAttributeDefinition;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
@@ -30,12 +32,13 @@ import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.registry.AliasEntry;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
 
 /**
  * @author Jason T. Greene
  */
-public class ACLResourceDefinition extends SimpleResourceDefinition {
+class ACLResourceDefinition extends SimpleResourceDefinition {
 
     public static final ACLResourceDefinition INSTANCE = new ACLResourceDefinition();
 
@@ -45,11 +48,12 @@ public class ACLResourceDefinition extends SimpleResourceDefinition {
     private ACLResourceDefinition() {
         super(SecurityExtension.ACL_PATH,
                 SecurityExtension.getResourceDescriptionResolver(Constants.ACL),
-                ACLResourceDefinitionAdd.INSTANCE,
-                new SecurityDomainReloadRemoveHandler());
+                new ACLResourceDefinitionAdd(),
+                ModelOnlyRemoveStepHandler.INSTANCE);
         setDeprecated(SecurityExtension.DEPRECATED_SINCE);
     }
 
+    @Override
     public void registerAttributes(final ManagementResourceRegistration resourceRegistration) {
         resourceRegistration.registerReadWriteAttribute(ACL_MODULES, new LegacySupport.LegacyModulesAttributeReader(Constants.ACL_MODULE), new LegacySupport.LegacyModulesAttributeWriter(Constants.ACL_MODULE));
     }
@@ -73,20 +77,14 @@ public class ACLResourceDefinition extends SimpleResourceDefinition {
 
     }
 
-    static class ACLResourceDefinitionAdd extends SecurityDomainReloadAddHandler {
-        static final ACLResourceDefinitionAdd INSTANCE = new ACLResourceDefinitionAdd();
+    static class ACLResourceDefinitionAdd extends AbstractAddStepHandler {
 
         @Override
-        protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
+        protected void populateModel(OperationContext context, ModelNode operation, Resource resource) throws OperationFailedException {
+            if (operation.hasDefined(ACL_MODULES.getName())) {
+                context.addStep(new ModelNode(), operation, LEGACY_ADD_HANDLER, OperationContext.Stage.MODEL, true);
+            }
         }
-        @Override
-               protected void updateModel(OperationContext context, ModelNode operation) throws OperationFailedException {
-                   super.updateModel(context, operation);
-                   if (operation.hasDefined(ACL_MODULES.getName())) {
-                       context.addStep(new ModelNode(), operation, LEGACY_ADD_HANDLER, OperationContext.Stage.MODEL, true);
-                   }
-               }
-
     }
 
 }

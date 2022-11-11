@@ -30,7 +30,6 @@ import org.jboss.as.connector.security.ElytronSecurityIntegration;
 import org.jboss.as.connector.services.workmanager.transport.CommandDispatcherTransport;
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.txn.integration.JBossContextXATerminator;
-import org.jboss.jca.core.security.picketbox.PicketBoxSecurityIntegration;
 import org.jboss.jca.core.spi.workmanager.Address;
 import org.jboss.jca.core.tx.jbossts.XATerminatorImpl;
 import org.jboss.jca.core.workmanager.WorkManagerCoordinator;
@@ -41,7 +40,7 @@ import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
 import org.jboss.threads.BlockingExecutor;
-import org.wildfly.clustering.dispatcher.CommandDispatcherFactory;
+import org.wildfly.clustering.server.dispatcher.CommandDispatcherFactory;
 
 /**
  * A WorkManager Service.
@@ -79,7 +78,7 @@ public final class DistributedWorkManagerService implements Service<NamedDistrib
 
     @Override
     public void start(StartContext context) throws StartException {
-        ROOT_LOGGER.debugf("Starting JCA DistributedWorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Starting Jakarta Connectors DistributedWorkManager: ", value.getName());
 
         CommandDispatcherTransport transport = new CommandDispatcherTransport(this.dispatcherFactory.getValue(), this.value.getName());
 
@@ -97,12 +96,7 @@ public final class DistributedWorkManagerService implements Service<NamedDistrib
 
         this.value.setXATerminator(new XATerminatorImpl(xaTerminator.getValue()));
 
-
-        if (this.value.isElytronEnabled()) {
-            this.value.setSecurityIntegration(new ElytronSecurityIntegration());
-        } else {
-            this.value.setSecurityIntegration(new PicketBoxSecurityIntegration());
-        }
+        this.value.setSecurityIntegration(new ElytronSecurityIntegration());
 
         try {
             transport.startup();
@@ -115,12 +109,12 @@ public final class DistributedWorkManagerService implements Service<NamedDistrib
         WorkManagerCoordinator.getInstance().registerWorkManager(value);
 
 
-        ROOT_LOGGER.debugf("Started JCA DistributedWorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Started Jakarta Connectors DistributedWorkManager: ", value.getName());
     }
 
     @Override
     public void stop(StopContext context) {
-        ROOT_LOGGER.debugf("Stopping JCA DistributedWorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Stopping Jakarta Connectors DistributedWorkManager: ", value.getName());
 
         value.prepareShutdown();
 
@@ -135,7 +129,7 @@ public final class DistributedWorkManagerService implements Service<NamedDistrib
 
         WorkManagerCoordinator.getInstance().unregisterWorkManager(value);
 
-        ROOT_LOGGER.debugf("Stopped JCA DistributedWorkManager: ", value.getName());
+        ROOT_LOGGER.debugf("Stopped Jakarta Connectors DistributedWorkManager: ", value.getName());
     }
 
     public Injector<Executor> getExecutorShortInjector() {

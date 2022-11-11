@@ -21,22 +21,18 @@
 */
 package org.jboss.as.weld;
 
-import static org.junit.Assert.assertTrue;
-
 import java.io.IOException;
 
-import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.model.test.FailedOperationTransformationConfig;
-import org.jboss.as.model.test.FailedOperationTransformationConfig.ChainedConfig;
-import org.jboss.as.model.test.FailedOperationTransformationConfig.NewAttributesConfig;
 import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
 import org.jboss.as.subsystem.test.AdditionalInitialization;
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.as.subsystem.test.KernelServicesBuilder;
+import org.jboss.as.subsystem.test.LegacyKernelServicesInitializer;
 import org.jboss.dmr.ModelNode;
 import org.junit.Assert;
 import org.junit.Test;
@@ -57,20 +53,7 @@ public class WeldSubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Override
     protected String getSubsystemXsdPath() throws Exception {
-        return "schema/jboss-as-weld_4_0.xsd";
-    }
-
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[] {
-            "/subsystem-templates/weld.xml"
-        };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+        return "schema/jboss-as-weld_5_0.xsd";
     }
 
     @Test
@@ -89,139 +72,88 @@ public class WeldSubsystemTestCase extends AbstractSubsystemBaseTest {
     }
 
     @Test
-    public void testTransformersASEAP620() throws Exception {
-        testTransformers10(ModelTestControllerVersion.EAP_6_2_0);
+    public void testSubsystem40() throws Exception {
+        standardSubsystemTest("subsystem_4_0.xml", false);
     }
 
     @Test
-    public void testTransformersASEAP630() throws Exception {
-        testTransformers10(ModelTestControllerVersion.EAP_6_3_0);
+    public void testExpressions() throws Exception {
+        standardSubsystemTest("subsystem_with_expression.xml");
     }
 
     @Test
-    public void testTransformersASEAP640() throws Exception {
-        testTransformers10(ModelTestControllerVersion.EAP_6_4_0);
-    }
-
-    private void testTransformers10(ModelTestControllerVersion controllerVersion) throws Exception {
-        ModelVersion modelVersion = ModelVersion.create(1, 0, 0);
-        KernelServicesBuilder builder = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT)
-                .setSubsystemXmlResource("subsystem_3_0-transformers.xml");
-        //which is why we need to include the jboss-as-controller artifact.
-        builder.createLegacyKernelServicesBuilder(AdditionalInitialization.MANAGEMENT, controllerVersion, modelVersion)
-                .addMavenResourceURL("org.jboss.as:jboss-as-weld:" + controllerVersion.getMavenGavVersion())
-                .skipReverseControllerCheck()
-                .dontPersistXml();
-
-        KernelServices mainServices = builder.build();
-        KernelServices legacyServices = mainServices.getLegacyServices(modelVersion);
-        assertTrue(mainServices.isSuccessfulBoot());
-        assertTrue(legacyServices.isSuccessfulBoot());
-
-        checkSubsystemModelTransformation(mainServices, modelVersion);
+    public void testTransformerEAP740() throws Exception {
+        testTransformer(ModelTestControllerVersion.EAP_7_4_0, true);
     }
 
     @Test
-    public void testTransformersEAP70() throws Exception {
-        ModelVersion modelVersion = ModelVersion.create(3, 0, 0);
-        KernelServicesBuilder builder = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT)
-                .setSubsystemXmlResource("subsystem_4_0-transformers.xml");
-        builder.createLegacyKernelServicesBuilder(AdditionalInitialization.MANAGEMENT, ModelTestControllerVersion.EAP_7_0_0, modelVersion)
-                .addMavenResourceURL("org.jboss.eap:wildfly-weld:" + ModelTestControllerVersion.EAP_7_0_0.getMavenGavVersion())
-                .dontPersistXml();
-        KernelServices mainServices = builder.build();
-        KernelServices legacyServices = mainServices.getLegacyServices(modelVersion);
-        assertTrue(mainServices.isSuccessfulBoot());
-        assertTrue(legacyServices.isSuccessfulBoot());
-        checkSubsystemModelTransformation(mainServices, modelVersion);
+    public void testTransformersRejectionEAP740() throws Exception {
+        testTransformersRejection(ModelTestControllerVersion.EAP_7_4_0);
     }
 
-    @Test
-    public void testTransformersRejectionASEAP620() throws Exception {
-        testRejectTransformers10(ModelTestControllerVersion.EAP_6_2_0);
+    private void testTransformersRejection(ModelTestControllerVersion controllerVersion) throws Exception {
+        ModelVersion modelVersion = controllerVersion.getSubsystemModelVersion(getMainSubsystemName());
+        KernelServices mainServices = buildKernelServices(controllerVersion, null, false);
+        Assert.assertTrue(mainServices.isSuccessfulBoot());
+        Assert.assertTrue(mainServices.getLegacyServices(modelVersion).isSuccessfulBoot());
+
+        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, modelVersion, parse(getSubsystemXml("subsystem-reject.xml")),
+                new FailedOperationTransformationConfig().addFailedAttribute(PathAddress.pathAddress(WeldExtension.PATH_SUBSYSTEM),
+                        new FailedOperationTransformationConfig.NewAttributesConfig(WeldResourceDefinition.LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE) {
+                            @Override
+                            protected boolean checkValue(String attrName, ModelNode attribute, boolean isGeneratedWriteAttribute) {
+                                return !attribute.equals(ModelNode.TRUE);
+                            }
+
+                            @Override
+                            protected ModelNode correctValue(ModelNode attribute, boolean isGeneratedWriteAttribute) {
+                                // if it's 'false' change it to undefined to test handling of undefined as well
+                                return attribute.isDefined() ? ModelNode.TRUE : new ModelNode();
+                            }
+                        }));
     }
 
-    @Test
-    public void testTransformersRejectionASEAP630() throws Exception {
-        testRejectTransformers10(ModelTestControllerVersion.EAP_6_3_0);
+    private void testTransformer(ModelTestControllerVersion controllerVersion, boolean fixLegacyEmptyXmlTreatment) throws Exception {
+        KernelServices mainServices = buildKernelServices(controllerVersion, getSubsystemXml(), fixLegacyEmptyXmlTreatment);
+        ModelVersion modelVersion = controllerVersion.getSubsystemModelVersion(getMainSubsystemName());
+        // check that both versions of the legacy model are the same and valid
+        checkSubsystemModelTransformation(mainServices, modelVersion, null, false);
+
+        ModelNode transformed = mainServices.readTransformedModel(modelVersion);
+        Assert.assertTrue(transformed.isDefined());
     }
 
-    @Test
-    public void testTransformersRejectionASEAP640() throws Exception {
-        testRejectTransformers10(ModelTestControllerVersion.EAP_6_4_0);
-    }
-
-    private void testRejectTransformers10(ModelTestControllerVersion controllerVersion) throws Exception {
-
-        ModelVersion modelVersion = ModelVersion.create(1, 0, 0);
+    private KernelServices buildKernelServices(ModelTestControllerVersion legacyVersion, String subsystemXml, boolean fixLegacyEmptyXmlTreatment) throws Exception {
+        ModelVersion modelVersion = legacyVersion.getSubsystemModelVersion(getMainSubsystemName());
         KernelServicesBuilder builder = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT);
-
-        //which is why we need to include the jboss-as-controller artifact.
-        builder.createLegacyKernelServicesBuilder(AdditionalInitialization.MANAGEMENT, controllerVersion, modelVersion)
-                .addMavenResourceURL("org.jboss.as:jboss-as-weld:" + controllerVersion.getMavenGavVersion())
+        if (subsystemXml != null) {
+            builder.setSubsystemXml(subsystemXml);
+        }
+        LegacyKernelServicesInitializer legacyInitializer =
+                builder.createLegacyKernelServicesBuilder(AdditionalInitialization.MANAGEMENT, ModelTestControllerVersion.EAP_7_4_0, modelVersion)
+                .addMavenResourceURL("org.jboss.eap:wildfly-weld:" + ModelTestControllerVersion.EAP_7_4_0.getMavenGavVersion())
+                .addParentFirstClassPattern("org.jboss.msc.*")
+                .addParentFirstClassPattern("org.jboss.msc.service.*")
                 .dontPersistXml();
-
+        if (fixLegacyEmptyXmlTreatment) {
+            // The legacy host won't configure "legacy-empty-beans-xml-treatment=true" as that is
+            // the hard coded, unconfigurable behavior. So when we try and boot the current version
+            // with the boot ops from the legacy host, fix that up
+            legacyInitializer.configureReverseControllerCheck(AdditionalInitialization.MANAGEMENT,
+                    null,
+                    WeldSubsystemTestCase::fixLegacyAddOp);
+        }
         KernelServices mainServices = builder.build();
         Assert.assertTrue(mainServices.isSuccessfulBoot());
         Assert.assertTrue(mainServices.getLegacyServices(modelVersion).isSuccessfulBoot());
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, modelVersion, parse(getSubsystemXml("subsystem-reject.xml")),
-                new FailedOperationTransformationConfig()
-                        .addFailedAttribute(
-                                PathAddress.pathAddress(WeldExtension.PATH_SUBSYSTEM),
-                                ChainedConfig.createBuilder(WeldResourceDefinition.NON_PORTABLE_MODE_ATTRIBUTE, WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE).addConfig(new FalseOrUndefinedToTrueConfig (
-                                        WeldResourceDefinition.NON_PORTABLE_MODE_ATTRIBUTE,
-                                        WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE
-                                ))
-                                .addConfig(new NewAttributesConfig(WeldResourceDefinition.DEVELOPMENT_MODE_ATTRIBUTE))
-                                .addConfig(new NewAttributesConfig(WeldResourceDefinition.THREAD_POOL_SIZE_ATTRIBUTE))
-                                .build()
-
-                        )
-        );
+        return mainServices;
     }
 
-    @Test
-    public void testTransformersRejectionEAP700() throws Exception {
-        ModelVersion modelVersion = ModelVersion.create(3, 0, 0);
-        KernelServicesBuilder builder = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT);
-
-        builder.createLegacyKernelServicesBuilder(AdditionalInitialization.MANAGEMENT, ModelTestControllerVersion.EAP_7_0_0, modelVersion)
-                .addMavenResourceURL("org.jboss.eap:wildfly-weld:" + ModelTestControllerVersion.EAP_7_0_0.getMavenGavVersion())
-                .dontPersistXml();
-
-        KernelServices mainServices = builder.build();
-        assertTrue(mainServices.isSuccessfulBoot());
-        assertTrue(mainServices.getLegacyServices(modelVersion).isSuccessfulBoot());
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, modelVersion, parse(getSubsystemXml("subsystem-reject.xml")),
-                new FailedOperationTransformationConfig().addFailedAttribute(PathAddress.pathAddress(WeldExtension.PATH_SUBSYSTEM),
-                        ChainedConfig
-                                .createBuilder(WeldResourceDefinition.NON_PORTABLE_MODE_ATTRIBUTE, WeldResourceDefinition.REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE)
-                                .addConfig(new NewAttributesConfig(WeldResourceDefinition.THREAD_POOL_SIZE_ATTRIBUTE)).build()
-
-                ));
+    private static ModelNode fixLegacyAddOp(ModelNode op) {
+        ModelNode addr = op.get("address");
+        if (addr.asInt() == 1 && addr.get(0).asProperty().getName().equals("subsystem")) {
+            op.get("legacy-empty-beans-xml-treatment").set(true);
+        }
+        return op;
     }
-
-
-    private static class FalseOrUndefinedToTrueConfig extends FailedOperationTransformationConfig.AttributesPathAddressConfig<FalseOrUndefinedToTrueConfig>{
-
-        FalseOrUndefinedToTrueConfig(AttributeDefinition...defs){
-            super(convert(defs));
-        }
-
-        @Override
-        protected boolean isAttributeWritable(String attributeName) {
-            return true;
-        }
-
-        @Override
-        protected boolean checkValue(String attrName, ModelNode attribute, boolean isWriteAttribute) {
-            return !attribute.isDefined() || attribute.asString().equals("false");
-        }
-
-        @Override
-        protected ModelNode correctValue(ModelNode toResolve, boolean isWriteAttribute) {
-            return ModelNode.TRUE;
-        }
-    }
-
 }

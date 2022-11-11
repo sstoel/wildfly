@@ -27,10 +27,10 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.Properties;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.Destination;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -42,6 +42,7 @@ import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.network.NetworkUtils;
 import org.jboss.as.test.integration.common.jms.ActiveMQProviderJMSOperations;
 import org.jboss.as.test.integration.security.common.Utils;
+import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
@@ -111,7 +112,7 @@ public abstract class AbstractSaslTestBase {
                 // Create the JMS consumer
                 JMSConsumer consumer = context.createConsumer(destination);
                 // Then receive the same message that was sent
-                String text = consumer.receiveBody(String.class, 5000);
+                String text = consumer.receiveBody(String.class, TimeoutUtil.adjust(5000));
                 Assert.assertEquals(MESSAGE, text);
             }
         } catch (NamingException e) {

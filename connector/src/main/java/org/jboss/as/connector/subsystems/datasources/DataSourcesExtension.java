@@ -22,6 +22,8 @@
 package org.jboss.as.connector.subsystems.datasources;
 
 import static org.jboss.as.connector.logging.ConnectorLogger.SUBSYSTEM_DATASOURCES_LOGGER;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATION;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATIONMILLIS;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BLOCKING_TIMEOUT_WAIT_MILLIS;
@@ -65,10 +67,10 @@ import static org.jboss.as.connector.subsystems.datasources.Constants.ELYTRON_EN
 import static org.jboss.as.connector.subsystems.datasources.Constants.ENABLED;
 import static org.jboss.as.connector.subsystems.datasources.Constants.ENLISTMENT_TRACE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.EXCEPTION_SORTER_CLASSNAME;
+import static org.jboss.as.connector.subsystems.datasources.Constants.EXCEPTION_SORTER_MODULE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.EXCEPTION_SORTER_PROPERTIES;
 import static org.jboss.as.connector.subsystems.datasources.Constants.INTERLEAVING;
 import static org.jboss.as.connector.subsystems.datasources.Constants.JDBC_DRIVER_NAME;
-import static org.jboss.as.connector.subsystems.datasources.Constants.JNDI_NAME;
 import static org.jboss.as.connector.subsystems.datasources.Constants.JTA;
 import static org.jboss.as.connector.subsystems.datasources.Constants.MCP;
 import static org.jboss.as.connector.subsystems.datasources.Constants.MODULE_SLOT;
@@ -95,6 +97,7 @@ import static org.jboss.as.connector.subsystems.datasources.Constants.SET_TX_QUE
 import static org.jboss.as.connector.subsystems.datasources.Constants.SHARE_PREPARED_STATEMENTS;
 import static org.jboss.as.connector.subsystems.datasources.Constants.SPY;
 import static org.jboss.as.connector.subsystems.datasources.Constants.STALE_CONNECTION_CHECKER_CLASSNAME;
+import static org.jboss.as.connector.subsystems.datasources.Constants.STALE_CONNECTION_CHECKER_MODULE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.STALE_CONNECTION_CHECKER_PROPERTIES;
 import static org.jboss.as.connector.subsystems.datasources.Constants.STATISTICS_ENABLED;
 import static org.jboss.as.connector.subsystems.datasources.Constants.TRACKING;
@@ -105,10 +108,10 @@ import static org.jboss.as.connector.subsystems.datasources.Constants.URL_PROPER
 import static org.jboss.as.connector.subsystems.datasources.Constants.URL_SELECTOR_STRATEGY_CLASS_NAME;
 import static org.jboss.as.connector.subsystems.datasources.Constants.USERNAME;
 import static org.jboss.as.connector.subsystems.datasources.Constants.USE_CCM;
-import static org.jboss.as.connector.subsystems.datasources.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.datasources.Constants.USE_TRY_LOCK;
 import static org.jboss.as.connector.subsystems.datasources.Constants.VALIDATE_ON_MATCH;
 import static org.jboss.as.connector.subsystems.datasources.Constants.VALID_CONNECTION_CHECKER_CLASSNAME;
+import static org.jboss.as.connector.subsystems.datasources.Constants.VALID_CONNECTION_CHECKER_MODULE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.VALID_CONNECTION_CHECKER_PROPERTIES;
 import static org.jboss.as.connector.subsystems.datasources.Constants.WRAP_XA_RESOURCE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.XADATASOURCE_PROPERTIES;
@@ -199,6 +202,8 @@ public class DataSourcesExtension implements Extension {
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.DATASOURCES_3_0.getUriString(), DataSourceSubsystemParser::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.DATASOURCES_4_0.getUriString(), DataSourceSubsystemParser::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.DATASOURCES_5_0.getUriString(), DataSourceSubsystemParser::new);
+        context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.DATASOURCES_6_0.getUriString(), DataSourceSubsystemParser::new);
+        context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.DATASOURCES_7_0.getUriString(), DataSourceSubsystemParser::new);
     }
 
     public static final class DataSourceSubsystemParser implements XMLStreamConstants, XMLElementReader<List<ModelNode>>,
@@ -467,7 +472,7 @@ public class DataSourcesExtension implements Extension {
                 }
 
                 boolean validationRequired = VALID_CONNECTION_CHECKER_CLASSNAME.isMarshallable(dataSourceNode) ||
-
+                        VALID_CONNECTION_CHECKER_MODULE.isMarshallable(dataSourceNode) ||
                         VALID_CONNECTION_CHECKER_PROPERTIES.isMarshallable(dataSourceNode) ||
                         CHECK_VALID_CONNECTION_SQL.isMarshallable(dataSourceNode) ||
                         VALIDATE_ON_MATCH.isMarshallable(dataSourceNode) ||
@@ -475,8 +480,10 @@ public class DataSourcesExtension implements Extension {
                         BACKGROUNDVALIDATIONMILLIS.isMarshallable(dataSourceNode) ||
                         USE_FAST_FAIL.isMarshallable(dataSourceNode) ||
                         STALE_CONNECTION_CHECKER_CLASSNAME.isMarshallable(dataSourceNode) ||
+                        STALE_CONNECTION_CHECKER_MODULE.isMarshallable(dataSourceNode) ||
                         STALE_CONNECTION_CHECKER_PROPERTIES.isMarshallable(dataSourceNode) ||
                         EXCEPTION_SORTER_CLASSNAME.isMarshallable(dataSourceNode) ||
+                        EXCEPTION_SORTER_MODULE.isMarshallable(dataSourceNode) ||
                         EXCEPTION_SORTER_PROPERTIES.isMarshallable(dataSourceNode);
                 if (validationRequired) {
                     writer.writeStartElement(DataSource.Tag.VALIDATION.getLocalName());
@@ -485,7 +492,11 @@ public class DataSourcesExtension implements Extension {
                         writer.writeAttribute(
                                 org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName(),
                                 dataSourceNode.get(VALID_CONNECTION_CHECKER_CLASSNAME.getName()).asString());
-
+                        if (dataSourceNode.hasDefined(VALID_CONNECTION_CHECKER_MODULE.getName())) {
+                            writer.writeAttribute(
+                                    org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName(),
+                                    dataSourceNode.get(VALID_CONNECTION_CHECKER_MODULE.getName()).asString());
+                        }
                         if (dataSourceNode.hasDefined(VALID_CONNECTION_CHECKER_PROPERTIES.getName())) {
                             for (Property connectionProperty : dataSourceNode.get(VALID_CONNECTION_CHECKER_PROPERTIES.getName())
                                     .asPropertyList()) {
@@ -506,7 +517,11 @@ public class DataSourcesExtension implements Extension {
                         writer.writeStartElement(Validation.Tag.STALE_CONNECTION_CHECKER.getLocalName());
                         writer.writeAttribute(org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName(),
                                 dataSourceNode.get(STALE_CONNECTION_CHECKER_CLASSNAME.getName()).asString());
-
+                        if (dataSourceNode.hasDefined(STALE_CONNECTION_CHECKER_MODULE.getName())) {
+                            writer.writeAttribute(
+                                    org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName(),
+                                    dataSourceNode.get(STALE_CONNECTION_CHECKER_MODULE.getName()).asString());
+                        }
                         if (dataSourceNode.hasDefined(STALE_CONNECTION_CHECKER_PROPERTIES.getName())) {
 
                             for (Property connectionProperty : dataSourceNode.get(STALE_CONNECTION_CHECKER_PROPERTIES.getName())
@@ -524,6 +539,11 @@ public class DataSourcesExtension implements Extension {
                         writer.writeAttribute(
                                 org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName(),
                                 dataSourceNode.get(EXCEPTION_SORTER_CLASSNAME.getName()).asString());
+                        if (dataSourceNode.hasDefined(EXCEPTION_SORTER_MODULE.getName())) {
+                            writer.writeAttribute(
+                                    org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName(),
+                                    dataSourceNode.get(EXCEPTION_SORTER_MODULE.getName()).asString());
+                        }
                         if (dataSourceNode.hasDefined(EXCEPTION_SORTER_PROPERTIES.getName())) {
                             for (Property connectionProperty : dataSourceNode.get(EXCEPTION_SORTER_PROPERTIES.getName())
                                     .asPropertyList()) {

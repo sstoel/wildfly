@@ -22,23 +22,6 @@
 
 package org.jboss.as.ejb3.subsystem;
 
-import org.jboss.as.controller.PathAddress;
-import org.jboss.as.controller.PathElement;
-import org.jboss.as.controller.operations.common.Util;
-import org.jboss.as.controller.parsing.ParseUtils;
-import org.jboss.as.threads.Namespace;
-import org.jboss.as.threads.ThreadsParser;
-import org.jboss.dmr.ModelNode;
-import org.jboss.staxmapper.XMLElementReader;
-import org.jboss.staxmapper.XMLExtendedStreamReader;
-
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
-
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
@@ -64,6 +47,22 @@ import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.SERVICE;
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.STRICT_MAX_BEAN_INSTANCE_POOL;
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.THREAD_POOL;
 import static org.jboss.as.ejb3.subsystem.EJB3SubsystemModel.TIMER_SERVICE;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+
+import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.PathElement;
+import org.jboss.as.controller.operations.common.Util;
+import org.jboss.as.controller.parsing.ParseUtils;
+import org.jboss.as.threads.Namespace;
+import org.jboss.as.threads.ThreadsParser;
+import org.jboss.dmr.ModelNode;
+import org.jboss.staxmapper.XMLElementReader;
+import org.jboss.staxmapper.XMLExtendedStreamReader;
 
 /**
  * @author Jaikiran Pai
@@ -464,7 +463,7 @@ public class EJB3Subsystem12Parser implements XMLElementReader<List<ModelNode>> 
         operations.add(operation);
     }
 
-    private void parseCaches(final XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
+    protected void parseCaches(final XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
         // no attributes expected
         requireNoAttributes(reader);
 
@@ -481,7 +480,7 @@ public class EJB3Subsystem12Parser implements XMLElementReader<List<ModelNode>> 
         }
     }
 
-    private void parseCache(final XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
+    protected void parseCache(final XMLExtendedStreamReader reader, List<ModelNode> operations) throws XMLStreamException {
         String name = null;
         ModelNode operation = Util.createAddOperation();
         //Set<String> aliases = new LinkedHashSet<String>();
@@ -494,13 +493,11 @@ public class EJB3Subsystem12Parser implements XMLElementReader<List<ModelNode>> 
                     break;
                 }
                 case PASSIVATION_STORE_REF: {
-                    CacheFactoryResourceDefinition.PASSIVATION_STORE.parseAndSetParameter(value, operation, reader);
+                    LegacyCacheFactoryResourceDefinition.PASSIVATION_STORE.parseAndSetParameter(value, operation, reader);
                     break;
                 }
                 case ALIASES: {
-                    for (String alias : reader.getListAttributeValue(i)) {
-                        CacheFactoryResourceDefinition.ALIASES.parseAndAddParameterElement(alias, operation, reader);
-                    }
+                    LegacyCacheFactoryResourceDefinition.ALIASES.getParser().parseAndSetParameter(LegacyCacheFactoryResourceDefinition.ALIASES, value, operation, reader);
                     break;
                 }
                 default: {
@@ -740,7 +737,7 @@ public class EJB3Subsystem12Parser implements XMLElementReader<List<ModelNode>> 
             EJB3SubsystemNamespace readerNS = EJB3SubsystemNamespace.forUri(reader.getNamespaceURI());
             switch (EJB3SubsystemXMLElement.forName(reader.getLocalName())) {
                 case THREAD_POOL: {
-                    ThreadsParser.getInstance().parseUnboundedQueueThreadPool(reader, readerNS.getUriString(),
+                    ThreadsParser.getInstance().parseEnhancedQueueThreadPool(reader, readerNS.getUriString(),
                             Namespace.THREADS_1_1, parentAddress, operations, THREAD_POOL, null);
                     break;
                 }

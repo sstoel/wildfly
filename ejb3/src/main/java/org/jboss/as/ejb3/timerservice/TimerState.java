@@ -21,6 +21,10 @@
  */
 package org.jboss.as.ejb3.timerservice;
 
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Timer states.
  * <p/>
@@ -77,4 +81,17 @@ public enum TimerState {
      */
     RETRY_TIMEOUT,
     ;
+
+    /**
+     * An unmodifiable set that contains timer states {@link #IN_TIMEOUT}, {@link #RETRY_TIMEOUT},
+     * {@link #CREATED} and {@link #ACTIVE}.
+     */
+    public static final Set<TimerState> CREATED_ACTIVE_IN_TIMEOUT_RETRY_TIMEOUT =
+            Collections.unmodifiableSet(EnumSet.of(IN_TIMEOUT, RETRY_TIMEOUT, CREATED, ACTIVE));
+
+    /**
+     * An unmodifiable set that contains timer states {@link #EXPIRED} and {@link #CANCELED}.
+     */
+    public static final Set<TimerState> EXPIRED_CANCELED =
+            Collections.unmodifiableSet(EnumSet.of(EXPIRED, CANCELED));
 }

@@ -33,6 +33,10 @@ user1=Admin
 user2=Guest
 ....
 
+The Properties Realm also supports storing hashed passwords in the properties
+files, namely DIGEST passwords. Learn how to specify the encoding and character set for these passwords
+in the next section.
+
 [[configure-a-properties-realm-in-wildfly]]
 ==== Configure a properties-realm in WildFly:
 
@@ -46,6 +50,23 @@ in the previous step in the _example-users.properties_ file. Also, if
 your properties files are located outside of _jboss.server.config.dir_,
 then you need to change the _path_ and _relative-to_ values
 appropriately.
+
+Additionally, if storing hashed passwords in the properties file, you can specify the following
+attributes:
+
+* `hash-encoding`: This attribute specifies the string format for the password if it is not stored in plain
+text. It is set to ``hex`` encoding by default, but ``base64`` is also supported.
+
+* `hash-charset`: This attribute specifies the character set to use when converting the password string to a
+byte array. It is set to ``UTF-8`` by default.
+
+For example, the following properties realm is configured to use ``base64`` encoding and the character set
+``GB2312``.
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/properties-realm=examplePropRealm:add(groups-attribute=groups,groups-properties={path=example-roles.properties,relative-to=jboss.server.config.dir},users-properties={path=example-users.properties,relative-to=jboss.server.config.dir},hash-encoding=base64,hash-charset=GB2312)
+----
 
 [[configure-a-security-domain]]
 ==== Configure a security-domain:
@@ -81,8 +102,7 @@ as _FORM_.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 [[configure-authentication-with-a-filesystem-based-identity-store]]
@@ -105,6 +125,59 @@ _jboss.server.config.dir_.
 
 If your directory is located outside of _jboss.server.config.dir_, then
 you need to change the _path_ and _relative-to_ values appropriately.
+
+==== Encryption
+
+To enable encryption for a `filesystem-realm`, there are a couple of attributes that can be configured.
+
+* `credential-store`: This attribute specifies the `credential-store` where the secret key used for encrypting and decrypting the realm is stored.
+
+* `secret-key`: This attribute specifies the alias within the `credential-store` that contains the secret key to be used to encrypt and decrypt the realm.
+
+As an example, to create a `credential-store` that is automatically populated with a `SecretKey` under the alias `key`, the following command can be used:
+[source,options="nowrap"]
+----
+/subsystem=elytron/secret-key-credential-store=mycredstore:add(path=propcredstore.cs, relative-to=jboss.server.config.dir, create=true, populate=true)
+----
+
+
+An encrypted `filesystem-realm` that makes use of the `credential-store` could be then created as follows:
+[source,options="nowrap"]
+----
+/subsystem=elytron/filesystem-realm=exampleFsRealm:add(path=fs-realm-users,relative-to=jboss.server.config.dir, credential-store=mycredstore, secret-key=key)
+----
+
+==== Integrity
+
+It is also possible to enable support for integrity checking on the filesystem realm by configuring the key-store and key-store-alias attributes for the realm.
+
+When enabling integrity checking on a filesystem realm, you will have to specify the following 2 attributes
+
+* `key-store`: This attribute specifies the key-store that contains the key pair (private key and public key) that's used for signing each identity file and for integrity checking.
+
+* `key-store-alias`: This attribute specifies the alias within the key-store that identifies the PrivateKeyEntry to use to sign identity files and perform filesystem integrity checks.
+
+To create a key-store and a key-pair for the attributes above, you can create a key-store resource using the following commands. This will create a key-store called `keystore` with the alias `localhost`, and the password `secret`.
+[source,options="nowrap"]
+----
+/subsystem=elytron/key-store=keystore:add(path=keystore, relative-to=jboss.server.config.dir, type=JKS, credential-reference={clear-text=secret})
+/subsystem=elytron/key-store=keystore:generate-key-pair(alias=localhost,algorithm=RSA,key-size=1024,validity=365,distinguished-name="CN=localhost")
+/subsystem=elytron/key-store=keystore:store()
+----
+
+To create an integrity enabled filesystem realm with a ``key-store`` called ``keystore`` and the key-store-alias ``localhost``, the following command would be used
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/filesystem-realm=exampleFsRealm:add(path=fs-realm-users,relative-to=jboss.server.config.dir, key-store=keystore, key-store-alias=localhost)
+----
+
+Integrity and Encryption can be used in conjuction together. To create an encrypted filesystem realm with integrity enabled, the following command would be used
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/filesystem-realm=exampleFsRealm:add(path=fs-realm-users,relative-to=jboss.server.config.dir, credential-store=mycredstore, secret-key=key, key-store=keystore, key-store-alias=localhost)
+----
 
 [[add-a-user]]
 ==== Add a user:
@@ -165,8 +238,7 @@ as _FORM_.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 Your application is now using a filesystem-based identity store for
@@ -253,8 +325,7 @@ as _FORM_.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 [[configure-authentication-with-an-ldap-based-identity-store]]
@@ -320,6 +391,23 @@ connect to the server.
 /subsystem=elytron/ldap-realm=exampleLR:add(dir-context=exampleDC,identity-mapping={search-base-dn="ou=Users,dc=wildfly,dc=org",rdn-identifier="uid",user-password-mapper={from="userPassword"},attribute-mapping=[{filter-base-dn="ou=Roles,dc=wildfly,dc=org",filter="(&(objectClass=groupOfNames)(member={1}))",from="cn",to="Roles"}]})
 ----
 
+Additionally, if storing hashed passwords in the LDIF file, you can specify the following
+attributes:
+
+* `hash-encoding`: This attribute specifies the string format for the password if it is not stored in plain
+text. It is set to ``base64`` encoding by default, but ``hex`` is also supported.
+
+* `hash-charset`: This attribute specifies the character set to use when converting the password string to a
+byte array. It is set to ``UTF-8`` by default.
+
+For example, the following LDAP realm is storing hexadecimal encoded strings hashed using the `GB2312` character set:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/ldap-realm=exampleLR:add(dir-context=exampleDC,identity-mapping={...},hash-encoding=hex,hash-charset=GB2312)
+----
+
+
 [[add-a-simple-role-decoder-1]]
 ==== Add a simple-role-decoder:
 
@@ -362,8 +450,7 @@ as _FORM_.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 *IMPORTANT:* In cases where you configure an LDAP server in the
@@ -571,8 +658,7 @@ principal from _ksRealm_ but other approaches may also be used.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 In addition, you need to update your _web.xml_ to use _CLIENT-CERT_ as
@@ -682,8 +768,7 @@ jboss-deployment-structure.xml.
 Your application's _web.xml_ and _jboss-web.xml_ must be updated to use
 the _application-security-domain_ you configured in WildFly. An example
 of this is available in the
-<<configure-applications-to-use-elytron-or-legacy-security-for-authentication,Configure
-Applications to Use Elytron or Legacy Security for Authentication>>
+<<configure-applications-to-use-elytron-for-authentication,Configure Applications to Use Elytron for Authentication>>
 section.
 
 In addition, you need to update your _web.xml_ to use _SPNEGO_ as its
@@ -756,11 +841,10 @@ and error pages.
 </login-config>
 ----
 
-[[configure-applications-to-use-elytron-or-legacy-security-for-authentication]]
-=== Configure Applications to Use Elytron or Legacy Security for
-Authentication
+[[configure-applications-to-use-elytron-for-authentication]]
+=== Configure Applications to Use Elytron for Authentication
 
-After you have configured the _elytron_ or legacy _security_ subsystems
+After you have configured the _elytron_ subsystem
 for authentication, you need to configure your application to use it.
 
 [[configure-your-applications-web.xml.]]
@@ -768,9 +852,7 @@ for authentication, you need to configure your application to use it.
 
 Your application's _web.xml_ needs to be configured to use the
 appropriate authentication method. When using _elytron_, this is defined
-in the _http-authentication-factory_ you created. When using the legacy
-_security_ subsystem, this depends on your login module and the type of
-authentication you want to configure.
+in the _http-authentication-factory_ you created.
 
 Example _web.xml_ with _BASIC_ Authentication
 
@@ -811,8 +893,7 @@ contained authorization header, otherwise it is assumed another method will send
 You can configure your application's _jboss-web.xml_ to specify the
 security domain you want to use for authentication. When using the
 _elytron_ subsystem, this is defined when you created the
-_application-security-domain_. When using the legacy _security_
-subsystem, this is the name of the legacy security domain.
+_application-security-domain_.
 
 Example _jboss-web.xml_
 
@@ -839,19 +920,6 @@ subsystem will apply to *ALL* applications. If _default-security-domain_
 is set and an application specifies a security domain in a
 _jboss-web.xml_ file, the configuration in _jboss-web.xml_ will override
 the _default-security-domain_ in the _undertow_ subsystem.
-
-[[using-elytron-and-legacy-security-subsystems-in-parallel]]
-==== Using Elytron and Legacy Security Subsystems in Parallel
-
-You can define authentication in both the _elytron_ and legacy
-_security_ subsystems and use them in parallel. If you use both
-_jboss-web.xml_ and _default-security-domain_ in the _undertow_
-subsystem, WildFly will first try to match the configured security
-domain in the _elytron_ subsystem. If a match is not found, then WildFly
-will attempt to match the security domain with one configured in the
-legacy _security_ subsystem. If the _elytron_ and legacy _security_
-subsystem each have a security domain with the same name, the _elytron_
-security domain is used.
 
 [[override-an-applications-authentication-configuration]]
 === Override an Application's Authentication Configuration
@@ -1113,7 +1181,7 @@ SSL/TLS for deployed applications. Example of wizard usage:
 
 [source,java,options="nowrap"]
 ----
-security enable-ssl-http-server --interactive
+security enable-ssl-http-server --interactive --override-ssl-context
 Please provide required pieces of information to enable SSL:
 Key-store file name (default default-server.keystore): keystore.jks
 Password (blank generated): secret
@@ -1172,8 +1240,187 @@ generate an example key pair:
 
 [source,options="nowrap"]
 ----
-/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=1024,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
+/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=2048,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
 /subsystem=elytron/key-store=httpsKS:store()
+----
+
+[[list-all-aliases-recursively-in-a-key-store.]]
+==== List all aliases (recursively) in a key store.
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/key-store=httpsKS:read-aliases(recursive=true,verbose=true)
+{
+    "outcome" => "success",
+    "result" => {
+        "localhost" => {
+            "alias" => "localhost",
+            "entry-type" => "PrivateKeyEntry",
+            "creation-date" => "2019-05-27T08:29:42.093+0200",
+            "certificate-chain" => [{
+                "type" => "X.509",
+                "algorithm" => "DSA",
+                "format" => "X.509",
+                "public-key" => "30:82:03:42:30:82:02:35:06:07:2a:86:48:ce:38:04:01:30:82:02:28:02:82:01:01:00:8f:79:35:d9:b9:aa:e9:bf:ab:ed:88:7a:cf:49:51:b6:f3:2e:c5:9e:3b:af:37:18:e8:ea:c4:96:1f:3e:fd:36:06:e7:43:51:a9:c4:18:33:39:b8:09:e7:c
+2:ae:1c:53:9b:a7:47:5b:85:d0:11:ad:b8:b4:79:87:75:49:84:69:5c:ac:0e:8f:14:b3:36:08:28:a2:2f:fa:27:11:0a:3d:62:a9:93:45:34:09:a0:fe:69:6c:46:58:f8:4b:dd:20:81:9c:37:09:a0:10:57:b1:95:ad:cd:00:23:3d:ba:54:84:b6:29:1f:9d:64:8e:f8:83:44:86:77:97:9c
+:ec:04:b4:34:a6:ac:2e:75:e9:98:5d:e2:3d:b0:29:2f:c1:11:8c:9f:fa:9d:81:81:e7:33:8d:b7:92:b7:30:d7:b9:e3:49:59:2f:68:09:98:72:15:39:15:ea:3d:6b:8b:46:53:c6:33:45:8f:80:3b:32:a4:c2:e0:f2:72:90:25:6e:4e:3f:8a:3b:08:38:a1:c4:50:e4:e1:8c:1a:29:a3:7d:
+df:5e:a1:43:de:4b:66:ff:04:90:3e:d5:cf:16:23:e1:58:d4:87:c6:08:e9:7f:21:1c:d8:1d:ca:23:cb:6e:38:07:65:f8:22:e3:42:be:48:4c:05:76:39:39:60:1c:d6:67:02:1d:00:ba:f6:96:a6:85:78:f7:df:de:e7:fa:67:c9:77:c7:85:ef:32:b2:33:ba:e5:80:c0:bc:d5:69:5d:02:8
+2:01:00:16:a6:5c:58:20:48:50:70:4e:75:02:a3:97:57:04:0d:34:da:3a:34:78:c1:54:d4:e4:a5:c0:2d:24:2e:e0:4f:96:e6:1e:4b:d0:90:4a:bd:ac:8f:37:ee:b1:e0:9f:31:82:d2:3c:90:43:cb:64:2f:88:00:41:60:ed:f9:ca:09:b3:20:76:a7:9c:32:a6:27:f2:47:3e:91:87:9b:a2
+:c4:e7:44:bd:20:81:54:4c:b5:5b:80:2c:36:8d:1f:a8:3e:d4:89:e9:4e:0f:a0:68:8e:32:42:8a:5c:78:c4:78:c6:8d:05:27:b7:1c:9a:3a:bb:0b:0b:e1:2c:44:68:96:39:e7:d3:ce:74:db:10:1a:65:aa:2b:87:f6:4c:68:26:db:3e:c7:2f:4b:55:99:83:4b:b4:ed:b0:2f:7c:90:e9:a4:
+96:d3:a5:5d:53:5b:eb:fc:45:d4:f6:19:f6:3f:3d:ed:bb:87:39:25:c2:f2:24:e0:77:31:29:6d:a8:87:ec:1e:47:48:f8:7e:fb:5f:de:b7:54:84:31:6b:22:32:de:e5:53:dd:af:02:11:2b:0d:1f:02:da:30:97:32:24:fe:27:ae:da:8b:9d:4b:29:22:d9:ba:8b:e3:9e:d9:e1:03:a6:3c:5
+2:81:0b:c6:88:b7:e2:ed:43:16:e1:ef:17:db:de:03:82:01:05:00:02:82:01:00:78:a8:7a:44:d6:fd:07:8e:70:2b:f8:0b:32:2f:69:eb:71:54:8e:f2:29:93:84:11:f9:76:27:6f:e7:17:1e:d1:ff:2b:9a:99:51:3b:b6:ef:72:a1:41:f3:5a:19:91:40:2b:22:73:75:96:7e:75:68:f0:37
+:a9:2e:60:77:85:5a:d0:f7:30:60:e6:fc:ef:16:b6:6c:95:d8:0a:72:10:ab:42:6d:59:6b:89:d6:83:b6:fa:14:82:79:ef:b9:58:95:f7:e7:30:b9:0c:db:1e:db:12:de:8b:b9:67:b4:62:a0:fe:3f:f0:01:15:3f:02:4a:b4:a2:c5:66:12:06:d1:2b:f7:c1:ce:83:31:e5:4c:95:1a:57:a6:
+ec:6e:48:c7:00:84:fa:7e:90:b2:18:4e:35:32:4c:12:60:69:a8:3e:67:8e:9a:a3:6e:57:ca:90:b1:f2:09:43:2b:d2:7a:30:aa:3a:57:0a:58:fb:e8:c5:e6:ef:93:f1:46:5a:17:c4:4b:08:81:b3:f0:36:3e:61:5c:f6:f6:9d:23:93:d3:02:2b:14:96:77:d1:4a:2a:67:69:5e:0b:63:f9:7
+9:62:ba:34:61:b5:89:0c:62:25:f6:2b:58:2c:32:d1:89:a9:0b:d8:22:84:4a:bb:84:d1:87:39:0b:23:f4:b9:0a:dd:fc:a9",
+                "sha-1-digest" => "4d:a9:16:f9:6d:39:da:03:a1:f0:56:bd:58:46:6c:12:16:59:72:f0",
+                "sha-256-digest" => "73:ea:31:e9:9d:de:38:1a:66:06:e7:66:a6:7d:fe:5d:b6:95:02:58:4f:8e:e0:01:19:ee:90:96:e0:18:2d:a1",
+                "encoded" => "30:82:04:34:30:82:03:e2:a0:03:02:01:02:02:09:00:c9:97:3f:38:fe:50:17:2c:30:0b:06:09:60:86:48:01:65:03:04:03:02:30:1a:31:18:30:16:06:03:55:04:03:13:0f:77:77:77:2e:65:78:61:6d:70:6c:65:2e:63:6f:6d:30:22:18:0f:32:30:3
+1:39:30:35:32:37:30:36:32:39:34:32:5a:18:0f:32:30:31:39:30:38:32:35:30:36:32:39:34:32:5a:30:1a:31:18:30:16:06:03:55:04:03:13:0f:77:77:77:2e:65:78:61:6d:70:6c:65:2e:63:6f:6d:30:82:03:42:30:82:02:35:06:07:2a:86:48:ce:38:04:01:30:82:02:28:02:82:01
+:01:00:8f:79:35:d9:b9:aa:e9:bf:ab:ed:88:7a:cf:49:51:b6:f3:2e:c5:9e:3b:af:37:18:e8:ea:c4:96:1f:3e:fd:36:06:e7:43:51:a9:c4:18:33:39:b8:09:e7:c2:ae:1c:53:9b:a7:47:5b:85:d0:11:ad:b8:b4:79:87:75:49:84:69:5c:ac:0e:8f:14:b3:36:08:28:a2:2f:fa:27:11:0a:
+3d:62:a9:93:45:34:09:a0:fe:69:6c:46:58:f8:4b:dd:20:81:9c:37:09:a0:10:57:b1:95:ad:cd:00:23:3d:ba:54:84:b6:29:1f:9d:64:8e:f8:83:44:86:77:97:9c:ec:04:b4:34:a6:ac:2e:75:e9:98:5d:e2:3d:b0:29:2f:c1:11:8c:9f:fa:9d:81:81:e7:33:8d:b7:92:b7:30:d7:b9:e3:4
+9:59:2f:68:09:98:72:15:39:15:ea:3d:6b:8b:46:53:c6:33:45:8f:80:3b:32:a4:c2:e0:f2:72:90:25:6e:4e:3f:8a:3b:08:38:a1:c4:50:e4:e1:8c:1a:29:a3:7d:df:5e:a1:43:de:4b:66:ff:04:90:3e:d5:cf:16:23:e1:58:d4:87:c6:08:e9:7f:21:1c:d8:1d:ca:23:cb:6e:38:07:65:f8
+:22:e3:42:be:48:4c:05:76:39:39:60:1c:d6:67:02:1d:00:ba:f6:96:a6:85:78:f7:df:de:e7:fa:67:c9:77:c7:85:ef:32:b2:33:ba:e5:80:c0:bc:d5:69:5d:02:82:01:00:16:a6:5c:58:20:48:50:70:4e:75:02:a3:97:57:04:0d:34:da:3a:34:78:c1:54:d4:e4:a5:c0:2d:24:2e:e0:4f:
+96:e6:1e:4b:d0:90:4a:bd:ac:8f:37:ee:b1:e0:9f:31:82:d2:3c:90:43:cb:64:2f:88:00:41:60:ed:f9:ca:09:b3:20:76:a7:9c:32:a6:27:f2:47:3e:91:87:9b:a2:c4:e7:44:bd:20:81:54:4c:b5:5b:80:2c:36:8d:1f:a8:3e:d4:89:e9:4e:0f:a0:68:8e:32:42:8a:5c:78:c4:78:c6:8d:0
+5:27:b7:1c:9a:3a:bb:0b:0b:e1:2c:44:68:96:39:e7:d3:ce:74:db:10:1a:65:aa:2b:87:f6:4c:68:26:db:3e:c7:2f:4b:55:99:83:4b:b4:ed:b0:2f:7c:90:e9:a4:96:d3:a5:5d:53:5b:eb:fc:45:d4:f6:19:f6:3f:3d:ed:bb:87:39:25:c2:f2:24:e0:77:31:29:6d:a8:87:ec:1e:47:48:f8
+:7e:fb:5f:de:b7:54:84:31:6b:22:32:de:e5:53:dd:af:02:11:2b:0d:1f:02:da:30:97:32:24:fe:27:ae:da:8b:9d:4b:29:22:d9:ba:8b:e3:9e:d9:e1:03:a6:3c:52:81:0b:c6:88:b7:e2:ed:43:16:e1:ef:17:db:de:03:82:01:05:00:02:82:01:00:78:a8:7a:44:d6:fd:07:8e:70:2b:f8:
+0b:32:2f:69:eb:71:54:8e:f2:29:93:84:11:f9:76:27:6f:e7:17:1e:d1:ff:2b:9a:99:51:3b:b6:ef:72:a1:41:f3:5a:19:91:40:2b:22:73:75:96:7e:75:68:f0:37:a9:2e:60:77:85:5a:d0:f7:30:60:e6:fc:ef:16:b6:6c:95:d8:0a:72:10:ab:42:6d:59:6b:89:d6:83:b6:fa:14:82:79:e
+f:b9:58:95:f7:e7:30:b9:0c:db:1e:db:12:de:8b:b9:67:b4:62:a0:fe:3f:f0:01:15:3f:02:4a:b4:a2:c5:66:12:06:d1:2b:f7:c1:ce:83:31:e5:4c:95:1a:57:a6:ec:6e:48:c7:00:84:fa:7e:90:b2:18:4e:35:32:4c:12:60:69:a8:3e:67:8e:9a:a3:6e:57:ca:90:b1:f2:09:43:2b:d2:7a
+:30:aa:3a:57:0a:58:fb:e8:c5:e6:ef:93:f1:46:5a:17:c4:4b:08:81:b3:f0:36:3e:61:5c:f6:f6:9d:23:93:d3:02:2b:14:96:77:d1:4a:2a:67:69:5e:0b:63:f9:79:62:ba:34:61:b5:89:0c:62:25:f6:2b:58:2c:32:d1:89:a9:0b:d8:22:84:4a:bb:84:d1:87:39:0b:23:f4:b9:0a:dd:fc:
+a9:a3:21:30:1f:30:1d:06:03:55:1d:0e:04:16:04:14:5e:0d:77:0b:55:63:c1:20:8b:a1:a6:2c:eb:f6:dc:61:2b:7f:ec:74:30:0b:06:09:60:86:48:01:65:03:04:03:02:03:3f:00:30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:1
+6:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "subject" => "CN=localhost",
+                "issuer" => "CN=localhost",
+                "not-before" => "2019-05-27T08:29:42.000+0200",
+                "not-after" => "2019-08-25T08:29:42.000+0200",
+                "serial-number" => "c9:97:3f:38:fe:50:17:2c",
+                "signature-algorithm" => "SHA256withDSA",
+                "signature" => "30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:16:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "version" => "v3"
+            }]
+        },
+        "localhost2" => {...}
+    }
+}
+----
+
+[[list-all-aliases-recursively-no-keys-in-a-key-store.]]
+==== List all aliases (recursively, non-verbose) in a key store.
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/key-store=httpsKS:read-aliases(recursive=true, verbose=false)
+{
+    "outcome" => "success",
+    "result" => {
+        "localhost" => {
+            "alias" => "localhost",
+            "entry-type" => "PrivateKeyEntry",
+            "creation-date" => "2019-05-27T08:29:42.093+0200",
+            "certificate-chain" => [{
+                "type" => "X.509",
+                "algorithm" => "DSA",
+                "format" => "X.509",
+                "sha-1-digest" => "4d:a9:16:f9:6d:39:da:03:a1:f0:56:bd:58:46:6c:12:16:59:72:f0",
+                "sha-256-digest" => "73:ea:31:e9:9d:de:38:1a:66:06:e7:66:a6:7d:fe:5d:b6:95:02:58:4f:8e:e0:01:19:ee:90:96:e0:18:2d:a1",
+                "subject" => "CN=localhost",
+                "issuer" => "CN=localhost",
+                "not-before" => "2019-05-27T08:29:42.000+0200",
+                "not-after" => "2019-08-25T08:29:42.000+0200",
+                "serial-number" => "c9:97:3f:38:fe:50:17:2c",
+                "signature-algorithm" => "SHA256withDSA",
+                "signature" => "30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:16:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "version" => "v3"
+            }]
+        },
+        "localhost2" => {...}
+    }
+}
+----
+
+[[read-alias-in-a-key-store.]]
+==== Read an alias in a key store.
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/key-store=httpsKS:read-alias(name="localhost")
+{
+    "outcome" => "success",
+    "result" => {
+            "alias" => "localhost",
+            "entry-type" => "PrivateKeyEntry",
+            "creation-date" => "2019-05-27T08:29:42.093+0200",
+            "certificate-chain" => [{
+                "type" => "X.509",
+                "algorithm" => "DSA",
+                "format" => "X.509",
+                "public-key" => "30:82:03:42:30:82:02:35:06:07:2a:86:48:ce:38:04:01:30:82:02:28:02:82:01:01:00:8f:79:35:d9:b9:aa:e9:bf:ab:ed:88:7a:cf:49:51:b6:f3:2e:c5:9e:3b:af:37:18:e8:ea:c4:96:1f:3e:fd:36:06:e7:43:51:a9:c4:18:33:39:b8:09:e7:c
+2:ae:1c:53:9b:a7:47:5b:85:d0:11:ad:b8:b4:79:87:75:49:84:69:5c:ac:0e:8f:14:b3:36:08:28:a2:2f:fa:27:11:0a:3d:62:a9:93:45:34:09:a0:fe:69:6c:46:58:f8:4b:dd:20:81:9c:37:09:a0:10:57:b1:95:ad:cd:00:23:3d:ba:54:84:b6:29:1f:9d:64:8e:f8:83:44:86:77:97:9c
+:ec:04:b4:34:a6:ac:2e:75:e9:98:5d:e2:3d:b0:29:2f:c1:11:8c:9f:fa:9d:81:81:e7:33:8d:b7:92:b7:30:d7:b9:e3:49:59:2f:68:09:98:72:15:39:15:ea:3d:6b:8b:46:53:c6:33:45:8f:80:3b:32:a4:c2:e0:f2:72:90:25:6e:4e:3f:8a:3b:08:38:a1:c4:50:e4:e1:8c:1a:29:a3:7d:
+df:5e:a1:43:de:4b:66:ff:04:90:3e:d5:cf:16:23:e1:58:d4:87:c6:08:e9:7f:21:1c:d8:1d:ca:23:cb:6e:38:07:65:f8:22:e3:42:be:48:4c:05:76:39:39:60:1c:d6:67:02:1d:00:ba:f6:96:a6:85:78:f7:df:de:e7:fa:67:c9:77:c7:85:ef:32:b2:33:ba:e5:80:c0:bc:d5:69:5d:02:8
+2:01:00:16:a6:5c:58:20:48:50:70:4e:75:02:a3:97:57:04:0d:34:da:3a:34:78:c1:54:d4:e4:a5:c0:2d:24:2e:e0:4f:96:e6:1e:4b:d0:90:4a:bd:ac:8f:37:ee:b1:e0:9f:31:82:d2:3c:90:43:cb:64:2f:88:00:41:60:ed:f9:ca:09:b3:20:76:a7:9c:32:a6:27:f2:47:3e:91:87:9b:a2
+:c4:e7:44:bd:20:81:54:4c:b5:5b:80:2c:36:8d:1f:a8:3e:d4:89:e9:4e:0f:a0:68:8e:32:42:8a:5c:78:c4:78:c6:8d:05:27:b7:1c:9a:3a:bb:0b:0b:e1:2c:44:68:96:39:e7:d3:ce:74:db:10:1a:65:aa:2b:87:f6:4c:68:26:db:3e:c7:2f:4b:55:99:83:4b:b4:ed:b0:2f:7c:90:e9:a4:
+96:d3:a5:5d:53:5b:eb:fc:45:d4:f6:19:f6:3f:3d:ed:bb:87:39:25:c2:f2:24:e0:77:31:29:6d:a8:87:ec:1e:47:48:f8:7e:fb:5f:de:b7:54:84:31:6b:22:32:de:e5:53:dd:af:02:11:2b:0d:1f:02:da:30:97:32:24:fe:27:ae:da:8b:9d:4b:29:22:d9:ba:8b:e3:9e:d9:e1:03:a6:3c:5
+2:81:0b:c6:88:b7:e2:ed:43:16:e1:ef:17:db:de:03:82:01:05:00:02:82:01:00:78:a8:7a:44:d6:fd:07:8e:70:2b:f8:0b:32:2f:69:eb:71:54:8e:f2:29:93:84:11:f9:76:27:6f:e7:17:1e:d1:ff:2b:9a:99:51:3b:b6:ef:72:a1:41:f3:5a:19:91:40:2b:22:73:75:96:7e:75:68:f0:37
+:a9:2e:60:77:85:5a:d0:f7:30:60:e6:fc:ef:16:b6:6c:95:d8:0a:72:10:ab:42:6d:59:6b:89:d6:83:b6:fa:14:82:79:ef:b9:58:95:f7:e7:30:b9:0c:db:1e:db:12:de:8b:b9:67:b4:62:a0:fe:3f:f0:01:15:3f:02:4a:b4:a2:c5:66:12:06:d1:2b:f7:c1:ce:83:31:e5:4c:95:1a:57:a6:
+ec:6e:48:c7:00:84:fa:7e:90:b2:18:4e:35:32:4c:12:60:69:a8:3e:67:8e:9a:a3:6e:57:ca:90:b1:f2:09:43:2b:d2:7a:30:aa:3a:57:0a:58:fb:e8:c5:e6:ef:93:f1:46:5a:17:c4:4b:08:81:b3:f0:36:3e:61:5c:f6:f6:9d:23:93:d3:02:2b:14:96:77:d1:4a:2a:67:69:5e:0b:63:f9:7
+9:62:ba:34:61:b5:89:0c:62:25:f6:2b:58:2c:32:d1:89:a9:0b:d8:22:84:4a:bb:84:d1:87:39:0b:23:f4:b9:0a:dd:fc:a9",
+                "sha-1-digest" => "4d:a9:16:f9:6d:39:da:03:a1:f0:56:bd:58:46:6c:12:16:59:72:f0",
+                "sha-256-digest" => "73:ea:31:e9:9d:de:38:1a:66:06:e7:66:a6:7d:fe:5d:b6:95:02:58:4f:8e:e0:01:19:ee:90:96:e0:18:2d:a1",
+                "encoded" => "30:82:04:34:30:82:03:e2:a0:03:02:01:02:02:09:00:c9:97:3f:38:fe:50:17:2c:30:0b:06:09:60:86:48:01:65:03:04:03:02:30:1a:31:18:30:16:06:03:55:04:03:13:0f:77:77:77:2e:65:78:61:6d:70:6c:65:2e:63:6f:6d:30:22:18:0f:32:30:3
+1:39:30:35:32:37:30:36:32:39:34:32:5a:18:0f:32:30:31:39:30:38:32:35:30:36:32:39:34:32:5a:30:1a:31:18:30:16:06:03:55:04:03:13:0f:77:77:77:2e:65:78:61:6d:70:6c:65:2e:63:6f:6d:30:82:03:42:30:82:02:35:06:07:2a:86:48:ce:38:04:01:30:82:02:28:02:82:01
+:01:00:8f:79:35:d9:b9:aa:e9:bf:ab:ed:88:7a:cf:49:51:b6:f3:2e:c5:9e:3b:af:37:18:e8:ea:c4:96:1f:3e:fd:36:06:e7:43:51:a9:c4:18:33:39:b8:09:e7:c2:ae:1c:53:9b:a7:47:5b:85:d0:11:ad:b8:b4:79:87:75:49:84:69:5c:ac:0e:8f:14:b3:36:08:28:a2:2f:fa:27:11:0a:
+3d:62:a9:93:45:34:09:a0:fe:69:6c:46:58:f8:4b:dd:20:81:9c:37:09:a0:10:57:b1:95:ad:cd:00:23:3d:ba:54:84:b6:29:1f:9d:64:8e:f8:83:44:86:77:97:9c:ec:04:b4:34:a6:ac:2e:75:e9:98:5d:e2:3d:b0:29:2f:c1:11:8c:9f:fa:9d:81:81:e7:33:8d:b7:92:b7:30:d7:b9:e3:4
+9:59:2f:68:09:98:72:15:39:15:ea:3d:6b:8b:46:53:c6:33:45:8f:80:3b:32:a4:c2:e0:f2:72:90:25:6e:4e:3f:8a:3b:08:38:a1:c4:50:e4:e1:8c:1a:29:a3:7d:df:5e:a1:43:de:4b:66:ff:04:90:3e:d5:cf:16:23:e1:58:d4:87:c6:08:e9:7f:21:1c:d8:1d:ca:23:cb:6e:38:07:65:f8
+:22:e3:42:be:48:4c:05:76:39:39:60:1c:d6:67:02:1d:00:ba:f6:96:a6:85:78:f7:df:de:e7:fa:67:c9:77:c7:85:ef:32:b2:33:ba:e5:80:c0:bc:d5:69:5d:02:82:01:00:16:a6:5c:58:20:48:50:70:4e:75:02:a3:97:57:04:0d:34:da:3a:34:78:c1:54:d4:e4:a5:c0:2d:24:2e:e0:4f:
+96:e6:1e:4b:d0:90:4a:bd:ac:8f:37:ee:b1:e0:9f:31:82:d2:3c:90:43:cb:64:2f:88:00:41:60:ed:f9:ca:09:b3:20:76:a7:9c:32:a6:27:f2:47:3e:91:87:9b:a2:c4:e7:44:bd:20:81:54:4c:b5:5b:80:2c:36:8d:1f:a8:3e:d4:89:e9:4e:0f:a0:68:8e:32:42:8a:5c:78:c4:78:c6:8d:0
+5:27:b7:1c:9a:3a:bb:0b:0b:e1:2c:44:68:96:39:e7:d3:ce:74:db:10:1a:65:aa:2b:87:f6:4c:68:26:db:3e:c7:2f:4b:55:99:83:4b:b4:ed:b0:2f:7c:90:e9:a4:96:d3:a5:5d:53:5b:eb:fc:45:d4:f6:19:f6:3f:3d:ed:bb:87:39:25:c2:f2:24:e0:77:31:29:6d:a8:87:ec:1e:47:48:f8
+:7e:fb:5f:de:b7:54:84:31:6b:22:32:de:e5:53:dd:af:02:11:2b:0d:1f:02:da:30:97:32:24:fe:27:ae:da:8b:9d:4b:29:22:d9:ba:8b:e3:9e:d9:e1:03:a6:3c:52:81:0b:c6:88:b7:e2:ed:43:16:e1:ef:17:db:de:03:82:01:05:00:02:82:01:00:78:a8:7a:44:d6:fd:07:8e:70:2b:f8:
+0b:32:2f:69:eb:71:54:8e:f2:29:93:84:11:f9:76:27:6f:e7:17:1e:d1:ff:2b:9a:99:51:3b:b6:ef:72:a1:41:f3:5a:19:91:40:2b:22:73:75:96:7e:75:68:f0:37:a9:2e:60:77:85:5a:d0:f7:30:60:e6:fc:ef:16:b6:6c:95:d8:0a:72:10:ab:42:6d:59:6b:89:d6:83:b6:fa:14:82:79:e
+f:b9:58:95:f7:e7:30:b9:0c:db:1e:db:12:de:8b:b9:67:b4:62:a0:fe:3f:f0:01:15:3f:02:4a:b4:a2:c5:66:12:06:d1:2b:f7:c1:ce:83:31:e5:4c:95:1a:57:a6:ec:6e:48:c7:00:84:fa:7e:90:b2:18:4e:35:32:4c:12:60:69:a8:3e:67:8e:9a:a3:6e:57:ca:90:b1:f2:09:43:2b:d2:7a
+:30:aa:3a:57:0a:58:fb:e8:c5:e6:ef:93:f1:46:5a:17:c4:4b:08:81:b3:f0:36:3e:61:5c:f6:f6:9d:23:93:d3:02:2b:14:96:77:d1:4a:2a:67:69:5e:0b:63:f9:79:62:ba:34:61:b5:89:0c:62:25:f6:2b:58:2c:32:d1:89:a9:0b:d8:22:84:4a:bb:84:d1:87:39:0b:23:f4:b9:0a:dd:fc:
+a9:a3:21:30:1f:30:1d:06:03:55:1d:0e:04:16:04:14:5e:0d:77:0b:55:63:c1:20:8b:a1:a6:2c:eb:f6:dc:61:2b:7f:ec:74:30:0b:06:09:60:86:48:01:65:03:04:03:02:03:3f:00:30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:1
+6:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "subject" => "CN=localhost",
+                "issuer" => "CN=localhost",
+                "not-before" => "2019-05-27T08:29:42.000+0200",
+                "not-after" => "2019-08-25T08:29:42.000+0200",
+                "serial-number" => "c9:97:3f:38:fe:50:17:2c",
+                "signature-algorithm" => "SHA256withDSA",
+                "signature" => "30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:16:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "version" => "v3"
+        }]
+    }
+}
+----
+
+[[read-alias-in-a-key-store-non-verbose.]]
+==== Read an alias in a key store (non-verbose).
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/key-store=httpsKS:read-alias(name="localhost",verbose=false)
+{
+    "outcome" => "success",
+    "result" => {
+            "alias" => "localhost",
+            "entry-type" => "PrivateKeyEntry",
+            "creation-date" => "2019-05-27T08:29:42.093+0200",
+            "certificate-chain" => [{
+                "type" => "X.509",
+                "algorithm" => "DSA",
+                "format" => "X.509",
+                "sha-256-digest" => "73:ea:31:e9:9d:de:38:1a:66:06:e7:66:a6:7d:fe:5d:b6:95:02:58:4f:8e:e0:01:19:ee:90:96:e0:18:2d:a1",
+                "subject" => "CN=localhost",
+                "issuer" => "CN=localhost",
+                "not-before" => "2019-05-27T08:29:42.000+0200",
+                "not-after" => "2019-08-25T08:29:42.000+0200",
+                "serial-number" => "c9:97:3f:38:fe:50:17:2c",
+                "signature-algorithm" => "SHA256withDSA",
+                "signature" => "30:3c:02:1c:4f:1a:e9:ea:c2:0a:23:21:91:e8:aa:58:ce:df:b8:a1:ff:02:90:cb:33:b1:99:b2:ca:16:f6:5a:02:1c:38:2a:19:17:fa:c3:a1:1a:dd:bb:fe:96:e9:3a:6d:fa:e9:a6:63:4c:9f:fb:db:ec:dc:49:1e:35",
+                "version" => "v3"
+        }]
+    }
+}
 ----
 
 [[configure-a-key-manager-in-that-references-your-key-store]]
@@ -1220,10 +1467,7 @@ between those, you have to use batch operation:
 
 [source,options="nowrap"]
 ----
-batch
-/subsystem=undertow/server=default-server/https-listener=https:undefine-attribute(name=security-realm)
 /subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=ssl-context,value=httpsSSC)
-run-batch
 ----
 
 [[reload-the-server]]
@@ -1243,7 +1487,7 @@ First, obtain or generate your client keystore.
 
 [source,options="nowrap"]
 ----
-$ keytool -genkeypair -alias client -keyalg RSA -keysize 1024 -validity 365 -keystore client.keystore.jks -dname "CN=client" -keypass secret -storepass secret
+$ keytool -genkeypair -alias client -keyalg RSA -keysize 2048 -validity 365 -keystore client.keystore.jks -dname "CN=client" -keypass secret -storepass secret
 ----
 
 Export the client certificate:
@@ -1263,7 +1507,7 @@ SSL/TLS for the deployed applications. Example of wizard usage:
 
 [source,java,options="nowrap"]
 ----
-security enable-ssl-http-server --interactive
+security enable-ssl-http-server --interactive --override-ssl-context
 Please provide required pieces of information to enable SSL:
 Key-store file name (default default-server.keystore): server.keystore.jks
 Password (blank generated): secret
@@ -1320,7 +1564,7 @@ Create a server key-store:
 [source,options="nowrap"]
 ----
 /subsystem=elytron/key-store=twoWayKS:add(path=/path/to/server.keystore.jks,credential-reference={clear-text=secret},type=JKS)
-/subsystem=elytron/key-store=twoWayKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=1024,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
+/subsystem=elytron/key-store=twoWayKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=2048,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
 /subsystem=elytron/key-store=twoWayKS:store()
 ----
 
@@ -1454,6 +1698,13 @@ Two-Way HTTPS is now enabled for applications.
 
 You can configure your trust-manager to use certificate-revocation-list (CRL) to check revocation status of obtained certificates.
 
+The supported attributes for a certificate-revocation-list include:
+
+* path: The path to the configuration file that is used to initialize the certificate revocation list.
+* relative-to: The base path of the certificate revocation list file.
+* maximum-cert-path: The maximum number of non-self-issued intermediate certificates that can exist in a certification path.
+The default value is 5. (Deprecated. Use maximum-cert-path in trust-manager).
+
 [source,options="nowrap"]
 ----
 /subsystem=elytron/trust-manager=twoWayTM:write-attribute(name=certificate-revocation-list, value={})
@@ -1470,6 +1721,21 @@ This will use CRLs obtained from distribution points referenced in your certific
 ----
 /subsystem=elytron/trust-manager=twoWayTM:write-attribute(name=certificate-revocation-list.path, value=intermediate.crl.pem)
 ----
+
+===== Configure multiple certificate revocation lists
+
+Alternatively, you can configure multiple certificate revocation lists in your trust-manager using
+the certificate-revocation-lists attribute as follows:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/trust-manager=twoWayTM:write-attribute(name=certificate-revocation-lists, value=[{path="PATH/TO/CRL"}, {path="PATH/TO/OTHER/CRL"}])
+----
+
+The supported attributes for certificate-revocation-lists include a list of certificate-revocation-list objects containing:
+
+* path: The path to the configuration file that is used to initialize the certificate revocation list.
+* relative-to: The base path of the certificate revocation list file.
 
 [[configure-ocsp-certificate-revocation]]
 ==== Configure OCSP certificate revocation:
@@ -1594,7 +1860,7 @@ generate an example key pair:
 
 [source,options="nowrap"]
 ----
-/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=1024,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
+/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=2048,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
 /subsystem=elytron/key-store=httpsKS:store()
 ----
 
@@ -1638,7 +1904,7 @@ First, obtain or generate your client keystore.
 
 [source,options="nowrap"]
 ----
-$ keytool -genkeypair -alias client -keyalg RSA -keysize 1024 -validity 365 -keystore client.keystore.jks -dname "CN=client" -keypass secret -storepass secret
+$ keytool -genkeypair -alias client -keyalg RSA -keysize 2048 -validity 365 -keystore client.keystore.jks -dname "CN=client" -keypass secret -storepass secret
 ----
 
 Export your client certificate.
@@ -1716,7 +1982,7 @@ Configure a key-store.
 ----
 /subsystem=elytron/key-store=twoWayKS:add(path=server.keystore.jks,relative-to=jboss.server.config.dir,credential-reference={clear-text=secret},type=JKS)
 
-/subsystem=elytron/key-store=twoWayKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=1024,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
+/subsystem=elytron/key-store=twoWayKS:generate-key-pair(alias=localhost,algorithm=RSA,key-size=2048,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=localhost")
 
 /subsystem=elytron/key-store=twoWayKS:store()
 ----
@@ -1817,7 +2083,7 @@ self-signed certificate will be added to the KeyStore.
 
 [source,options="nowrap"]
 ----
-/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=example,algorithm=RSA,key-size=1024,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=www.example.com")
+/subsystem=elytron/key-store=httpsKS:generate-key-pair(alias=example,algorithm=RSA,key-size=2048,validity=365,credential-reference={clear-text=secret},distinguished-name="CN=www.example.com")
 ----
 
 [[generate-certificate-signing-request]]
@@ -1906,7 +2172,7 @@ obtains a signed certificate from Let's Encrypt, and stores it in the KeyStore.
 
 [source,options="nowrap"]
 ----
-/subsystem=elytron/key-store=httpsKS:obtain-certificate(alias=server,domain-names=[www.example.org],certificate-authority-account=myLEAccount,agree-to-terms-of-service=true,algorithm=RSA,key-size=1024,credential-reference={clear-text=secret})
+/subsystem=elytron/key-store=httpsKS:obtain-certificate(alias=server,domain-names=[www.example.org],certificate-authority-account=myLEAccount,agree-to-terms-of-service=true,algorithm=RSA,key-size=2048,credential-reference={clear-text=secret})
 ----
 
 [[revoke-certificate]]
@@ -2209,6 +2475,7 @@ use custom implementations of the following components:
 When creating custom implementations of Elytron components, they must
 present the appropriate capabilities and requirements.
 
+[[configuring-a-server-sslcontext]]
 === Configuring a server SSLContext
 
 Using the Elytron subsystem, it is possible to configure an `SSLContext` for use on the server side of a connection.
@@ -2231,7 +2498,12 @@ by this SSLContext. The format of this attribute is described in detail in
 http://wildfly-security.github.io/wildfly-elytron/master/org/wildfly/security/ssl/CipherSuiteSelector.html#fromString-java.lang.String-[org.wildfly.security.ssl.CipherSuiteSelector.fromString(selector)].
 The default value is `DEFAULT`, which corresponds to all known cipher suites that do not have NULL encryption and
 excludes any cipher suites that have no authentication.
-protocols:: _(Optional)_ A space separated list of the protocols to be supported by this `SSLContext`.
+cipher-suite-names:: _(Optional)_ The enabled cipher suites for TLSv1.3. The format of this attribute is a simple colon
+(":") separated list of TLSv1.3 cipher suite names (e.g., `TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256`).
+This attribute must be specified in order for TLSv1.3 to be enabled.
+protocols:: _(Optional)_ A space separated list of the protocols to be supported by this `SSLContext`. The default value
+is `TLSv1 TLSv1.1 TLSv1.2 TLSv1.3`. Note that the TLSv1.3 protocol will only be usable when running against JDK 11 or
+higher.
 want-client-auth:: _(Optional)_ To request (but not to require) a client certificate on SSL handshake. If a
 `security-domain` is configured and supports X509 evidence, this will be set to `true` automatically. Ignored when
 `need-client-auth` is set. The default value is `false`.
@@ -2257,7 +2529,7 @@ post-realm-principal-transformer:: _(Optional)_ A principal transformer to apply
 final-principal-transformer:: _(Optional)_ A final principal transformer to apply for this mechanism realm.
 realm-mapper:: _(Optional)_ The realm mapper to be used for SSL authentication.
 
-
+[[configuring-a-client-sslcontext]]
 === Configuring a client SSLContext
 
 Using the Elytron subsystem, it is possible to configure an `SSLContext` for use on the client side of a connection.
@@ -2278,10 +2550,64 @@ by this SSLContext. The format of this attribute is described in detail in
 http://wildfly-security.github.io/wildfly-elytron/master/org/wildfly/security/ssl/CipherSuiteSelector.html#fromString-java.lang.String-[org.wildfly.security.ssl.CipherSuiteSelector.fromString(selector)].
 The default value is `DEFAULT`, which corresponds to all known cipher suites that do not have NULL encryption and
 excludes any cipher suites that have no authentication.
-protocols:: _(Optional)_ A space separated list of the protocols to be supported by this `SSLContext`.
+cipher-suite-names:: _(Optional)_ The enabled cipher suites for TLSv1.3. The format of this attribute is a simple colon
+(":") separated list of TLSv1.3 cipher suite names (e.g., `TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256`).
+This attribute must be specified in order for TLSv1.3 to be enabled.
+protocols:: _(Optional)_ A space separated list of the protocols to be supported by this `SSLContext`. The default value
+is `TLSv1 TLSv1.1 TLSv1.2 TLSv1.3`. Note that the TLSv1.3 protocol will only be usable when running against JDK 11 or higher.
 provider-name:: _(Optional)_ The name of the provider to use. If not specified, all providers from `providers` will be
 passed to the `SSLContext`.
 providers:: _(Optional)_ The name of the providers to obtain the `Provider[]` to use to load the `SSLContext`.
+
+*WARNING* It is possible to use TLSv1.3 with WildFly when running against JDK 11 or higher. However, if JDK 11
+is in use and if there is a very large number of TLSv1.3 requests being made, it is possible that a drop in
+performance (throughput and response time) will occur compared to TLSv1.2. Upgrading to newer JDK versions
+should improve performance. For this reason, the use of TLSv1.3 is currently disabled by default. TLSv1.3 can
+be enabled by configuring the new `cipher-suite-names` attribute in the SSL Context resource definition in the
+Elytron subsystem as described in the previous two sections. It is recommended to test for performance
+degradation prior to enabling TLSv1.3 in a production environment. See https://issues.redhat.com/browse/WFWIP-160[WFWIP-160]
+for more details.
+
+*Note:* When using TLSv1.3, it is important to keep in mind that session IDs have become essentially obsolete.
+This means that the session ID can no longer reliably be used to test if a session was resumed. Instead,
+creation time can be used to test if a session was resumed. Currently, clients need to read from the server after
+the first handshake in order to receive the `NewSessionTicket` that can be used for resumption. However, this may
+change once https://bugs.openjdk.java.net/browse/JDK-8209953[JDK-8209953] is resolved.
+
+
+=== Configuring SSLv2Hello
+
+Older JDK versions use ``SSLv2Hello`` during the initial SSL handshake message
+where the SSL/TLS version that will be used for the rest of the communication is
+negotiated.
+
+Using ``SSLv2Hello`` is discouraged, therefore newer JDK versions disable this protocol
+on the client by default. However, they do provide the ability to re-enable it if necessary.
+
+``SSLv2Hello`` can be configured as a supported protocol for the server SSL context as follows:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/server-ssl-context=server-context:add(protocols=[SSLv2Hello,TLSv1], ...)
+----
+
+Similarly, it can be configured as a supported protocol for the client SSL context as follows:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/client-ssl-context=client-context:add(protocols=[SSLv2Hello,TLSv1], ...)
+----
+
+==== WARNING:
+
+* The use of ``SSLv2Hello`` is strongly discouraged.
+
+* ``SSLv2Hello`` cannot be configured by itself, as its purpose is to determine
+which encryption protocols are supported by the server it connects to. It always
+needs to be configured along side another encryption protocol.
+
+* Additionally, IBM JDK does not support specifying ``SSLv2Hello`` in its client, although a
+server side connection always accepts this protocol.
 
 
 === Default SSLContext
@@ -2327,7 +2653,7 @@ As existing services and deployments could have cached the default `SSLContext` 
 
 Using the WildFly Elytron subsystem it is possible to configure an SSL context which supports SNI.  By supporting SNI if an SNI host name is available whilst the SSLSession is being negotiated a host specific SSLContext will be selected.  If no host specific SSLContext is identified either because no host name was received or because there is no match a default SSLContext will be used instead.  By identifying a host specific SSLContext it means that a certificate appropriate for that host can be used.
 
-The following command demonstrates how an SNI aware SSLContext can be added: - 
+The following command demonstrates how an SNI aware SSLContext can be added: -
 
 [source,options="nowrap"]
 ----
@@ -2358,76 +2684,10 @@ The resulting resource looks like: -
 
 Within the `host-context-map` it is also possible to define wildcard mappings such as `&#42;` and `&#42;.wildfly.org`.
 
-[[configuring-the-elytron-and-security-subsystems]]
-== Configuring the Elytron and Security Subsystems
+[[use-the-elytron-subsystem]]
+=== Use the Elytron Subsystem
 
-[[enable-and-disable-the-elytron-subsystem]]
-=== Enable and Disable the Elytron Subsystem
-
-[[to-add-the-elytron-extension-required-for-the-elytron-subsystem]]
-==== To add the elytron extension required for the elytron subsystem:
-
-[source,options="nowrap"]
-----
-/extension=org.wildfly.extension.elytron:add()
-----
-
-[[to-enable-the-elytron-subsystem-in-wildfly]]
-==== To enable the Elytron subsystem in WildFly:
-
-[source,options="nowrap"]
-----
-/subsystem=elytron:add
- 
-reload
-----
-
-[[to-disable-the-elytron-subsystem-in-wildfly]]
-==== To disable the Elytron subsystem in WildFly:
-
-[source,options="nowrap"]
-----
-/subsystem=elytron:remove
- 
-reload
-----
-
-*IMPORTANT:* Other subsystems within WildFly may have dependencies on
-the _elytron_ subsystem. If these dependencies are not resolved before
-disabling it, you will see errors when starting WildFly.
-
-[[enable-and-disable-the-security-subsystem]]
-=== Enable and Disable the Security Subsystem
-
-[[to-disable-the-security-subsystem-in-wildfly]]
-==== To disable the security subsystem in WildFly:
-
-[source,options="nowrap"]
-----
-/subsystem=security:remove
- 
-reload
-----
-
-*IMPORTANT:* Other subsystems within WildFly may have dependencies on
-the _security_ subsystem. If these dependencies are not resolved before
-disabling it, you will see errors when starting WildFly.
-
-[[to-enable-the-security-subsystem-in-wildfly]]
-==== To enable the security subsystem in WildFly:
-
-[source,options="nowrap"]
-----
-/subsystem=security:add
- 
-reload
-----
-
-[[use-the-elytron-and-security-subsystems-in-parallel]]
-=== Use the Elytron and Security Subsystems in Parallel
-
-By default the _elytron_ and _security_ subsystems will run in parallel
-if both are enabled. For authentication in applications, you can use the
+For authentication in applications, you can use the
 _application-security-domain_ property in the _undertow_ subsystem to
 configure a security domain in the _elytron_ subsystem.
 
@@ -2439,34 +2699,11 @@ configure a security domain in the _elytron_ subsystem.
 *NOTE:* This must match the _security-domain_ configured in the
 _jboss-web.xml_ of your application.
 
-If the _application-security-domain_ is not set, WildFly will look for a
-security domain configured in the _security_ subsystem that matches the
-_security-domain_ configured in the _jboss-web.xml_ of your application.
-
-For enabling HTTPS using a legacy security realm, you can use the
-_security-realm_ attribute in the _https-listener_ section of the
-_undertow_ subsystem:
+For enabling HTTPS using _elytron_ you need to set the _ssl-context_ attribute.
 
 [source,options="nowrap"]
 ----
-/subsystem=undertow/server=default-server/https-listener=https:read-attribute(name=security-realm)
-{
-    "outcome" => "success",
-    "result" => "ApplicationRealm"
-}
-----
-
-For enabling HTTPS using _elytron_, you need to undefine the
-_security-realm_ attribute and set the _ssl-context_ attribute. As there
-has to be always configured either _ssl-context_ or _security-realm_ you
-have to use batch operation when changing between those:
-
-[source,options="nowrap"]
-----
-batch
-/subsystem=undertow/server=default-server/https-listener=https:undefine-attribute(name=security-realm)
 /subsystem=undertow/server=default-server/https-listener=https:write-attribute(name=ssl-context,value=httpsSSC)
-run-batch
 ----
 
 [[creating-elytron-subsystem-components]]
@@ -2498,13 +2735,91 @@ sections.
 A role decoder converts attributes from the identity provided by the
 security realm into roles. Role decoders are also specifically typed
 based on their functionality, for example _empty-role-decoder_,
-_simple-role-decoder_, and _custom-role-decoder_.
+_simple-role-decoder_, _custom-role-decoder_, and _aggregate-role-decoder_.
 
 Adding a role decoder takes the general form:
 
 [source,options="nowrap"]
 ----
 /subsystem=elytron/ROLE-DECODER-TYPE=roleDeoderName:add(....)
+----
+
+==== Create an Elytron Role Decoder that makes use of the IP Address of the Remote Client
+
+A role decoder that is configured on a security realm assigns roles to
+an identity based on attributes provided by the security realm. It is
+also possible to configure a role decoder that makes use of the IP
+address of the remote client when determining the roles associated
+with an identity. As an example, we might want to make use of the IP
+address of the remote client in order to assign a user a particular
+role when establishing a connection to the server from a corporate
+network and a different role when establishing a connection to the
+server from a different network.
+
+Adding a role decoder that makes use of the remote client's IP
+address takes the general form:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/source-address-role-decoder=roleDecoderName:add(source-address="...", pattern="...", roles=[...])
+----
+
+In particular, a _source-address-role-decoder_ has the following attributes:
+
+* _source-address_ - The IP address of the remote client.
+
+* _pattern_ - A regular expression that specifies the IP address to match.
+
+* _roles_ - The list of roles to assign if the source IP address matches the given address.
+
+Only one of _source-address_ and _pattern_ should be specified.
+
+For example, the following _source-address-role-decoder_ could be configured to specify
+that a user should be assigned the "Administrator" role when establishing a connection
+to the server from the 10.10.10.10 IP address:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/source-address-role-decoder=decoder1:add(source-address="10.10.10.10", roles=["Administrator"])
+----
+
+Once a _source-address-role-decoder_ has been configured, it can be referenced from a _security-domain_:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/security-domain=exampleSD:add(..., role-decoder=decoder1)
+----
+
+It is also possible to assign permissions to an identity based on its roles using a
+link:Using_the_Elytron_Subsystem{outfilesuffix}#create-an-elytron-permission-mapper[simple permission mapper].
+
+Example configuration:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/source-address-role-decoder=decoder1:add(source-address="10.10.10.10", roles=["Administrator"])
+/subsystem=elytron/simple-permission-mapper=ipPermissionMapper:add(permission-mappings=[{roles=["Administrator"], permission-sets=[{permission-set=login-permission}]}])
+/subsystem=elytron/security-domain=exampleSD:add(..., role-decoder=decoder1, permission-mapper=ipPermissionMapper)
+----
+
+The above example configures a security domain with a source address role decoder that
+will assign the "Administrator" role when the IP address of the remote client matches
+the configured address and a simple permission mapper that only assigns the
+"LoginPermission" if the identity has the "Administrator" role. Thus, authentication
+will succeed if the IP address of the remote client matches the configured address.
+
+It is also possible to configure an _aggregate-role-decoder_. This consists of
+two or more _role-decoder_ elements where each element is a reference to a configured
+role decoder. Each role decoder will be applied and the returned value will be a union of
+the roles returned by each decoder.
+
+Example configuration:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/source-address-role-decoder=decoder1:add(source-address="10.10.10.10", roles=["Administrator"])
+/subsystem=elytron/source-address-role-decoder=decoder2:add(source-address="12.12.12.12", roles=["Users"])
+/subsystem=elytron/aggregate-role-decoder=aggregateDecoder:add(role-decoders=[decoder1, decoder2])
 ----
 
 [[create-an-elytron-permission-set]]
@@ -2580,7 +2895,7 @@ Adding a security domain takes the general form:
 === Create an Elytron Authentication Factory
 
 An authentication factory is an authentication policy used for specific
-authentication mechanisms. Authenticaion factories are specifically
+authentication mechanisms. Authentication factories are specifically
 based on the authentication mechanism, for example
 _http-authentication-factory_ and +
 _sasl-authentication-factory_ and _kerberos-security-factory_.
@@ -2603,6 +2918,43 @@ default:
 [source,options="nowrap"]
 ----
 /subsystem=elytron/policy=policy-provider-a:add(custom-policy=\[{name=policy-provider-a, class-name=MyPolicyProviderA, module=x.y.z}\])
+----
+
+[[create-an-elytron-case-principal-transformer]]
+=== Create an Elytron Case Principal Transformer
+
+Principal transformers can take a name and map it to another representation of the name or perform
+some normalisation. A ``case-principal-transformer`` converts a principal to upper or lower case.
+As an example, we might want to convert our principal to upper case if the identities in our realm
+are stored in upper case.
+
+Adding a ``case-principal-transformer`` that converts a principal to upper/lower case takes the
+general form:
+
+[source,options="nowrap]
+----
+/subsystem=elytron/case-principal-transformer=transformerName:add(upper-case="...")
+----
+
+In particular, a ``case-principal-transformer`` has the following attribute:
+
+* ``upper-case`` - A boolean value to indicate whether the principal should be converted to upper case.
+Indicating ``false`` for this attribute converts the principal to lower case.
+
+For example, the following ``case-principal-transformer`` could be configured to specify that
+a principal should be transformed to lower case:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/case-principal-transformer=transformer1:add(upper-case="false")
+----
+
+On the other hand, a ``case-principal-transformer`` could be configured by omitting the
+``upper-case`` attribute, which is then set to ``true`` by default:
+
+[source,options="nowrap"]
+----
+/subsystem=elytron/case-principal-transformer=transformer2:add()
 ----
 
 :leveloffset: +1

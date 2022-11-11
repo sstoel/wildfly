@@ -88,7 +88,7 @@ public class ModClusterDefinition extends AbstractHandlerDefinition {
         private final RuntimeCapability<Void> definition;
 
         Capability(String name, Class<?> serviceValueType) {
-            this.definition = RuntimeCapability.Builder.of(name, true, serviceValueType).setDynamicNameMapper(UnaryCapabilityNameResolver.PARENT).build();
+            this.definition = RuntimeCapability.Builder.of(name, true, serviceValueType).setDynamicNameMapper(UnaryCapabilityNameResolver.DEFAULT).build();
         }
 
         @Override
@@ -143,7 +143,7 @@ public class ModClusterDefinition extends AbstractHandlerDefinition {
 
     public static final AttributeDefinition FAILOVER_STRATEGY = new SimpleAttributeDefinitionBuilder(Constants.FAILOVER_STRATEGY, ModelType.STRING)
             .setRequired(false)
-            .setValidator(new EnumValidator<>(FailoverStrategy.class, true, true))
+            .setValidator(EnumValidator.create(FailoverStrategy.class))
             .setRestartAllServices()
             .setDefaultValue(new ModelNode(FailoverStrategy.LOAD_BALANCED.name()))
             .build();

@@ -33,17 +33,21 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>18.0.0.Beta1-SNAPSHOT</version>
+        <version>28.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-clustering-infinispan</artifactId>
     <packaging>pom</packaging>
 
     <name>WildFly: Infinispan modules</name>
+    <description>
+        Parent module for modules relating to Infinispan.
+    </description>
 
     <modules>
         <module>client</module>
-        <module>spi</module>
+        <module>embedded</module>
         <module>extension</module>
+        <module>marshalling</module>
     </modules>
 </project>

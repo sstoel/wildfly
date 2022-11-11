@@ -40,8 +40,8 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.resource.spi.ActivationSpec;
-import javax.resource.spi.endpoint.MessageEndpointFactory;
+import jakarta.resource.spi.ActivationSpec;
+import jakarta.resource.spi.endpoint.MessageEndpointFactory;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
@@ -49,7 +49,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /**
- * This tests if IronJacamar follows JCA 1.7 and properly defines {@code activation name} on {@code MessageEndpointFactory}.
+ * This tests if IronJacamar follows Jakarta Connectors 1.7 and properly defines {@code activation name} on {@code MessageEndpointFactory}.
  * For details see {@link SimpleResourceAdapter#endpointActivation(MessageEndpointFactory, ActivationSpec)} and WFLY-8074.
  *
  * @author Ivo Studensky

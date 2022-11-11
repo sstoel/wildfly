@@ -40,6 +40,7 @@ import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleOperationDefinitionBuilder;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.controller.logging.ControllerLogger;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ImmutableManagementResourceRegistration;
@@ -140,7 +141,7 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
         if (index == null) {
             context.addResource(PathAddress.EMPTY_ADDRESS, resource);
         } else {
-            context.addResource(PathAddress.EMPTY_ADDRESS, index.intValue(), resource);
+            context.addResource(PathAddress.EMPTY_ADDRESS, index, resource);
         }
         return resource;
     }
@@ -170,9 +171,12 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
                         operation.get(targetName).set(targetValue);
                     }
                 } else {
-                    ModelNode writeAttributeOperation = Operations.createWriteAttributeOperation(targetAddress, targetAttribute, targetValue);
-                    ImmutableManagementResourceRegistration targetRegistration = translation.getResourceRegistrationTransformation().apply(context.getResourceRegistration());
-                    OperationStepHandler writeAttributeHandler = targetRegistration.getAttributeAccess(PathAddress.EMPTY_ADDRESS, targetAttribute.getName()).getWriteHandler();
+                    ModelNode writeAttributeOperation = Util.getWriteAttributeOperation(targetAddress, targetAttribute.getName(), targetValue);
+                    ImmutableManagementResourceRegistration registration = (currentAddress == targetAddress) ? context.getResourceRegistration() : context.getRootResourceRegistration().getSubModel(targetAddress);
+                    if (registration == null) {
+                        throw new OperationFailedException(ControllerLogger.MGMT_OP_LOGGER.noSuchResourceType(targetAddress));
+                    }
+                    OperationStepHandler writeAttributeHandler = registration.getAttributeAccess(PathAddress.EMPTY_ADDRESS, targetAttribute.getName()).getWriteHandler();
                     context.addStep(writeAttributeOperation, writeAttributeHandler, OperationContext.Stage.MODEL);
                 }
             }
@@ -184,7 +188,14 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
             AttributeAccess attribute = registration.getAttributeAccess(PathAddress.EMPTY_ADDRESS, attributeName);
             AttributeDefinition definition = attribute.getAttributeDefinition();
             if ((attribute.getStorageType() == AttributeAccess.Storage.CONFIGURATION) && !translations.containsKey(definition)) {
-                definition.validateAndSet(operation, model);
+                OperationStepHandler writeHandler = this.descriptor.getCustomAttributes().get(definition);
+                if (writeHandler != null) {
+                    // If attribute has custom handling, perform a separate write-attribute operation
+                    ModelNode writeAttributeOperation = Util.getWriteAttributeOperation(currentAddress, definition.getName(), definition.validateOperation(operation));
+                    context.addStep(writeAttributeOperation, writeHandler, OperationContext.Stage.MODEL);
+                } else {
+                    definition.validateAndSet(operation, model);
+                }
             }
         }
 
@@ -238,7 +249,7 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
             }
         }
 
-        for (CapabilityReferenceRecorder recorder : context.getResourceRegistration().getRequirements()) {
+        for (CapabilityReferenceRecorder recorder : registration.getRequirements()) {
             recorder.addCapabilityRequirements(context, resource, null);
         }
     }
@@ -250,6 +261,12 @@ public class AddStepHandler extends AbstractAddStepHandler implements Registrati
             builder.addParameter(SimpleAttributeDefinitionBuilder.create(ModelDescriptionConstants.ADD_INDEX, ModelType.INT, true).build());
         }
         for (AttributeDefinition attribute : this.descriptor.getAttributes()) {
+            builder.addParameter(attribute);
+        }
+        for (AttributeDefinition attribute : this.descriptor.getCustomAttributes().keySet()) {
+            builder.addParameter(attribute);
+        }
+        for (AttributeDefinition attribute : this.descriptor.getIgnoredAttributes()) {
             builder.addParameter(attribute);
         }
         for (AttributeDefinition parameter : this.descriptor.getExtraParameters()) {

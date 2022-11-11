@@ -22,8 +22,7 @@
 
 package org.wildfly.extension.microprofile.metrics;
 
-import static org.wildfly.extension.microprofile.metrics.MicroProfileMetricsSubsystemDefinition.HTTP_EXTENSIBILITY_CAPABILITY;
-import static org.wildfly.extension.microprofile.metrics.MicroProfileMetricsSubsystemDefinition.MANAGEMENT_EXECUTOR;
+import static org.wildfly.extension.microprofile.metrics.MicroProfileMetricsSubsystemDefinition.METRICS_HTTP_CONTEXT_CAPABILITY;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -47,13 +46,6 @@ public class Subsystem_2_0_ParsingTestCase extends AbstractSubsystemBaseTest {
     }
 
     @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[] {
-                "/subsystem-templates/microprofile-metrics-smallrye.xml"
-        };
-    }
-
-    @Override
     protected String getSubsystemXsdPath() throws IOException {
         return "schema/wildfly-microprofile-metrics-smallrye_2_0.xsd";
     }
@@ -62,12 +54,10 @@ public class Subsystem_2_0_ParsingTestCase extends AbstractSubsystemBaseTest {
         return System.getProperties();
     }
 
-
     @Override
     protected AdditionalInitialization createAdditionalInitialization() {
         return AdditionalInitialization.withCapabilities(
-                HTTP_EXTENSIBILITY_CAPABILITY,
-                MANAGEMENT_EXECUTOR);
+                METRICS_HTTP_CONTEXT_CAPABILITY);
     }
 
 }

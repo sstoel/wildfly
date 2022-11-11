@@ -19,6 +19,8 @@ package org.wildfly.test.integration.vdx.standalone;
 
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
@@ -40,6 +42,12 @@ import org.wildfly.test.integration.vdx.utils.server.ServerConfig;
 @RunWith(Arquillian.class)
 @Category(StandaloneTests.class)
 public class MessagingTestCase extends TestBase {
+
+    @BeforeClass
+    public static void noPreview() {
+        // WildFly Preview doesn't configure a messaging broker
+        AssumeTestGroupUtil.assumeNotWildFlyPreview();
+    }
 
     /*
      * append invalid element to subsystem definition
@@ -84,12 +92,12 @@ public class MessagingTestCase extends TestBase {
         assertContains(errorLog, "remote-acceptor");
         assertContains(errorLog, "remote-connector");
         assertContains(errorLog, "replication-colocated");
-        assertContains(errorLog, "replication-master");
-        assertContains(errorLog, "replication-slave");
+        assertContains(errorLog, "replication-primary");
+        assertContains(errorLog, "replication-secondary");
         assertContains(errorLog, "security-setting");
         assertContains(errorLog, "shared-store-colocated");
-        assertContains(errorLog, "shared-store-master");
-        assertContains(errorLog, "shared-store-slave");
+        assertContains(errorLog, "shared-store-primary");
+        assertContains(errorLog, "shared-store-secondary");
     }
 
     /*
@@ -196,23 +204,24 @@ public class MessagingTestCase extends TestBase {
         assertContains(errorLog, "<security enabled=\"false\"/>");
         assertContains(errorLog, "^^^^ 'security' isn't an allowed element here");
         assertContains(errorLog, "Elements allowed here are:");
-        assertContains(errorLog, "acceptor                   jms-topic");
-        assertContains(errorLog, "address-setting            journal-directory");
-        assertContains(errorLog, "bindings-directory         large-messages-directory");
-        assertContains(errorLog, "bridge                     legacy-connection-factory");
-        assertContains(errorLog, "broadcast-group            live-only");
+        assertContains(errorLog, "acceptor                   journal-directory");
+        assertContains(errorLog, "address-setting            large-messages-directory");
+        assertContains(errorLog, "bindings-directory         legacy-connection-factory");
+        assertContains(errorLog, "bridge                     live-only");
         assertContains(errorLog, "cluster-connection         paging-directory");
         assertContains(errorLog, "connection-factory         pooled-connection-factory");
         assertContains(errorLog, "connector                  queue");
         assertContains(errorLog, "connector-service          remote-acceptor");
-        assertContains(errorLog, "discovery-group            remote-connector");
-        assertContains(errorLog, "divert                     replication-colocated");
-        assertContains(errorLog, "grouping-handler           replication-master");
-        assertContains(errorLog, "http-acceptor              replication-slave");
-        assertContains(errorLog, "http-connector             security-setting");
-        assertContains(errorLog, "in-vm-acceptor             shared-store-colocated");
-        assertContains(errorLog, "in-vm-connector            shared-store-master");
-        assertContains(errorLog, "jms-queue                  shared-store-slave");
+        assertContains(errorLog, "divert                     remote-connector");
+        assertContains(errorLog, "grouping-handler           replication-colocated");
+        assertContains(errorLog, "http-acceptor              replication-primary");
+        assertContains(errorLog, "http-connector             replication-secondary");
+        assertContains(errorLog, "in-vm-acceptor             security-setting");
+        assertContains(errorLog, "in-vm-connector            shared-store-colocated");
+        assertContains(errorLog, "jgroups-broadcast-group    shared-store-primary");
+        assertContains(errorLog, "jgroups-discovery-group    shared-store-secondary");
+        assertContains(errorLog, "jms-queue                  socket-broadcast-group");
+        assertContains(errorLog, "jms-topic                  socket-discovery-group");
         assertContains(errorLog, "'security' is allowed in elements:");
         assertContains(errorLog, "- server > profile > {urn:jboss:domain:messaging-activemq:");
         assertContains(errorLog, "subsystem > server");

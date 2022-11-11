@@ -27,28 +27,35 @@ import static org.wildfly.extension.clustering.singleton.SingletonPolicyResource
 import java.util.EnumSet;
 
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
+import org.jboss.as.clustering.controller.ServiceValueRegistry;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.dmr.ModelNode;
 import org.jboss.msc.service.ServiceTarget;
-import org.wildfly.clustering.service.AliasServiceBuilder;
 import org.wildfly.clustering.service.ServiceConfigurator;
+import org.wildfly.clustering.singleton.Singleton;
 import org.wildfly.clustering.singleton.SingletonRequirement;
 import org.wildfly.extension.clustering.singleton.SingletonPolicyResourceDefinition.Capability;
 
 /**
  * @author Paul Ferraro
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({ "removal", "deprecation" })
 public class SingletonPolicyServiceHandler implements ResourceServiceHandler {
+
+    private final ServiceValueRegistry<Singleton> registry;
+
+    SingletonPolicyServiceHandler(ServiceValueRegistry<Singleton> registry) {
+        this.registry = registry;
+    }
 
     @Override
     public void installServices(OperationContext context, ModelNode model) throws OperationFailedException {
         PathAddress address = context.getCurrentAddress();
         ServiceTarget target = context.getServiceTarget();
 
-        ServiceConfigurator configurator = new SingletonPolicyServiceConfigurator(address).configure(context, model);
+        ServiceConfigurator configurator = new SingletonPolicyServiceConfigurator(address, this.registry).configure(context, model);
         configurator.build(target).install();
 
         // Use legacy service installation for legacy capability

@@ -45,13 +45,13 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.annotation.Resource;
-import javax.transaction.HeuristicMixedException;
-import javax.transaction.HeuristicRollbackException;
-import javax.transaction.NotSupportedException;
-import javax.transaction.RollbackException;
-import javax.transaction.SystemException;
-import javax.transaction.TransactionManager;
+import jakarta.annotation.Resource;
+import jakarta.transaction.HeuristicMixedException;
+import jakarta.transaction.HeuristicRollbackException;
+import jakarta.transaction.NotSupportedException;
+import jakarta.transaction.RollbackException;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import java.io.IOException;
@@ -97,7 +97,7 @@ public class MaximumTimeoutTestCase {
         return ShrinkWrap.create(JavaArchive.class)
                 .addClasses(MaximumTimeoutTestCase.class, MaximumTimeoutTestCase.TimeoutSetup.class)
                 .addPackage(TestXAResource.class.getPackage())
-                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller, org.jboss.remoting3\n"), "MANIFEST.MF")
+                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller, org.jboss.remoting\n"), "MANIFEST.MF")
                 .addAsManifestResource(createPermissionsXmlAsset(
                     // ManagementClient needs the following permissions and a dependency on 'org.jboss.remoting3' module
                     new RemotingPermission("createEndpoint"),
@@ -230,8 +230,8 @@ public class MaximumTimeoutTestCase {
 
             op = executeForResult(managementClient.getControllerClient(), Util.getReadAttributeOperation(TX_ADDRESS, DEF_TIMEOUT_ATTR));
             defaultTimeout = op.asInt();
-            LOGGER.info("max timeout: " + maxTimeout);
-            LOGGER.info("default timeout: " + defaultTimeout);
+            LOGGER.debug("max timeout: " + maxTimeout);
+            LOGGER.debug("default timeout: " + defaultTimeout);
         }
 
         @Override

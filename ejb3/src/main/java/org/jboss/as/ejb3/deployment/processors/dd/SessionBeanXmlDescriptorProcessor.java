@@ -70,13 +70,12 @@ public class SessionBeanXmlDescriptorProcessor extends AbstractEjbXmlDescriptorP
         final String beanName = sessionBean.getName();
 
         ComponentDescription bean = moduleDescription.getComponentByName(beanName);
-        if (appclient) {
-            if (bean == null) {
-                for (final ComponentDescription component : deploymentUnit.getAttachmentList(Attachments.ADDITIONAL_RESOLVABLE_COMPONENTS)) {
-                    if (component.getComponentName().equals(beanName)) {
-                        bean = component;
-                        break;
-                    }
+        if (appclient && bean == null) {
+            for (final ComponentDescription component : deploymentUnit
+                    .getAttachmentList(Attachments.ADDITIONAL_RESOLVABLE_COMPONENTS)) {
+                if (component.getComponentName().equals(beanName)) {
+                    bean = component;
+                    break;
                 }
             }
         }
@@ -114,7 +113,7 @@ public class SessionBeanXmlDescriptorProcessor extends AbstractEjbXmlDescriptorP
             sessionBeanDescription.addRemoteBusinessInterfaceViews(businessRemotes);
         }
 
-        // process EJB3.1 specific session bean description
+        // process Enterprise Beans 3.1 specific session bean description
         if (sessionBean instanceof SessionBean31MetaData) {
             this.processSessionBean31((SessionBean31MetaData) sessionBean, sessionBeanDescription);
         }

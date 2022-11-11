@@ -22,7 +22,9 @@
 
 package org.jboss.as.ee.logging;
 
+
 import static org.jboss.logging.Logger.Level.ERROR;
+import static org.jboss.logging.Logger.Level.INFO;
 import static org.jboss.logging.Logger.Level.WARN;
 
 import java.io.IOException;
@@ -30,7 +32,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Set;
-
+import java.util.concurrent.RejectedExecutionException;
 import javax.xml.namespace.QName;
 import javax.xml.stream.Location;
 import javax.xml.stream.XMLStreamException;
@@ -55,6 +57,7 @@ import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 import org.jboss.logging.annotations.Param;
 import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.StartException;
 import org.jboss.vfs.VirtualFile;
 
 /**
@@ -203,17 +206,21 @@ public interface EeLogger extends BasicLogger {
     @Message(id = 14, value = "%s in subdeployment ignored. jboss-ejb-client.xml is only parsed for top level deployments.")
     void subdeploymentIgnored(String pathName);
 
-    //@Message(id = 15, value = "Transaction started in EE Concurrent invocation left open, starting rollback to prevent leak.")
-    //void rollbackOfTransactionStartedInEEConcurrentInvocation();
+    @LogMessage(level = WARN)
+    @Message(id = 15, value = "Transaction started in EE Concurrent invocation left open, starting rollback to prevent leak.")
+    void rollbackOfTransactionStartedInEEConcurrentInvocation();
 
-    //@Message(id = 16, value = "Failed to rollback transaction.")
-    //void failedToRollbackTransaction(@Cause Throwable cause);
+    @LogMessage(level = WARN)
+    @Message(id = 16, value = "Failed to rollback transaction.")
+    void failedToRollbackTransaction(@Cause Throwable cause);
 
-    //@Message(id = 17, value = "Failed to suspend transaction.")
-    //void failedToSuspendTransaction(@Cause Throwable cause);
+    @LogMessage(level = WARN)
+    @Message(id = 17, value = "Failed to suspend transaction.")
+    void failedToSuspendTransaction(@Cause Throwable cause);
 
-    //@Message(id = 18, value = "System error while checking for transaction leak in EE Concurrent invocation.")
-    //void systemErrorWhileCheckingForTransactionLeak(@Cause Throwable cause);
+    @LogMessage(level = WARN)
+    @Message(id = 18, value = "System error while checking for transaction leak in EE Concurrent invocation.")
+    void systemErrorWhileCheckingForTransactionLeak(@Cause Throwable cause);
 
     /**
      * Creates an exception indicating the alternate deployment descriptor specified for the module file could not be
@@ -469,8 +476,8 @@ public interface EeLogger extends BasicLogger {
      *
      * @return an {@link IllegalArgumentException} for the error.
      */
-    @Message(id = 40, value = "A component named '%s' is already defined in this module")
-    IllegalArgumentException componentAlreadyDefined(String name);
+    @Message(id = 40, value = "Component '%s' in class '%s' is already defined in class '%s'")
+    IllegalArgumentException componentAlreadyDefined(String commonName, String addedClassName, String existingClassname);
 
     /**
      * Creates an exception indicating the component class, represented by the {@code className} parameter, for the
@@ -1147,4 +1154,69 @@ public interface EeLogger extends BasicLogger {
     //        "Support for this setting will be removed once all EE 8 APIs are provided and certified.")
     //void notUsingEE8PreviewMode();
 
+    @Message(id = 120, value = "Failed to locate executor service '%s'")
+    OperationFailedException executorServiceNotFound(ServiceName serviceName);
+
+    @Message(id = 121, value = "Unsupported attribute '%s'")
+    IllegalStateException unsupportedExecutorServiceMetric(String attributeName);
+
+    @Message(id = 122, value = "Directory path %s in %s global-directory resource does not point to a valid directory.")
+    StartException globalDirectoryDoNotExist(String globalDirectoryPath, String globalDirectoryName);
+
+    @Message(id = 123, value = "Global directory %s cannot be added, because global directory %s is already defined.")
+    OperationFailedException oneGlobalDirectory(String newGlobalDirectory, String existingGlobalDirectory);
+
+    @LogMessage(level = WARN)
+    @Message(id = 124, value = "Error deleting Jakarta Authorization Policy")
+    void errorDeletingJACCPolicy(@Cause Throwable t);
+
+    @Message(id = 125, value = "Unable to start the %s service")
+    StartException unableToStartException(String service, @Cause Throwable t);
+
+    @Message(id = 126, value = "Rejected due to maximum number of requests")
+    RejectedExecutionException rejectedDueToMaxRequests();
+
+    @LogMessage(level = WARN)
+    @Message(id = 127, value = "Invalid '%s' name segment for env, name can't start with '/' prefix, prefix has been removed")
+    void invalidNamePrefix(String name);
+
+    /**
+     * Logs a warning message indicating a failure when terminating a managed executor's hung task.
+     * @param cause     the cause of the error.
+     * @param executorName the name of the executor.
+     * @param taskName the name of the hung task.
+     */
+    @LogMessage(level = WARN)
+    @Message(id = 128, value = "Failure when terminating %s hung task %s")
+    void huntTaskTerminationFailure(@Cause Throwable cause, String executorName, String taskName);
+
+    /**
+     * Logs a message indicating a hung task was cancelled.
+     * @param executorName the name of the executor.
+     * @param taskName the name of the hung task.
+     */
+    @LogMessage(level = INFO)
+    @Message(id = 129, value = "%s hung task %s cancelled")
+    void hungTaskCancelled(String executorName, String taskName);
+
+    /**
+     * Logs a message indicating a hung task was not cancelled.
+     * @param executorName the name of the executor.
+     * @param taskName the name of the hung task.
+     */
+    @LogMessage(level = INFO)
+    @Message(id = 130, value = "%s hung task %s not cancelled")
+    void hungTaskNotCancelled(String executorName, String taskName);
+
+    @Message(id = 131, value = "The attribute %s is no longer supported.")
+    XMLStreamException attributeNoLongerSupported(final String attribute);
+
+    @Message(id = 132, value = "ManagedReference was null and injection is not optional for injection into method %s")
+    RuntimeException managedReferenceMethodWasNull(Method method);
+
+    @LogMessage(level = ERROR)
+    @Message(id = 133, value = "A JNDI binding for component '%s' has already been installed under JNDI name '%s' in accordance with Jakarta EE " +
+            "specifications. The conflicting class is %s. Solutions include providing an alternate name for the component " +
+            "or renaming the class.")
+    void duplicateJndiBindingFound(String componentName, String jndiName, Class clazz);
 }

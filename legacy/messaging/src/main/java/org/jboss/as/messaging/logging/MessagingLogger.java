@@ -71,12 +71,12 @@ public interface MessagingLogger extends BasicLogger {
 //    void boundJndiName(String jndiName);
 //
 //    /**
-//     * Logs an error message indicating an exception occurred while stopping the JMS server.
+//     * Logs an error message indicating an exception occurred while stopping the Jakarta Messaging server.
 //     *
 //     * @param cause the cause of the error.
 //     */
 //    @LogMessage(level = ERROR)
-//    @Message(id = 3, value = "Exception while stopping JMS server")
+//    @Message(id = 3, value = "Exception while stopping Jakarta Messaging server")
 //    void errorStoppingJmsServer(@Cause Throwable cause);
 //
 //    /**
@@ -724,7 +724,7 @@ public interface MessagingLogger extends BasicLogger {
 //     *
 //     * @return an {@link IllegalStateRuntimeException} for the error.
 //     */
-//    @Message(id = 68, value = "It is not permitted to call this method on injected JMSContext (see JMS 2.0 spec, §12.4.5).")
+//    @Message(id = 68, value = "It is not permitted to call this method on injected JMSContext (see Jakarta Messaging 2.0 spec, §12.4.5).")
 //    IllegalStateRuntimeException callNotPermittedOnInjectedJMSContext();
 
     /**
@@ -819,4 +819,14 @@ public interface MessagingLogger extends BasicLogger {
 
     @Message(id = 88, value = "Can not migrate attribute failback-delay to resource %s. Artemis detects failback deterministically and it no longer requires to specify a delay for failback to occur.")
     String couldNotMigrateFailbackDelayAttribute(PathAddress address);
+
+    @Message(id = 89, value = "Can not migrate discovery group %s as no network configuration is properly defined.")
+    String couldNotMigrateDiscoveryGroup(PathAddress address);
+
+    @Message(id = 90, value = "Can not migrate broadcast group %s as no network configuration is properly defined.")
+    String couldNotMigrateBroadcastGroup(PathAddress address);
+
+    @Message(id = 91, value = "Can not migrate broadcast group %s as no connector is properly defined.")
+    String couldNotMigrateBroadcastGroupWithoutConnectors(PathAddress address);
 }
+

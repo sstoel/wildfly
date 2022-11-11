@@ -23,16 +23,14 @@
 package org.wildfly.clustering.web.infinispan.sso.coarse;
 
 import java.util.AbstractMap;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import org.infinispan.Cache;
-import org.infinispan.context.Flag;
 import org.wildfly.clustering.ee.Mutator;
-import org.wildfly.clustering.ee.cache.CacheProperties;
 import org.wildfly.clustering.ee.infinispan.CacheEntryMutator;
+import org.wildfly.clustering.ee.infinispan.InfinispanConfiguration;
 import org.wildfly.clustering.web.cache.sso.SessionsFactory;
 import org.wildfly.clustering.web.cache.sso.coarse.CoarseSessions;
 import org.wildfly.clustering.web.cache.sso.coarse.SessionFilter;
@@ -45,11 +43,11 @@ public class CoarseSessionsFactory<D, S> implements SessionsFactory<Map<D, S>, D
 
     private final SessionsFilter<D, S> filter = new SessionsFilter<>();
     private final Cache<CoarseSessionsKey, Map<D, S>> cache;
-    private final CacheProperties properties;
+    private final Cache<CoarseSessionsKey, Map<D, S>> createCache;
 
-    public CoarseSessionsFactory(Cache<CoarseSessionsKey, Map<D, S>> cache, CacheProperties properties) {
-        this.cache = cache;
-        this.properties = properties;
+    public CoarseSessionsFactory(InfinispanConfiguration configuration) {
+        this.cache = configuration.getCache();
+        this.createCache = configuration.getWriteOnlyCache();
     }
 
     @Override
@@ -61,8 +59,8 @@ public class CoarseSessionsFactory<D, S> implements SessionsFactory<Map<D, S>, D
 
     @Override
     public Map<D, S> createValue(String id, Void context) {
-        Map<D, S> sessions = this.properties.isLockOnRead() ? new HashMap<>() : new ConcurrentHashMap<>();
-        this.cache.getAdvancedCache().withFlags(Flag.IGNORE_RETURN_VALUES).put(new CoarseSessionsKey(id), sessions);
+        Map<D, S> sessions = new ConcurrentHashMap<>();
+        this.createCache.put(new CoarseSessionsKey(id), sessions);
         return sessions;
     }
 
@@ -80,7 +78,7 @@ public class CoarseSessionsFactory<D, S> implements SessionsFactory<Map<D, S>, D
         Cache cache = this.cache;
         try (Stream<Map.Entry<?, ?>> stream = cache.entrySet().stream()) {
             Map.Entry<CoarseSessionsKey, Map<D, S>> entry = stream.filter(this.filter).map(this.filter).filter(filter).findAny().orElse(null);
-            return (entry != null) ? new AbstractMap.SimpleImmutableEntry<>(entry.getKey().getValue(), entry.getValue()) : null;
+            return (entry != null) ? new AbstractMap.SimpleImmutableEntry<>(entry.getKey().getId(), entry.getValue()) : null;
         }
     }
 

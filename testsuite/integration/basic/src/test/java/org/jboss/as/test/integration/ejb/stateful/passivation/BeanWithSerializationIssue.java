@@ -25,9 +25,9 @@ package org.jboss.as.test.integration.ejb.stateful.passivation;
 
 import java.io.Serializable;
 
-import javax.ejb.EJB;
-import javax.ejb.Remote;
-import javax.ejb.Stateful;
+import jakarta.ejb.EJB;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateful;
 
 import org.jboss.ejb3.annotation.Cache;
 
@@ -35,7 +35,7 @@ import org.jboss.ejb3.annotation.Cache;
  * @author Tomas Hofman (thofman@redhat.com)
  */
 @Stateful
-@Cache("passivating")
+@Cache("distributable")
 @Remote(TestPassivationRemote.class)
 public class BeanWithSerializationIssue extends TestPassivationBean {
 

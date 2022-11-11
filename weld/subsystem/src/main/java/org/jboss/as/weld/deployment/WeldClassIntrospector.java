@@ -42,8 +42,6 @@ public class WeldClassIntrospector implements EEClassIntrospector, Service {
     private static final ServiceName SERVICE_NAME = ServiceName.of("weld", "weldClassIntrospector");
     private final Consumer<EEClassIntrospector> eeClassIntrospectorConsumer;
     private final Supplier<BeanManager> beanManagerSupplier;
-    // Cache the BeanManage to avoid contended calls to the beanManagerSupplier
-    private volatile BeanManager beanManager;
     private final ConcurrentMap<Class<?>, InjectionTarget<?>> injectionTargets = new ConcurrentHashMap<>();
 
     private WeldClassIntrospector(final Consumer<EEClassIntrospector> eeClassIntrospectorConsumer, final Supplier<BeanManager> beanManagerSupplier) {
@@ -68,6 +66,7 @@ public class WeldClassIntrospector implements EEClassIntrospector, Service {
     @Override
     public ManagedReferenceFactory createFactory(Class<?> clazz) {
 
+        final BeanManager beanManager = this.beanManagerSupplier.get();
         final InjectionTarget injectionTarget = getInjectionTarget(clazz);
         return new ManagedReferenceFactory() {
             @Override
@@ -94,7 +93,7 @@ public class WeldClassIntrospector implements EEClassIntrospector, Service {
         if (target != null) {
             return target;
         }
-        final BeanManagerImpl beanManager = BeanManagerProxy.unwrap(this.beanManager);
+        final BeanManagerImpl beanManager = BeanManagerProxy.unwrap(beanManagerSupplier.get());
         Bean<?> bean = null;
         Set<Bean<?>> beans = new HashSet<>(beanManager.getBeans(clazz, Any.Literal.INSTANCE));
         Iterator<Bean<?>> it = beans.iterator();
@@ -120,23 +119,33 @@ public class WeldClassIntrospector implements EEClassIntrospector, Service {
 
     @Override
     public ManagedReference createInstance(final Object instance) {
+        return this.getReference(instance, true);
+    }
+
+    @Override
+    public ManagedReference getInstance(Object instance) {
+        return this.getReference(instance, false);
+    }
+
+    private ManagedReference getReference(Object instance, boolean newInstance) {
+        final BeanManager beanManager = beanManagerSupplier.get();
         final InjectionTarget injectionTarget = getInjectionTarget(instance.getClass());
         final CreationalContext context = beanManager.createCreationalContext(null);
-        injectionTarget.inject(instance, context);
-        injectionTarget.postConstruct(instance);
+        if (newInstance) {
+            injectionTarget.inject(instance, context);
+            injectionTarget.postConstruct(instance);
+        }
         return new WeldManagedReference(injectionTarget, context, instance);
     }
 
     @Override
     public void start(final StartContext startContext) throws StartException {
-        beanManager = beanManagerSupplier.get();
         eeClassIntrospectorConsumer.accept(this);
     }
 
     @Override
     public void stop(StopContext stopContext) {
         injectionTargets.clear();
-        beanManager = null;
     }
 
     private static class WeldManagedReference implements ManagedReference {

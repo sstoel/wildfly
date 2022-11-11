@@ -3,9 +3,12 @@ package org.jboss.as.test.integration.web.handlers;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ALLOW_RESOURCE_SERVICE_RESTART;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OPERATION_HEADERS;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.SocketPermission;
 import java.net.URL;
 
 import org.apache.http.Header;
@@ -27,6 +30,7 @@ import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.test.integration.management.ManagementOperations;
 import org.jboss.as.test.integration.management.util.MgmtOperationException;
+import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
@@ -69,14 +73,20 @@ public class ForwardedHandlerTestCase {
     public static WebArchive deployWithoutUndertowHandlers() {
         return ShrinkWrap.create(WebArchive.class, FORWARDED_HANDLER_NO_UT_HANDLERS + ".war")
                 .addPackage(ForwardedHandlerTestCase.class.getPackage())
+                .addClass(TestSuiteEnvironment.class)
                 .addAsWebInfResource(new StringAsset(JBOSS_WEB_TEXT), "jboss-web.xml")
-                .addAsWebResource(new StringAsset("A file"), "index.html");
+                .addAsWebResource(new StringAsset("A file"), "index.html")
+                .addAsManifestResource(
+                    createPermissionsXmlAsset(
+                       new SocketPermission("*:0", "listen,resolve")),
+                    "permissions.xml");
     }
 
     @Deployment(name = FORWARDED_SERVLET)
     public static WebArchive deploy_servlet() {
         return ShrinkWrap.create(WebArchive.class, FORWARDED_SERVLET + ".war")
                 .addClass(ForwardedTestHelperServlet.class)
+                .addClass(TestSuiteEnvironment.class)
                 .addAsWebInfResource(new StringAsset(FORWARDER_HANDLER_NAME), "undertow-handlers.conf")
                 .addAsWebResource(new StringAsset("A file"), "index.html");
     }
@@ -85,6 +95,7 @@ public class ForwardedHandlerTestCase {
     public static WebArchive deployWithoutUndertowHandlers_servlet() {
         return ShrinkWrap.create(WebArchive.class, FORWARDED_SERVLET_NO_UT_HANDLERS + ".war")
                 .addClass(ForwardedTestHelperServlet.class)
+                .addClass(TestSuiteEnvironment.class)
                 .addAsWebResource(new StringAsset("A file"), "index.html");
     }
 
@@ -130,8 +141,10 @@ public class ForwardedHandlerTestCase {
             final String proto = "https";
             final String forAddrOnly = "192.121.210.60";
             final String forAddr = forAddrOnly + ":455";
-            final String byAddrOnly = "203.0.113.43";
-            final String by = byAddrOnly + ":777";
+            final String by = "203.0.113.43:777";
+            final InetAddress addr = InetAddress.getByName(url.getHost());
+            final String localAddrName = addr.getHostName();
+            final String localAddr = TestSuiteEnvironment.formatPossibleIpv6Address(addr.getHostAddress()) + ":" + url.getPort();
 
             HttpGet httpget = new HttpGet(url.toExternalForm());
             httpget.addHeader("Forwarded", "for=" + forAddr + ";proto=" + proto + ";by=" + by);
@@ -145,10 +158,10 @@ public class ForwardedHandlerTestCase {
             if (header) {
                 Header[] hdrs = response.getHeaders(ForwardedTestHelperHandler.FORWARD_TEST_HEADER);
                 Assert.assertEquals(1, hdrs.length);
-                Assert.assertEquals("/" + forAddr + "|" + proto + "|" + "/" + by, hdrs[0].getValue());
+                Assert.assertEquals("/" + forAddr + "|" + proto + "|" + "/" + localAddr, hdrs[0].getValue());
             } else {
                 String result = EntityUtils.toString(entity);
-                Assert.assertEquals(forAddrOnly + "|" + forAddr + "|" + proto + "|" + byAddrOnly + "|" + by, result);
+                Assert.assertEquals(forAddrOnly + "|" + forAddr + "|" + proto + "|" + localAddrName + "|" + localAddr, result);
             }
         }
     }

@@ -72,12 +72,13 @@ public class TCPSyslogAuditLogTestCase extends AbstractSyslogAuditLogTestCase {
                         .withPort(PORT)
                         .withHostName(HOSTNAME)
                         .withTransportProtocol("TCP")
+                        .setMaxReconnectAttempts(5) // a random number to avoid intermittent failures
                         .build();
                 auditLog.create(cli);
 
                 setEventListenerOfApplicationDomain(cli, NAME);
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         @Override
@@ -88,7 +89,7 @@ public class TCPSyslogAuditLogTestCase extends AbstractSyslogAuditLogTestCase {
                 auditLog.remove(cli);
                 stopSyslogServer();
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
     }

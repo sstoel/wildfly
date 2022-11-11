@@ -22,10 +22,16 @@
 
 package org.jboss.as.test.xts.wsba.coordinatorcompletion.client;
 
-import javax.inject.Inject;
+import static org.jboss.as.test.xts.util.EventLogEvent.CANCEL;
+import static org.jboss.as.test.xts.util.EventLogEvent.CLOSE;
+import static org.jboss.as.test.xts.util.EventLogEvent.COMPENSATE;
+import static org.jboss.as.test.xts.util.EventLogEvent.COMPLETE;
+import static org.jboss.as.test.xts.util.EventLogEvent.CONFIRM_COMPLETED;
+import static org.jboss.as.test.xts.util.ServiceCommand.APPLICATION_EXCEPTION;
+import static org.jboss.as.test.xts.util.ServiceCommand.CANNOT_COMPLETE;
+import static org.jboss.as.test.xts.util.ServiceCommand.SYSTEM_EXCEPTION_ON_COMPLETE;
 
-import com.arjuna.mw.wst11.UserBusinessActivity;
-import com.arjuna.mw.wst11.UserBusinessActivityFactory;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -46,8 +52,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static org.jboss.as.test.xts.util.ServiceCommand.*;
-import static org.jboss.as.test.xts.util.EventLogEvent.*;
+import com.arjuna.mw.wst11.UserBusinessActivity;
+import com.arjuna.mw.wst11.UserBusinessActivityFactory;
 
 /**
  * XTS business activities - coordinator completition test case
@@ -64,14 +70,13 @@ public class BACoordinatorCompletionTestCase extends BaseFunctionalTest {
 
     @Deployment
     public static WebArchive createTestArchive() {
-        final WebArchive war = DeploymentHelper.getInstance().getWebArchiveWithPermissions(ARCHIVE_NAME)
+        return DeploymentHelper.getInstance().getWebArchiveWithPermissions(ARCHIVE_NAME)
                 .addPackage(BACoordinatorCompletion.class.getPackage())
                 .addPackage(BACoordinatorCompletionClient.class.getPackage())
                 .addPackage(EventLog.class.getPackage())
                 .addPackage(BaseFunctionalTest.class.getPackage())
                 .addAsResource("context-handlers.xml")
                 .addAsManifestResource(new StringAsset("Dependencies: org.jboss.xts,org.jboss.jts\n"), "MANIFEST.MF");
-        return war;
     }
 
     @Before
@@ -123,7 +128,7 @@ public class BACoordinatorCompletionTestCase extends BaseFunctionalTest {
             client3.saveData();
 
             Assert.fail("Exception should have been thrown by now");
-        } catch (javax.xml.ws.soap.SOAPFaultException sfe) {
+        } catch (jakarta.xml.ws.soap.SOAPFaultException sfe) {
             // This is OK - exception expected
             // P2 set transaction status to ABORT_ONLY
             // P3 enlist is failed with WrongStateException and can't be done

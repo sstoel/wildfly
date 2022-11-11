@@ -23,7 +23,7 @@ package org.jboss.as.ejb3.deployment.processors.dd;
 
 import java.lang.reflect.Method;
 
-import javax.interceptor.InvocationContext;
+import jakarta.interceptor.InvocationContext;
 
 import org.jboss.as.ee.component.ComponentDescription;
 import org.jboss.as.ee.component.EEModuleDescription;
@@ -212,9 +212,5 @@ public class DeploymentDescriptorMethodProcessor implements DeploymentUnitProces
                 }
             }
         }
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
     }
 }

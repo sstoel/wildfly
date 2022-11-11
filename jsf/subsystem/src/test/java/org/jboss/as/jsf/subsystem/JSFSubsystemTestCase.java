@@ -21,10 +21,17 @@
 */
 package org.jboss.as.jsf.subsystem;
 
-import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
-import org.junit.Test;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+
+import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
+import org.jboss.as.subsystem.test.AdditionalInitialization;
+import org.jboss.as.subsystem.test.KernelServices;
+import org.jboss.as.subsystem.test.KernelServicesBuilder;
+import org.jboss.dmr.ModelNode;
+import org.junit.Test;
 
 /**
  *
@@ -37,7 +44,9 @@ public class JSFSubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Override
     protected String getSubsystemXml() throws IOException {
-        return "<subsystem xmlns=\"urn:jboss:domain:jsf:1.1\" />";
+        return "<subsystem xmlns=\"urn:jboss:domain:jsf:1.1\"" +
+                " default-jsf-impl-slot=\"${exp.default-jsf-impl-slot:main}\"" +
+                " disallow-doctype-decl=\"${exp.disallow-doctype-decl:true}\" />";
     }
 
     @Override
@@ -45,16 +54,14 @@ public class JSFSubsystemTestCase extends AbstractSubsystemBaseTest {
         return "schema/jboss-as-jsf_1_1.xsd";
     }
 
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[] {
-                "/subsystem-templates/jsf.xml"
-        };
-    }
-
     @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+    public void testAttributes() throws Exception {
+        KernelServicesBuilder builder = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT)
+                .setSubsystemXml(getSubsystemXml());
+        KernelServices kernelServices = builder.build();
+        ModelNode rootModel = kernelServices.readWholeModel();
+        ModelNode serverModel = rootModel.require(SUBSYSTEM).require(JSFExtension.SUBSYSTEM_NAME);
+        assertEquals("main", serverModel.get(JSFResourceDefinition.DEFAULT_SLOT_ATTR_NAME).resolve().asString());
+        assertEquals(true, serverModel.get(JSFResourceDefinition.DISALLOW_DOCTYPE_DECL_ATTR_NAME).resolve().asBoolean());
     }
 }

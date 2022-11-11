@@ -31,10 +31,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-
-import javax.ejb.ConcurrencyManagementType;
-import javax.ejb.LockType;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.ConcurrencyManagementType;
+import jakarta.ejb.LockType;
+import jakarta.ejb.TransactionManagementType;
 
 import org.jboss.as.ee.component.ComponentConfiguration;
 import org.jboss.as.ee.component.ComponentConfigurator;
@@ -43,24 +42,24 @@ import org.jboss.as.ee.component.ViewConfiguration;
 import org.jboss.as.ee.component.ViewConfigurator;
 import org.jboss.as.ee.component.ViewDescription;
 import org.jboss.as.ee.component.interceptors.InterceptorOrder;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
 import org.jboss.as.ejb3.component.EJBViewDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.concurrent.EJBContextHandleFactory;
 import org.jboss.as.ejb3.component.interceptors.CurrentInvocationContextInterceptor;
 import org.jboss.as.ejb3.concurrency.AccessTimeoutDetails;
 import org.jboss.as.ejb3.deployment.EjbJarDescription;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.tx.CMTTxInterceptor;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
+import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.reflect.ClassReflectionIndexUtil;
 import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
 import org.jboss.invocation.ImmediateInterceptorFactory;
 import org.jboss.invocation.proxy.MethodIdentifier;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.metadata.ejb.spec.SessionBeanMetaData;
-import org.jboss.msc.service.ServiceName;
 
 /**
  * @author Jaikiran Pai
@@ -74,7 +73,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     private boolean noInterfaceViewPresent;
 
     /**
-     * The {@link javax.ejb.ConcurrencyManagementType} for this bean
+     * The {@link jakarta.ejb.ConcurrencyManagementType} for this bean
      */
     private ConcurrencyManagementType concurrencyManagementType;
 
@@ -94,7 +93,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     private final Map<MethodIdentifier, LockType> methodLockTypes = new HashMap<MethodIdentifier, LockType>();
 
     /**
-     * The {@link javax.ejb.AccessTimeout} applicable for a specific bean methods.
+     * The {@link jakarta.ejb.AccessTimeout} applicable for a specific bean methods.
      */
     private final Map<MethodIdentifier, AccessTimeoutDetails> methodAccessTimeouts = new HashMap<MethodIdentifier, AccessTimeoutDetails>();
 
@@ -127,15 +126,15 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
      * @param ejbJarDescription  the module description
      */
     public SessionBeanComponentDescription(final String componentName, final String componentClassName,
-                                           final EjbJarDescription ejbJarDescription, final ServiceName deploymentUnitServiceName,
+                                           final EjbJarDescription ejbJarDescription, final DeploymentUnit deploymentUnit,
                                            final SessionBeanMetaData descriptorData) {
-        super(componentName, componentClassName, ejbJarDescription, deploymentUnitServiceName, descriptorData);
+        super(componentName, componentClassName, ejbJarDescription, deploymentUnit, descriptorData);
     }
 
     public void addLocalBusinessInterfaceViews(final Collection<String> classNames) {
         for (final String viewClassName : classNames) {
             assertNoRemoteView(viewClassName);
-            registerView(viewClassName, MethodIntf.LOCAL);
+            registerView(viewClassName, MethodInterfaceType.Local);
         }
     }
 
@@ -146,7 +145,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
 
     public void addNoInterfaceView() {
         noInterfaceViewPresent = true;
-        final ViewDescription viewDescription = registerView(getEJBClassName(), MethodIntf.LOCAL);
+        final ViewDescription viewDescription = registerView(getEJBClassName(), MethodInterfaceType.Local);
         //set up interceptor for non-business methods
         viewDescription.getConfigurators().add(new ViewConfigurator() {
             @Override
@@ -162,13 +161,13 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     }
 
     public EJBViewDescription addWebserviceEndpointView() {
-        return registerView(getEJBClassName(), MethodIntf.SERVICE_ENDPOINT);
+        return registerView(getEJBClassName(), MethodInterfaceType.ServiceEndpoint);
     }
 
     public void addRemoteBusinessInterfaceViews(final Collection<String> classNames) {
         for (final String viewClassName : classNames) {
             assertNoLocalView(viewClassName);
-            registerView(viewClassName, MethodIntf.REMOTE);
+            registerView(viewClassName, MethodInterfaceType.Remote);
         }
     }
 
@@ -176,7 +175,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
         EJBViewDescription ejbView = null;
         for (final ViewDescription view : getViews()) {
             ejbView = (EJBViewDescription) view;
-            if (viewClassName.equals(ejbView.getViewClassName()) && ejbView.getMethodIntf() == MethodIntf.REMOTE) {
+            if (viewClassName.equals(ejbView.getViewClassName()) && ejbView.getMethodIntf() == MethodInterfaceType.Remote) {
                 throw EjbLogger.ROOT_LOGGER.failToAddClassToLocalView(viewClassName, getEJBName());
             }
         }
@@ -186,7 +185,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
         EJBViewDescription ejbView = null;
         for (final ViewDescription view : getViews()) {
             ejbView = (EJBViewDescription) view;
-            if (viewClassName.equals(ejbView.getViewClassName()) && ejbView.getMethodIntf() == MethodIntf.LOCAL) {
+            if (viewClassName.equals(ejbView.getViewClassName()) && ejbView.getMethodIntf() == MethodInterfaceType.Local) {
                 throw EjbLogger.ROOT_LOGGER.failToAddClassToLocalView(viewClassName, getEJBName());
             }
         }
@@ -197,7 +196,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     }
 
     /**
-     * Sets the {@link javax.ejb.LockType} applicable for the bean.
+     * Sets the {@link jakarta.ejb.LockType} applicable for the bean.
      *
      * @param className The class that has the annotation
      * @param locktype  The lock type applicable for the bean
@@ -230,7 +229,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     }
 
     /**
-     * Returns the {@link javax.ejb.AccessTimeout} applicable for the bean.
+     * Returns the {@link jakarta.ejb.AccessTimeout} applicable for the bean.
      *
      * @return
      */
@@ -239,7 +238,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     }
 
     /**
-     * Sets the {@link javax.ejb.AccessTimeout} applicable for the bean.
+     * Sets the {@link jakarta.ejb.AccessTimeout} applicable for the bean.
      *
      * @param accessTimeout The access timeout applicable for the class
      */
@@ -248,7 +247,7 @@ public abstract class SessionBeanComponentDescription extends EJBComponentDescri
     }
 
     /**
-     * Sets the {@link javax.ejb.AccessTimeout} for the specific bean method
+     * Sets the {@link jakarta.ejb.AccessTimeout} for the specific bean method
      *
      * @param accessTimeout The applicable access timeout for the method
      * @param method        The method

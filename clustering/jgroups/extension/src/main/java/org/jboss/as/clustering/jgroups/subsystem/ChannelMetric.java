@@ -52,40 +52,28 @@ public enum ChannelMetric implements Metric<JChannel> {
             return new ModelNode(channel.getDiscardOwnMessages());
         }
     },
-    NUM_TASKS_IN_TIMER("num-tasks-in-timer", ModelType.INT, JGroupsModel.VERSION_5_0_0) {
-        @Override
-        public ModelNode execute(JChannel channel) {
-            return ModelNode.ZERO;
-        }
-    },
-    NUM_TIMER_THREADS("num-timer-threads", ModelType.INT, JGroupsModel.VERSION_5_0_0) {
-        @Override
-        public ModelNode execute(JChannel channel) {
-            return ModelNode.ZERO;
-        }
-    },
     RECEIVED_BYTES("received-bytes", ModelType.LONG) {
         @Override
         public ModelNode execute(JChannel channel) {
-            return new ModelNode(channel.getReceivedBytes());
+            return new ModelNode(channel.getProtocolStack().getTransport().getMessageStats().getNumBytesReceived());
         }
     },
     RECEIVED_MESSAGES("received-messages", ModelType.LONG) {
         @Override
         public ModelNode execute(JChannel channel) {
-            return new ModelNode(channel.getReceivedMessages());
+            return new ModelNode(channel.getProtocolStack().getTransport().getMessageStats().getNumMsgsReceived());
         }
     },
     SENT_BYTES("sent-bytes", ModelType.LONG) {
         @Override
         public ModelNode execute(JChannel channel) {
-            return new ModelNode(channel.getSentBytes());
+            return new ModelNode(channel.getProtocolStack().getTransport().getMessageStats().getNumBytesSent());
         }
     },
     SENT_MESSAGES("sent-messages", ModelType.LONG) {
         @Override
         public ModelNode execute(JChannel channel) {
-            return new ModelNode(channel.getSentMessages());
+            return new ModelNode(channel.getProtocolStack().getTransport().getMessageStats().getNumMsgsSent());
         }
     },
     STATE("state", ModelType.STRING) {

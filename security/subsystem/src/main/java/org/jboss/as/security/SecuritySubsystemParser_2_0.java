@@ -49,7 +49,7 @@ import org.jboss.staxmapper.XMLExtendedStreamReader;
  *
  * @author <a href="mailto:sguilhen@redhat.com">Stefan Guilhen</a>
  */
-public class SecuritySubsystemParser_2_0 extends SecuritySubsystemParser {
+class SecuritySubsystemParser_2_0 extends SecuritySubsystemParser {
 
     protected SecuritySubsystemParser_2_0() {
     }
@@ -137,7 +137,7 @@ public class SecuritySubsystemParser_2_0 extends SecuritySubsystemParser {
             }
         }
 
-        if (required.size() > 0) {
+        if (!required.isEmpty()) {
             throw missingRequired(reader, required);
         }
 
@@ -206,7 +206,7 @@ public class SecuritySubsystemParser_2_0 extends SecuritySubsystemParser {
             }
         }
 
-        if (required.size() > 0) {
+        if (!required.isEmpty()) {
             throw missingRequired(reader, required);
         }
 

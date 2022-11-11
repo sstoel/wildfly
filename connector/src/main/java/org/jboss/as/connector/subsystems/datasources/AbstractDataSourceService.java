@@ -47,9 +47,9 @@ import org.jboss.as.connector.metadata.api.common.Credential;
 import org.jboss.as.connector.security.ElytronSubjectFactory;
 import org.jboss.as.connector.services.driver.InstalledDriver;
 import org.jboss.as.connector.services.driver.registry.DriverRegistry;
+import org.jboss.as.connector.subsystems.common.jndi.Util;
 import org.jboss.as.connector.util.Injection;
 import org.jboss.as.controller.OperationFailedException;
-import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.jca.adapters.jdbc.BaseWrapperManagedConnectionFactory;
 import org.jboss.jca.adapters.jdbc.JDBCResourceAdapter;
@@ -70,6 +70,7 @@ import org.jboss.jca.common.api.validator.ValidateException;
 import org.jboss.jca.common.metadata.ds.DatasourcesImpl;
 import org.jboss.jca.common.metadata.ds.DriverImpl;
 import org.jboss.jca.core.api.connectionmanager.ccm.CachedConnectionManager;
+import org.jboss.jca.core.api.connectionmanager.pool.PoolConfiguration;
 import org.jboss.jca.core.api.management.ManagementRepository;
 import org.jboss.jca.core.bootstrapcontext.BootstrapContextCoordinator;
 import org.jboss.jca.core.connectionmanager.ConnectionManager;
@@ -128,7 +129,6 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
     private final InjectedValue<CachedConnectionManager> ccmValue = new InjectedValue<CachedConnectionManager>();
     private final InjectedValue<ExecutorService> executor = new InjectedValue<ExecutorService>();
     private final InjectedValue<MetadataRepository> mdr = new InjectedValue<MetadataRepository>();
-    private final InjectedValue<ServerSecurityManager> secManager = new InjectedValue<ServerSecurityManager>();
     private final InjectedValue<ResourceAdapterRepository> raRepository = new InjectedValue<ResourceAdapterRepository>();
     private final InjectedValue<AuthenticationContext> authenticationContext = new InjectedValue<>();
     private final InjectedValue<AuthenticationContext> recoveryAuthenticationContext = new InjectedValue<>();
@@ -158,8 +158,12 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
             final ServiceContainer container = startContext.getController().getServiceContainer();
 
             deploymentMD = getDeployer().deploy(container);
-            if (deploymentMD.getCfs().length != 1) {
-                throw ConnectorLogger.ROOT_LOGGER.cannotStartDs();
+            final Object[] cfs = deploymentMD.getCfs();
+            if (cfs.length == 0) {
+                throw ConnectorLogger.ROOT_LOGGER.cannotStartDSNoConnectionFactory(jndiName.getAbsoluteJndiName());
+            } else if (cfs.length >= 2) {
+                throw ConnectorLogger.ROOT_LOGGER.cannotStartDSTooManyConnectionFactories(jndiName.getAbsoluteJndiName(),
+                        cfs.length);
             }
             sqlDataSource = new WildFlyDataSource((javax.sql.DataSource) deploymentMD.getCfs()[0], jndiName.getAbsoluteJndiName());
             DS_DEPLOYER_LOGGER.debugf("Adding datasource: %s", deploymentMD.getCfJndiNames()[0]);
@@ -281,10 +285,6 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
     public Injector<ResourceAdapterRepository> getRaRepositoryInjector() {
             return raRepository;
         }
-
-    public Injector<ServerSecurityManager> getServerSecurityManager() {
-        return secManager;
-    }
 
     Injector<AuthenticationContext> getAuthenticationContext() {
         return authenticationContext;
@@ -607,13 +607,20 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
             if (dataSourceConfig.getUrlSelectorStrategyClassName() != null) {
                 managedConnectionFactory.setUrlSelectorStrategyClassName(dataSourceConfig.getUrlSelectorStrategyClassName());
             }
+
+            if (dataSourceConfig.getPoolName() != null) {
+                if (PoolConfiguration.getPoolsWithDisabledValidationLogging().contains(dataSourceConfig.getPoolName())) {
+                    managedConnectionFactory.setPoolValidationLoggingEnabled(false);
+                }
+            }
+
             setMcfProperties(managedConnectionFactory, dataSourceConfig, dataSourceConfig.getStatement());
 
             return managedConnectionFactory;
         }
 
         private void setMcfProperties(final BaseWrapperManagedConnectionFactory managedConnectionFactory,
-                CommonDataSource dataSourceConfig, final Statement statement) {
+                CommonDataSource dataSourceConfig, final Statement statement) throws DeployException {
 
             if (dataSourceConfig.getTransactionIsolation() != null) {
                 managedConnectionFactory.setTransactionIsolation(dataSourceConfig.getTransactionIsolation().name());
@@ -665,6 +672,9 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
                     if (validConnectionChecker.getClassName() != null) {
                         managedConnectionFactory.setValidConnectionCheckerClassName(validConnectionChecker.getClassName());
                     }
+                    if (validConnectionChecker.getClassLoader() != null) {
+                        managedConnectionFactory.setValidConnectionCheckerClassLoader(validConnectionChecker.getClassLoader());
+                    }
                     if (validConnectionChecker.getConfigPropertiesMap() != null) {
                         managedConnectionFactory
                                 .setValidConnectionCheckerProperties(buildConfigPropsString(validConnectionChecker
@@ -676,6 +686,9 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
                     if (exceptionSorter.getClassName() != null) {
                         managedConnectionFactory.setExceptionSorterClassName(exceptionSorter.getClassName());
                     }
+                    if (exceptionSorter.getClassLoader() != null) {
+                        managedConnectionFactory.setExceptionSorterClassLoader(exceptionSorter.getClassLoader());
+                    }
                     if (exceptionSorter.getConfigPropertiesMap() != null) {
                         managedConnectionFactory.setExceptionSorterProperties(buildConfigPropsString(exceptionSorter
                                 .getConfigPropertiesMap()));
@@ -685,6 +698,9 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
                 if (staleConnectionChecker != null) {
                     if (staleConnectionChecker.getClassName() != null) {
                         managedConnectionFactory.setStaleConnectionCheckerClassName(staleConnectionChecker.getClassName());
+                    }
+                    if (staleConnectionChecker.getClassLoader() != null) {
+                        managedConnectionFactory.setExceptionSorterClassLoader(staleConnectionChecker.getClassLoader());
                     }
                     if (staleConnectionChecker.getConfigPropertiesMap() != null) {
                         managedConnectionFactory
@@ -698,19 +714,7 @@ public abstract class AbstractDataSourceService implements Service<DataSource> {
         // Override this method to change how dsName is build in AS7
         @Override
         protected String buildJndiName(String rawJndiName, Boolean javaContext) {
-            final String jndiName;
-            if (!rawJndiName.startsWith("java:") && javaContext) {
-                if (rawJndiName.startsWith("jboss/")) {
-                    // Bind to java:jboss/ namespace
-                    jndiName = "java:" + rawJndiName;
-                } else {
-                    // Bind to java:/ namespace
-                    jndiName= "java:/" + rawJndiName;
-                }
-            } else {
-                jndiName = rawJndiName;
-            }
-            return jndiName;
+            return Util.cleanJndiName(rawJndiName, javaContext);
         }
 
         @Override

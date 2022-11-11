@@ -25,28 +25,15 @@ package org.wildfly.clustering.service.concurrent;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import org.wildfly.common.function.ExceptionRunnable;
 import org.wildfly.common.function.ExceptionSupplier;
 
 /**
  * Allows safe invocation of tasks that require resources not available after {@link #close(Runnable)} to block a service from stopping.
  * @author Paul Ferraro
+ * @deprecated To be removed without replacement
  */
-public interface ServiceExecutor {
-    /**
-     * Executes the specified task, but only if the service was not already closed.
-     * If service is already closed, the task is not run.
-     * @param executeTask a task to execute
-     */
-    void execute(Runnable executeTask);
-
-    /**
-     * Executes the specified task, but only if the service was not already closed.
-     * If service is already closed, the task is not run.
-     * @param executeTask a task to execute
-     * @throws E if the task execution failed
-     */
-    <E extends Exception> void execute(ExceptionRunnable<E> executeTask) throws E;
+@Deprecated(forRemoval = true)
+public interface ServiceExecutor extends Executor {
 
     /**
      * Executes the specified task, but only if the service was not already closed.

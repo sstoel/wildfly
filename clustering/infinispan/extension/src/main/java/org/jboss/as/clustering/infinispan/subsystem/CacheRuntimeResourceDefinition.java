@@ -22,42 +22,50 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import org.infinispan.Cache;
+import org.infinispan.eviction.impl.ActivationManager;
+import org.infinispan.eviction.impl.PassivationManager;
+import org.infinispan.interceptors.impl.CacheMgmtInterceptor;
+import org.infinispan.interceptors.impl.InvalidationInterceptor;
 import org.jboss.as.clustering.controller.ChildResourceDefinition;
+import org.jboss.as.clustering.controller.FunctionExecutorRegistry;
 import org.jboss.as.clustering.controller.MetricHandler;
-import org.jboss.as.controller.ModelVersion;
+import org.jboss.as.clustering.controller.OperationHandler;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 
 /**
  * @author Paul Ferraro
  */
 public class CacheRuntimeResourceDefinition extends ChildResourceDefinition<ManagementResourceRegistration> {
 
-    static final PathElement WILDCARD_PATH = PathElement.pathElement("cache");
-
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        if (InfinispanModel.VERSION_10_0_0.requiresTransformation(version)) {
-            parent.discardChildResource(WILDCARD_PATH);
-        }
+    static final PathElement WILDCARD_PATH = pathElement(PathElement.WILDCARD_VALUE);
+    static PathElement pathElement(String name) {
+        return PathElement.pathElement("cache", name);
     }
 
-    CacheRuntimeResourceDefinition() {
+    private final FunctionExecutorRegistry<Cache<?, ?>> executors;
+
+    CacheRuntimeResourceDefinition(FunctionExecutorRegistry<Cache<?, ?>> executors) {
         super(new Parameters(WILDCARD_PATH, InfinispanExtension.SUBSYSTEM_RESOLVER.createChildResolver(WILDCARD_PATH)).setRuntime());
+        this.executors = executors;
     }
 
     @Override
     public ManagementResourceRegistration register(ManagementResourceRegistration parent) {
         ManagementResourceRegistration registration = parent.registerSubModel(this);
 
-        new MetricHandler<>(new CacheMetricExecutor(), CacheMetric.class).register(registration);
-        new MetricHandler<>(new ClusteredCacheMetricExecutor(), ClusteredCacheMetric.class).register(registration);
+        new MetricHandler<>(new CacheInterceptorMetricExecutor<>(this.executors, CacheMgmtInterceptor.class), CacheMetric.class).register(registration);
+        new MetricHandler<>(new CacheInterceptorMetricExecutor<>(this.executors, InvalidationInterceptor.class), CacheInvalidationInterceptorMetric.class).register(registration);
+        new MetricHandler<>(new CacheComponentMetricExecutor<>(this.executors, ActivationManager.class), CacheActivationMetric.class).register(registration);
+        new MetricHandler<>(new CacheComponentMetricExecutor<>(this.executors, PassivationManager.class), CachePassivationMetric.class).register(registration);
+        new MetricHandler<>(new ClusteredCacheMetricExecutor(this.executors), ClusteredCacheMetric.class).register(registration);
+        new OperationHandler<>(new CacheInterceptorOperationExecutor<>(this.executors, CacheMgmtInterceptor.class), CacheOperation.class).register(registration);
 
-        new LockingRuntimeResourceDefinition().register(registration);
-        new MemoryRuntimeResourceDefinition().register(registration);
-        new PartitionHandlingRuntimeResourceDefinition().register(registration);
-        new PersistenceRuntimeResourceDefinition().register(registration);
-        new TransactionRuntimeResourceDefinition().register(registration);
+        new LockingRuntimeResourceDefinition(this.executors).register(registration);
+        new PartitionHandlingRuntimeResourceDefinition(this.executors).register(registration);
+        new PersistenceRuntimeResourceDefinition(this.executors).register(registration);
+        new TransactionRuntimeResourceDefinition(this.executors).register(registration);
 
         return registration;
     }

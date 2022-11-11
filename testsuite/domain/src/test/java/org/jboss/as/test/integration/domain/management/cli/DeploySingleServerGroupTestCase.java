@@ -28,6 +28,7 @@ import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import org.jboss.as.test.integration.common.HttpRequest;
@@ -50,7 +51,6 @@ import org.junit.Test;
  */
 public class DeploySingleServerGroupTestCase extends AbstractCliTestBase {
 
-    private static WebArchive war;
     private static File warFile;
 
     private static String[] serverGroups;
@@ -60,16 +60,17 @@ public class DeploySingleServerGroupTestCase extends AbstractCliTestBase {
 
         CLITestSuite.createSupport(DeploySingleServerGroupTestCase.class.getSimpleName());
 
-        war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
+        WebArchive war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
         war.addClass(SimpleServlet.class);
         war.addAsWebResource(new StringAsset("Version1"), "page.html");
         String tempDir = System.getProperty("java.io.tmpdir");
         warFile = new File(tempDir + File.separator + "SimpleServlet.war");
+
         new ZipExporterImpl(war).exportTo(warFile, true);
 
         serverGroups = CLITestSuite.serverGroups.keySet().toArray(new String[CLITestSuite.serverGroups.size()]);
 
-        AbstractCliTestBase.initCLI(DomainTestSupport.masterAddress);
+        AbstractCliTestBase.initCLI(DomainTestSupport.primaryAddress);
     }
 
     @AfterClass
@@ -111,7 +112,7 @@ public class DeploySingleServerGroupTestCase extends AbstractCliTestBase {
         checkURL("/SimpleServlet/page.html", "Version1", serverGroups[0]);
 
         // update the deployment - replace page.html
-        war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
+        WebArchive war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
         war.addClass(SimpleServlet.class);
         war.addAsWebResource(new StringAsset("Version2"), "page.html");
         new ZipExporterImpl(war).exportTo(warFile, true);
@@ -155,9 +156,9 @@ public class DeploySingleServerGroupTestCase extends AbstractCliTestBase {
         ArrayList<String> groupServers  = new ArrayList<String>();
         Collections.addAll(groupServers, CLITestSuite.serverGroups.get(serverGroup));
 
-        for (String host : CLITestSuite.hostAddresses.keySet()) {
-            String address = CLITestSuite.hostAddresses.get(host);
-            for (String server : CLITestSuite.hostServers.get(host)) {
+        for (Map.Entry<String, String> entry : CLITestSuite.hostAddresses.entrySet()) {
+            String address = entry.getValue();
+            for (String server : CLITestSuite.hostServers.get(entry.getKey())) {
                 if (! groupServers.contains(server)) continue;  // server not in the group
                 if (! CLITestSuite.serverStatus.get(server)) continue; // server not started
                 Integer portOffset = CLITestSuite.portOffsets.get(server);

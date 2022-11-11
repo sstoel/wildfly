@@ -22,17 +22,24 @@
 
 package org.jboss.as.test.xts.wsat.client;
 
-import javax.inject.Inject;
-import javax.xml.ws.soap.SOAPFaultException;
+import static org.jboss.as.test.xts.util.EventLogEvent.BEFORE_PREPARE;
+import static org.jboss.as.test.xts.util.EventLogEvent.COMMIT;
+import static org.jboss.as.test.xts.util.EventLogEvent.PREPARE;
+import static org.jboss.as.test.xts.util.EventLogEvent.ROLLBACK;
+import static org.jboss.as.test.xts.util.EventLogEvent.VOLATILE_COMMIT;
+import static org.jboss.as.test.xts.util.EventLogEvent.VOLATILE_ROLLBACK;
+import static org.jboss.as.test.xts.util.ServiceCommand.APPLICATION_EXCEPTION;
+import static org.jboss.as.test.xts.util.ServiceCommand.ROLLBACK_ONLY;
+import static org.jboss.as.test.xts.util.ServiceCommand.VOTE_READONLY_DURABLE;
+import static org.jboss.as.test.xts.util.ServiceCommand.VOTE_READONLY_VOLATILE;
+import static org.jboss.as.test.xts.util.ServiceCommand.VOTE_ROLLBACK;
+import static org.jboss.as.test.xts.util.ServiceCommand.VOTE_ROLLBACK_PRE_PREPARE;
 
-
-import com.arjuna.mw.wst11.UserTransaction;
-import com.arjuna.mw.wst11.UserTransactionFactory;
-import com.arjuna.wst.TransactionRolledBackException;
+import jakarta.inject.Inject;
+import jakarta.xml.ws.soap.SOAPFaultException;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
-
 import org.jboss.as.test.xts.base.BaseFunctionalTest;
 import org.jboss.as.test.xts.base.TestApplicationException;
 import org.jboss.as.test.xts.util.DeploymentHelper;
@@ -42,10 +49,6 @@ import org.jboss.as.test.xts.wsat.service.AT;
 import org.jboss.as.test.xts.wsat.service.ATService1;
 import org.jboss.as.test.xts.wsat.service.ATService2;
 import org.jboss.as.test.xts.wsat.service.ATService3;
-
-import static org.jboss.as.test.xts.util.ServiceCommand.*;
-import static org.jboss.as.test.xts.util.EventLogEvent.*;
-
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.After;
@@ -53,6 +56,10 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import com.arjuna.mw.wst11.UserTransaction;
+import com.arjuna.mw.wst11.UserTransactionFactory;
+import com.arjuna.wst.TransactionRolledBackException;
 
 /**
  * XTS atomic transaction test case
@@ -70,7 +77,7 @@ public class ATTestCase extends BaseFunctionalTest {
 
     @Deployment
     public static WebArchive createTestArchive() {
-        final WebArchive archive = DeploymentHelper.getInstance().getWebArchiveWithPermissions(ARCHIVE_NAME)
+        return DeploymentHelper.getInstance().getWebArchiveWithPermissions(ARCHIVE_NAME)
                 .addPackage(AT.class.getPackage())
                 .addPackage(ATClient.class.getPackage())
                 .addPackage(EventLog.class.getPackage())
@@ -78,7 +85,6 @@ public class ATTestCase extends BaseFunctionalTest {
                 // needed to setup the server-side handler chain
                 .addAsResource("context-handlers.xml")
                 .addAsManifestResource(new StringAsset("Dependencies: org.jboss.xts,org.jboss.jts\n"), "MANIFEST.MF");
-        return archive;
     }
 
     @Before

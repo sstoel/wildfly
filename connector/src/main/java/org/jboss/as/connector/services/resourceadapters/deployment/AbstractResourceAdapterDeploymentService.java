@@ -26,10 +26,6 @@ import static java.lang.Thread.currentThread;
 import static java.security.AccessController.doPrivileged;
 import static org.jboss.as.connector.logging.ConnectorLogger.DEPLOYMENT_CONNECTOR_LOGGER;
 
-import javax.naming.InitialContext;
-import javax.naming.Reference;
-import javax.resource.spi.ResourceAdapter;
-import javax.transaction.TransactionManager;
 import java.io.File;
 import java.io.PrintWriter;
 import java.net.URI;
@@ -43,6 +39,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 
+import javax.naming.InitialContext;
+import javax.naming.Reference;
+import javax.resource.spi.ResourceAdapter;
+import javax.transaction.TransactionManager;
+
 import org.jboss.as.connector.logging.ConnectorLogger;
 import org.jboss.as.connector.metadata.api.resourceadapter.WorkManagerSecurity;
 import org.jboss.as.connector.metadata.deployment.ResourceAdapterDeployment;
@@ -55,11 +56,12 @@ import org.jboss.as.connector.services.resourceadapters.ConnectionFactoryReferen
 import org.jboss.as.connector.services.resourceadapters.ConnectionFactoryService;
 import org.jboss.as.connector.services.resourceadapters.deployment.registry.ResourceAdapterDeploymentRegistry;
 import org.jboss.as.connector.services.workmanager.NamedWorkManager;
+import org.jboss.as.connector.subsystems.common.jndi.Util;
 import org.jboss.as.connector.subsystems.jca.JcaSubsystemConfiguration;
+import org.jboss.as.connector.subsystems.resourceadapters.ResourceAdaptersSubsystemService;
 import org.jboss.as.connector.util.ConnectorServices;
 import org.jboss.as.connector.util.Injection;
 import org.jboss.as.connector.util.JCAValidatorFactory;
-import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.naming.ContextListAndJndiViewManagedReferenceFactory;
 import org.jboss.as.naming.ContextListManagedReferenceFactory;
 import org.jboss.as.naming.ManagedReference;
@@ -78,7 +80,6 @@ import org.jboss.jca.core.api.connectionmanager.ccm.CachedConnectionManager;
 import org.jboss.jca.core.api.management.ManagementRepository;
 import org.jboss.jca.core.bootstrapcontext.BootstrapContextCoordinator;
 import org.jboss.jca.core.connectionmanager.ConnectionManager;
-import org.jboss.jca.core.security.picketbox.PicketBoxSubjectFactory;
 import org.jboss.jca.core.spi.mdr.AlreadyExistsException;
 import org.jboss.jca.core.spi.rar.ResourceAdapterRepository;
 import org.jboss.jca.core.spi.security.Callback;
@@ -99,9 +100,7 @@ import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.ImmediateValue;
 import org.jboss.msc.value.InjectedValue;
-import org.jboss.security.SubjectFactory;
 import org.jboss.threads.JBossThreadFactory;
 import org.wildfly.security.manager.WildFlySecurityManager;
 import org.wildfly.security.manager.action.ClearContextClassLoaderAction;
@@ -127,10 +126,9 @@ public abstract class AbstractResourceAdapterDeploymentService {
 
     protected final InjectedValue<JcaSubsystemConfiguration> config = new InjectedValue<JcaSubsystemConfiguration>();
     protected final InjectedValue<TransactionIntegration> txInt = new InjectedValue<TransactionIntegration>();
-    protected final InjectedValue<SubjectFactory> subjectFactory = new InjectedValue<SubjectFactory>();
     protected final InjectedValue<CachedConnectionManager> ccmValue = new InjectedValue<CachedConnectionManager>();
     protected final InjectedValue<ExecutorService> executorServiceInjector = new InjectedValue<ExecutorService>();
-    private final InjectedValue<ServerSecurityManager> secManager = new InjectedValue<ServerSecurityManager>();
+    protected final InjectedValue<ResourceAdaptersSubsystemService> resourceAdaptersSubsystem = new InjectedValue<>();
 
     protected String raRepositoryRegistrationId;
     protected String connectorServicesRegistrationName;
@@ -278,20 +276,16 @@ public abstract class AbstractResourceAdapterDeploymentService {
         return config;
     }
 
-    public Injector<SubjectFactory> getSubjectFactoryInjector() {
-        return subjectFactory;
-    }
-
-    public Injector<ServerSecurityManager> getServerSecurityManager() {
-        return secManager;
-    }
-
     public Injector<CachedConnectionManager> getCcmInjector() {
         return ccmValue;
     }
 
     public Injector<ExecutorService> getExecutorServiceInjector() {
         return executorServiceInjector;
+    }
+
+    public Injector<ResourceAdaptersSubsystemService> getResourceAdaptersSubsystem() {
+        return resourceAdaptersSubsystem;
     }
 
     protected final ExecutorService getLifecycleExecutorService() {
@@ -456,7 +450,7 @@ public abstract class AbstractResourceAdapterDeploymentService {
                                         break;
                                     }
                                     case REMOVED: {
-                                        DEPLOYMENT_CONNECTOR_LOGGER.debugf("Removed JCA ConnectionFactory [%s]", jndi);
+                                        DEPLOYMENT_CONNECTOR_LOGGER.debugf("Removed Jakarta Connectors ConnectionFactory [%s]", jndi);
                                     }
                                 }
                             }
@@ -561,7 +555,7 @@ public abstract class AbstractResourceAdapterDeploymentService {
                                 break;
                             }
                             case REMOVED: {
-                                DEPLOYMENT_CONNECTOR_LOGGER.debugf("Removed JCA AdminObject [%s]", jndi);
+                                DEPLOYMENT_CONNECTOR_LOGGER.debugf("Removed Jakarta Connectors AdminObject [%s]", jndi);
                             }
                         }
                     }
@@ -590,9 +584,11 @@ public abstract class AbstractResourceAdapterDeploymentService {
 
         @Override
         protected File getReportDirectory() {
-            // TODO: evaluate if provide something in config about that. atm
-            // returning null and so skip its use
-            return null;
+            if (resourceAdaptersSubsystem.getOptionalValue() != null) {
+                return resourceAdaptersSubsystem.getValue().getReportDirectory();
+            } else {
+                return null;
+            }
         }
 
         @Override
@@ -672,17 +668,14 @@ public abstract class AbstractResourceAdapterDeploymentService {
             if (securityMetadata == null)
                 return null;
             final String securityDomain = securityMetadata.resolveSecurityDomain();
-            if (securityMetadata instanceof org.jboss.as.connector.metadata.api.common.SecurityMetadata &&
-                    ((org.jboss.as.connector.metadata.api.common.SecurityMetadata)securityMetadata).isElytronEnabled()) {
+            if (securityDomain == null || securityDomain.trim().equals("")) {
+                return null;
+            } else {
                 try {
                     return new ElytronSubjectFactory(null, new URI(jndiName));
                 } catch (URISyntaxException e) {
                     throw ConnectorLogger.ROOT_LOGGER.cannotDeploy(e);
                 }
-            } else if (securityDomain == null || securityDomain.trim().equals("")) {
-                return null;
-            } else {
-                return new PicketBoxSubjectFactory(subjectFactory.getValue());
             }
         }
 
@@ -729,19 +722,7 @@ public abstract class AbstractResourceAdapterDeploymentService {
         // Override this method to change how jndiName is build in AS7
         @Override
         protected String buildJndiName(String rawJndiName, Boolean javaContext) {
-            final String jndiName;
-            if (!rawJndiName.startsWith("java:")) {
-                if (rawJndiName.startsWith("jboss/")) {
-                    // Bind to java:jboss/ namespace
-                    jndiName = "java:" + rawJndiName;
-                } else {
-                    // Bind to java:/ namespace
-                    jndiName= "java:/" + rawJndiName;
-                }
-            } else {
-                jndiName = rawJndiName;
-            }
-            return jndiName;
+            return Util.cleanJndiName(rawJndiName, javaContext);
         }
 
         @Override
@@ -765,7 +746,7 @@ public abstract class AbstractResourceAdapterDeploymentService {
         public ManagedReference getReference() {
             try {
                 final Object value = new InitialContext().lookup(name);
-                return new ValueManagedReference(new ImmediateValue<Object>(value));
+                return new ValueManagedReference(value);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

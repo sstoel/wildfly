@@ -35,10 +35,8 @@ import org.jboss.msc.service.ServiceName;
 public enum RemoteCacheContainerComponent implements ResourceServiceNameFactory {
 
     CONNECTION_POOL(ConnectionPoolResourceDefinition.PATH),
-    MODULE("module"),
-    NEAR_CACHE(NearCacheResourceDefinition.WILDCARD_PATH),
+    MODULES("modules"),
     SECURITY(SecurityResourceDefinition.PATH),
-    TRANSACTION(RemoteTransactionResourceDefinition.PATH),
     ;
 
     private final String[] components;

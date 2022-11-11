@@ -21,7 +21,6 @@
  */
 package org.jboss.as.test.xts.annotation.client;
 
-import com.arjuna.mw.wst11.UserBusinessActivity;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
@@ -32,6 +31,8 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import com.arjuna.mw.wst11.UserBusinessActivity;
 
 /**
  * @author <a href="mailto:gytis@redhat.com">Gytis Trikleris</a>
@@ -48,13 +49,11 @@ public class CompensatableTestCase {
 
     @Deployment
     public static WebArchive getDeployment() {
-        final WebArchive webArchive = DeploymentHelper.getInstance().getWebArchiveWithPermissions(DEPLOYMENT_NAME)
+        return DeploymentHelper.getInstance().getWebArchiveWithPermissions(DEPLOYMENT_NAME)
                 .addClass(CompensatableClient.class)
                 .addClass(CompensatableService.class)
                 .addClass(CompensatableServiceImpl.class)
                 .addClass(TestSuiteEnvironment.class);
-
-        return webArchive;
     }
 
     @Test

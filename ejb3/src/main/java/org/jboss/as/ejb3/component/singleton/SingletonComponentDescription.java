@@ -22,14 +22,15 @@
 
 package org.jboss.as.ejb3.component.singleton;
 
+import static org.jboss.as.ejb3.logging.EjbLogger.ROOT_LOGGER;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-
-import javax.ejb.ConcurrencyManagementType;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.ConcurrencyManagementType;
+import jakarta.ejb.TransactionManagementType;
 
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.ComponentConfiguration;
@@ -45,15 +46,13 @@ import org.jboss.as.ee.component.interceptors.InterceptorOrder;
 import org.jboss.as.ee.component.serialization.WriteReplaceInterface;
 import org.jboss.as.ee.metadata.MetadataCompleteMarker;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBViewDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.interceptors.ComponentTypeIdentityInterceptorFactory;
 import org.jboss.as.ejb3.component.session.SessionBeanComponentDescription;
 import org.jboss.as.ejb3.component.session.StatelessRemoteViewInstanceFactory;
 import org.jboss.as.ejb3.component.session.StatelessWriteReplaceInterceptor;
 import org.jboss.as.ejb3.deployment.EjbJarDescription;
-import org.jboss.as.ejb3.security.SecurityContextInterceptorFactory;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.tx.EjbBMTInterceptor;
 import org.jboss.as.ejb3.tx.LifecycleCMTTxInterceptor;
 import org.jboss.as.ejb3.tx.TimerCMTTxInterceptor;
@@ -62,8 +61,9 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.reflect.ClassReflectionIndex;
 import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
-import org.jboss.invocation.InterceptorFactory;
 import org.jboss.invocation.ImmediateInterceptorFactory;
+import org.jboss.invocation.InterceptorFactory;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.metadata.ejb.spec.SessionBeanMetaData;
 import org.jboss.modules.ModuleLoader;
 import org.jboss.msc.service.ServiceName;
@@ -90,8 +90,8 @@ public class SingletonComponentDescription extends SessionBeanComponentDescripti
      * @param ejbJarDescription  the module description
      */
     public SingletonComponentDescription(final String componentName, final String componentClassName, final EjbJarDescription ejbJarDescription,
-                                         final ServiceName deploymentUnitServiceName, final SessionBeanMetaData descriptorData) {
-        super(componentName, componentClassName, ejbJarDescription, deploymentUnitServiceName, descriptorData);
+                                         final DeploymentUnit deploymentUnit, final SessionBeanMetaData descriptorData) {
+        super(componentName, componentClassName, ejbJarDescription, deploymentUnit, descriptorData);
 
         getConfigurators().add(new ComponentConfigurator() {
             @Override
@@ -112,7 +112,9 @@ public class SingletonComponentDescription extends SessionBeanComponentDescripti
         ComponentConfiguration singletonComponentConfiguration = new ComponentConfiguration(this, classIndex, moduleClassLoader, moduleLoader);
         // setup the component create service
         singletonComponentConfiguration.setComponentCreateServiceFactory(new SingletonComponentCreateServiceFactory(this.isInitOnStartup(), dependsOn));
-        if(isExplicitSecurityDomainConfigured()) {
+        final String definedSecurityDomain = getDefinedSecurityDomain();
+        final boolean securityRequired = hasBeanLevelSecurityMetadata();
+        if (securityRequired) {
             getConfigurators().add(new ComponentConfigurator() {
                     @Override
                     public void configure(final DeploymentPhaseContext context, final ComponentDescription description, final ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
@@ -122,13 +124,12 @@ public class SingletonComponentDescription extends SessionBeanComponentDescripti
                             contextID = deploymentUnit.getParent().getName() + "!" + contextID;
                         }
                         EJBComponentDescription ejbComponentDescription = (EJBComponentDescription) description;
-                        final boolean securityRequired = isExplicitSecurityDomainConfigured();
-                        ejbComponentDescription.setSecurityRequired(securityRequired);
-                        if (isSecurityDomainKnown()) {
-                            final HashMap<Integer, InterceptorFactory> elytronInterceptorFactories = getElytronInterceptorFactories(contextID, ejbComponentDescription.isEnableJacc(), false);
+                        if (getSecurityDomainServiceName() != null) {
+                            ejbComponentDescription.setSecurityRequired(securityRequired);
+                            final HashMap<Integer, InterceptorFactory> elytronInterceptorFactories = getElytronInterceptorFactories(contextID, ejbComponentDescription.requiresJacc(), false);
                             elytronInterceptorFactories.forEach((priority, elytronInterceptorFactory) -> configuration.addPostConstructInterceptor(elytronInterceptorFactory, priority));
-                        } else {
-                            configuration.addPostConstructInterceptor(new SecurityContextInterceptorFactory(securityRequired, false, contextID), InterceptorOrder.View.SECURITY_CONTEXT);
+                        } else if (definedSecurityDomain != null){
+                            throw ROOT_LOGGER.legacySecurityUnsupported(definedSecurityDomain);
                         }
                     }
                 });
@@ -216,8 +217,8 @@ public class SingletonComponentDescription extends SessionBeanComponentDescripti
 
                 //add equals/hashCode interceptor
                 for (Method method : configuration.getProxyFactory().getCachedMethods()) {
-                    if ((method.getName().equals("hashCode") && method.getParameterTypes().length == 0) ||
-                            method.getName().equals("equals") && method.getParameterTypes().length == 1 &&
+                    if ((method.getName().equals("hashCode") && method.getParameterCount() == 0) ||
+                            method.getName().equals("equals") && method.getParameterCount() == 1 &&
                                     method.getParameterTypes()[0] == Object.class) {
                         configuration.addClientInterceptor(method, ComponentTypeIdentityInterceptorFactory.INSTANCE, InterceptorOrder.Client.EJB_EQUALS_HASHCODE);
                     }
@@ -229,7 +230,7 @@ public class SingletonComponentDescription extends SessionBeanComponentDescripti
         });
 
 
-        if (view.getMethodIntf() == MethodIntf.REMOTE) {
+        if (view.getMethodIntf() == MethodInterfaceType.Remote) {
             view.getConfigurators().add(new ViewConfigurator() {
                 @Override
                 public void configure(final DeploymentPhaseContext context, final ComponentConfiguration componentConfiguration, final ViewDescription description, final ViewConfiguration configuration) throws DeploymentUnitProcessingException {

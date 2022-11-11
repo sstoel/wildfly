@@ -40,11 +40,13 @@ import org.jboss.as.naming.ServiceBasedNamingStore;
 import org.jboss.as.naming.ValueManagedReference;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.service.BinderService;
+import org.jboss.as.server.deployment.AttachmentKey;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
+import org.jboss.as.server.deployment.SetupAction;
 import org.jboss.as.weld.WeldBootstrapService;
 import org.jboss.as.weld._private.WeldDeploymentMarker;
 import org.jboss.as.weld.arquillian.WeldContextSetup;
@@ -56,7 +58,6 @@ import org.jboss.as.weld.util.Utils;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.jboss.msc.value.ImmediateValue;
 import org.jboss.msc.value.InjectedValue;
 
 /**
@@ -66,6 +67,8 @@ import org.jboss.msc.value.InjectedValue;
  * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class WeldBeanManagerServiceProcessor implements DeploymentUnitProcessor {
+
+    private static final AttachmentKey<SetupAction> ATTACHMENT_KEY = AttachmentKey.create(SetupAction.class);
 
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -120,7 +123,9 @@ public class WeldBeanManagerServiceProcessor implements DeploymentUnitProcessor 
                 bindBeanManager(deploymentUnit, serviceTarget, beanManagerServiceName, compContextServiceName);
             }
         }
-        deploymentUnit.addToAttachmentList(Attachments.SETUP_ACTIONS, new WeldContextSetup());
+        SetupAction action = new WeldContextSetup();
+        deploymentUnit.putAttachment(ATTACHMENT_KEY, action);
+        deploymentUnit.addToAttachmentList(Attachments.SETUP_ACTIONS, action);
     }
 
     private void bindBeanManager(DeploymentUnit deploymentUnit, ServiceTarget serviceTarget, ServiceName beanManagerServiceName, ServiceName contextServiceName) {
@@ -142,7 +147,10 @@ public class WeldBeanManagerServiceProcessor implements DeploymentUnitProcessor 
 
     @Override
     public void undeploy(DeploymentUnit deploymentUnit) {
-        deploymentUnit.getAttachmentList(Attachments.SETUP_ACTIONS).removeIf(setupAction -> setupAction instanceof WeldContextSetup);
+        SetupAction action = deploymentUnit.removeAttachment(ATTACHMENT_KEY);
+        if (action != null) {
+            deploymentUnit.getAttachmentList(Attachments.SETUP_ACTIONS).remove(action);
+        }
     }
 
     private static class BeanManagerManagedReferenceFactory implements ContextListManagedReferenceFactory {
@@ -154,7 +162,7 @@ public class WeldBeanManagerServiceProcessor implements DeploymentUnitProcessor 
             if (bm == null) {
                 return null;
             }
-            return new ValueManagedReference(new ImmediateValue<Object>(bm));
+            return new ValueManagedReference(bm);
         }
 
         @Override

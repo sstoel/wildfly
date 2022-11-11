@@ -21,7 +21,7 @@
  */
 package org.jboss.as.test.integration.weld.ejb.interceptor.binding;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -35,7 +35,7 @@ import org.junit.runner.RunWith;
 
 /**
  *
- * A simple test that CDI interceptors are applied to EJB's,
+ * A simple test that Jakarta Contexts and Dependency Injection interceptors are applied to EJB's,
  * and that they are applied in the correct order.
  *
  * @author Stuart Douglas

@@ -29,8 +29,8 @@ import static org.junit.Assert.assertTrue;
 import java.util.Iterator;
 import java.util.Set;
 import javax.naming.InitialContext;
-import javax.resource.cci.Connection;
-import javax.resource.cci.ConnectionFactory;
+import jakarta.resource.cci.Connection;
+import jakarta.resource.cci.ConnectionFactory;
 
 import org.jboss.as.test.integration.management.base.AbstractMgmtTestBase;
 import org.jboss.as.test.integration.management.base.ContainerResourceMgmtTestBase;
@@ -67,7 +67,7 @@ public abstract class AbstractModuleDeploymentTestCase extends
         if (withDependencies) {
             ja.addAsManifestResource(
                     new StringAsset(
-                            "Dependencies: org.jboss.as.controller-client,org.jboss.dmr,org.jboss.as.cli,javax.inject.api,org.jboss.as.connector\n"),
+                            "Dependencies: org.jboss.as.controller-client,org.jboss.dmr,javax.inject.api,org.jboss.as.connector,org.wildfly.common\n"),
                     "MANIFEST.MF");
         }
 

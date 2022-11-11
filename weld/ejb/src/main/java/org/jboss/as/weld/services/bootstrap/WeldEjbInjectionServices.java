@@ -26,13 +26,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Set;
-
-import javax.ejb.EJB;
-import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.spi.InjectionPoint;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
+import jakarta.ejb.EJB;
+import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 import org.jboss.as.ee.component.ComponentView;
 import org.jboss.as.ee.component.EEApplicationDescription;
 import org.jboss.as.ee.component.EEModuleDescription;
@@ -92,7 +91,7 @@ public class WeldEjbInjectionServices extends AbstractResourceInjectionServices 
         if (ejb == null) {
             throw WeldLogger.ROOT_LOGGER.annotationNotFound(EJB.class, injectionPoint.getMember());
         }
-        if (injectionPoint.getMember() instanceof Method && ((Method) injectionPoint.getMember()).getParameterTypes().length != 1) {
+        if (injectionPoint.getMember() instanceof Method && ((Method) injectionPoint.getMember()).getParameterCount() != 1) {
             throw WeldLogger.ROOT_LOGGER.injectionPointNotAJavabean((Method) injectionPoint.getMember());
         }
         if (!ejb.lookup().equals("")) {

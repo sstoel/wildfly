@@ -52,7 +52,7 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.DEPLOYMENT;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_RESOURCE_OPERATION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import org.hamcrest.CoreMatchers;
 import org.jboss.as.controller.operations.common.Util;
@@ -175,7 +175,7 @@ public class JaxrsRuntimeNameTestCase extends AbstractRuntimeTestCase {
 
         ModelNode jsonRes = subResList.get(1);// '/json'
         assertThat(jsonRes.get(RESOURCE_PATH).asString(), is("/json"));
-        assertThat(jsonRes.get(JAVA_METHOD).asString(), is("javax.json.JsonObject " + HelloResource.class.getCanonicalName() + ".getHelloWorldJSON()"));
+        assertThat(jsonRes.get(JAVA_METHOD).asString(), is("jakarta.json.JsonObject " + HelloResource.class.getCanonicalName() + ".getHelloWorldJSON()"));
         assertThat(jsonRes.get(CONSUMES).isDefined(), is(false));
         assertThat(jsonRes.get(PRODUCES).asList().size(), is(1));
         assertThat(jsonRes.get(PRODUCES).asList().get(0).asString(), is("application/json"));

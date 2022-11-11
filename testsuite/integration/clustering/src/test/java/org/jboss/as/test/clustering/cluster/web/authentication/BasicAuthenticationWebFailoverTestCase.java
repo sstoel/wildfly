@@ -26,7 +26,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
@@ -50,16 +50,18 @@ import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.security.common.elytron.ServletElytronDomainSetup;
 
 /**
  * Validates that a user remains authenticated following failover when using BASIC authentication.
  * @author Paul Ferraro
  */
 @RunWith(Arquillian.class)
-@ServerSetup(WebSecurityDomainSetup.class)
+@ServerSetup({BasicAuthenticationWebFailoverTestCase.ElytronDomainSetupOverride.class, BasicAuthenticationWebFailoverTestCase.ServletElytronDomainSetupOverride.class})
 public class BasicAuthenticationWebFailoverTestCase extends AbstractClusteringTestCase {
 
     private static final String MODULE_NAME = BasicAuthenticationWebFailoverTestCase.class.getSimpleName();
+    private static final String SECURITY_DOMAIN_NAME = "authentication";
 
     @Deployment(name = DEPLOYMENT_1, managed = false, testable = false)
     @TargetsContainer(NODE_1)
@@ -78,8 +80,6 @@ public class BasicAuthenticationWebFailoverTestCase extends AbstractClusteringTe
         war.addClass(SecureServlet.class);
         war.setWebXML(SecureServlet.class.getPackage(), "web-basic.xml");
         war.addAsWebInfResource(SecureServlet.class.getPackage(), "jboss-web.xml", "jboss-web.xml");
-        war.addAsResource(SecureServlet.class.getPackage(), "users.properties", "users.properties");
-        war.addAsResource(SecureServlet.class.getPackage(), "roles.properties", "roles.properties");
         return war;
     }
 
@@ -153,6 +153,20 @@ public class BasicAuthenticationWebFailoverTestCase extends AbstractClusteringTe
     private static void setCredentials(CredentialsProvider provider, String user, String password, URL... urls) {
         for (URL url: urls) {
             provider.setCredentials(new AuthScope(url.getHost(), url.getPort()), new UsernamePasswordCredentials(user, password));
+        }
+    }
+
+    static class ElytronDomainSetupOverride extends ElytronDomainServerSetupTask {
+
+        public ElytronDomainSetupOverride() {
+            super(SECURITY_DOMAIN_NAME);
+        }
+    }
+
+    static class ServletElytronDomainSetupOverride extends ServletElytronDomainSetup {
+
+        protected ServletElytronDomainSetupOverride() {
+            super(SECURITY_DOMAIN_NAME, false);
         }
     }
 }

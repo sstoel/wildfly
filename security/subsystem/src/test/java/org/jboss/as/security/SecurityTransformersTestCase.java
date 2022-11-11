@@ -30,14 +30,21 @@ import java.io.IOException;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
+import org.jboss.as.controller.ProcessType;
+import org.jboss.as.controller.capability.registry.RuntimeCapabilityRegistry;
+import org.jboss.as.controller.extension.ExtensionRegistry;
+import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.model.test.FailedOperationTransformationConfig;
 import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
 import org.jboss.as.subsystem.test.AdditionalInitialization;
+import org.jboss.as.subsystem.test.AdditionalInitialization.ManagementAdditionalInitialization;
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.as.subsystem.test.KernelServicesBuilder;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -54,36 +61,36 @@ public class SecurityTransformersTestCase extends AbstractSubsystemBaseTest {
         return readResource("securitysubsystemv20.xml");
     }
 
-
     @Override
     protected AdditionalInitialization createAdditionalInitialization() {
-        return AdditionalInitialization.withCapabilities(
-                "org.wildfly.clustering.infinispan.cache-container.security",
-                "org.wildfly.clustering.infinispan.default-cache-configuration.security"
-                );
+        String[] capabilities = new String[] {"org.wildfly.clustering.infinispan.cache-container.security",
+                "org.wildfly.clustering.infinispan.default-cache-configuration.security"};
+        return new ManagementAdditionalInitialization() {
+
+            @Override
+            protected ProcessType getProcessType() {
+                return ProcessType.HOST_CONTROLLER;
+            }
+
+            @Override
+            protected void initializeExtraSubystemsAndModel(ExtensionRegistry extensionRegistry, Resource rootResource, ManagementResourceRegistration rootRegistration, RuntimeCapabilityRegistry capabilityRegistry) {
+                super.initializeExtraSubystemsAndModel(extensionRegistry, rootResource, rootRegistration, capabilityRegistry);
+                registerCapabilities(capabilityRegistry, capabilities);
+            }
+
+        };
     }
 
+    @Ignore("Figure out the set of deps needed by the legacy subsystem and add them")
     @Test
-    public void testTransformersEAP64() throws Exception {
-        testTransformers(ModelTestControllerVersion.EAP_6_4_0);
-    }
-
-    @Test
-    public void testTransformersEAP70() throws Exception {
-        testTransformers(ModelTestControllerVersion.EAP_7_0_0);
+    public void testTransformersEAP74() throws Exception {
+        testTransformers(ModelTestControllerVersion.EAP_7_4_0);
     }
 
     private void testTransformers(ModelTestControllerVersion controllerVersion) throws Exception {
-        ModelVersion version = ModelVersion.create(1, 3, 0);
+        ModelVersion version = ModelVersion.create(2, 0, 0);
 
-        final String mavenGavVersion = controllerVersion.getMavenGavVersion();
-        final String artifactId;
-        if (controllerVersion.isEap() && mavenGavVersion.equals(controllerVersion.getCoreVersion())) {
-               /* EAP 6 */
-            artifactId = "jboss-as-security";
-        } else {
-            artifactId = "wildfly-security";
-        }
+        final String artifactId = "wildfly-security";
 
         String mavenGav = String.format("%s:%s:%s", controllerVersion.getMavenGroupId(), artifactId, controllerVersion.getMavenGavVersion());
 
@@ -155,4 +162,6 @@ public class SecurityTransformersTestCase extends AbstractSubsystemBaseTest {
     @Override
     public void testSchema() throws Exception {
     }
+
+
 }

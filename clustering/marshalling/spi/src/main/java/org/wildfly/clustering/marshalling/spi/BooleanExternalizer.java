@@ -25,6 +25,7 @@ package org.wildfly.clustering.marshalling.spi;
 import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
+import java.util.OptionalInt;
 import java.util.function.Function;
 
 import org.wildfly.clustering.marshalling.Externalizer;
@@ -47,16 +48,21 @@ public class BooleanExternalizer<T> implements Externalizer<T> {
 
     @Override
     public void writeObject(ObjectOutput output, T object) throws IOException {
-        output.writeBoolean(this.writer.apply(object).booleanValue());
+        output.writeBoolean(this.writer.apply(object));
     }
 
     @Override
     public T readObject(ObjectInput input) throws IOException, ClassNotFoundException {
-        return this.reader.apply(Boolean.valueOf(input.readBoolean()));
+        return this.reader.apply(input.readBoolean());
     }
 
     @Override
     public Class<T> getTargetClass() {
         return this.targetClass;
+    }
+
+    @Override
+    public OptionalInt size(T object) {
+        return OptionalInt.of(Byte.BYTES);
     }
 }

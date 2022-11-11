@@ -21,13 +21,9 @@
 */
 package org.jboss.as.connector.subsystems.datasources;
 
-import static org.jboss.as.connector.subsystems.datasources.Constants.AUTHENTICATION_CONTEXT;
-import static org.jboss.as.connector.subsystems.datasources.Constants.CREDENTIAL_REFERENCE;
-import static org.jboss.as.connector.subsystems.datasources.Constants.ELYTRON_ENABLED;
-import static org.jboss.as.connector.subsystems.datasources.Constants.RECOVERY_AUTHENTICATION_CONTEXT;
-import static org.jboss.as.connector.subsystems.datasources.Constants.RECOVERY_CREDENTIAL_REFERENCE;
-import static org.jboss.as.connector.subsystems.datasources.Constants.RECOVERY_ELYTRON_ENABLED;
-import static org.jboss.as.connector.subsystems.datasources.Constants.TRACKING;
+import static org.jboss.as.connector.subsystems.datasources.Constants.EXCEPTION_SORTER_MODULE;
+import static org.jboss.as.connector.subsystems.datasources.Constants.STALE_CONNECTION_CHECKER_MODULE;
+import static org.jboss.as.connector.subsystems.datasources.Constants.VALID_CONNECTION_CHECKER_MODULE;
 
 import java.io.IOException;
 import java.util.List;
@@ -39,7 +35,6 @@ import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.security.CredentialReference;
 import org.jboss.as.model.test.FailedOperationTransformationConfig;
-import org.jboss.as.model.test.FailedOperationTransformationConfig.AttributesPathAddressConfig;
 import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.model.test.SingleClassFilter;
@@ -72,20 +67,7 @@ public class DatasourcesSubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Override
     protected String getSubsystemXsdPath() throws Exception {
-        return "schema/wildfly-datasources_5_0.xsd";
-    }
-
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[]{
-                "/subsystem-templates/datasources.xml"
-        };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+        return "schema/wildfly-datasources_7_0.xsd";
     }
 
     @Test
@@ -95,12 +77,22 @@ public class DatasourcesSubsystemTestCase extends AbstractSubsystemBaseTest {
 
     @Test
     public void testElytronConfig() throws Exception {
-        standardSubsystemTest("datasources-elytron-enabled_5_0.xml");
+        standardSubsystemTest("datasources-elytron-enabled.xml");
     }
 
     @Test
     public void testExpressionConfig() throws Exception {
         standardSubsystemTest("datasources-full-expression.xml", "datasources-full.xml");
+    }
+
+    @Test
+    public void testElytronExpressionConfig() throws Exception {
+        standardSubsystemTest("datasources-elytron-enabled-expression.xml", "datasources-elytron-enabled.xml");
+    }
+
+    @Test
+    public void testRejectionsEAP74() throws Exception {
+        testTransformerEAP74Rejection("datasources-validation-custom-modules-reject.xml");
     }
 
     protected AdditionalInitialization createAdditionalInitialization() {
@@ -115,52 +107,31 @@ public class DatasourcesSubsystemTestCase extends AbstractSubsystemBaseTest {
         );
     }
 
-    @Test
-    public void testTransformerEAP62() throws Exception {
-        testTransformer("datasources-full.xml", ModelTestControllerVersion.EAP_6_2_0, ModelVersion.create(1, 2, 0));
-    }
+    private void testTransformerEAP74Rejection(String subsystemXml) throws Exception {
+        ModelTestControllerVersion eap74ControllerVersion = ModelTestControllerVersion.EAP_7_4_0;
+        ModelVersion eap74ModelVersion = ModelVersion.create(6, 0, 0);
+        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
+        KernelServices mainServices = initialKernelServices(builder, eap74ControllerVersion, eap74ModelVersion);
 
-    @Test
-    public void testTransformerExpressionEAP62() throws Exception {
-        testTransformer("datasources-full-expression111.xml", ModelTestControllerVersion.EAP_6_2_0, ModelVersion.create(1, 2, 0));
-    }
+        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
 
-    @Test
-    public void testTransformerEAP63() throws Exception {
-        testTransformer("datasources-full.xml", ModelTestControllerVersion.EAP_6_3_0, ModelVersion.create(1, 3, 0));
-    }
-
-    @Test
-    public void testTransformerExpressionEAP63() throws Exception {
-        testTransformer("datasources-full-expression111.xml", ModelTestControllerVersion.EAP_6_3_0, ModelVersion.create(1, 3, 0));
-    }
-
-    @Test
-    public void testTransformerEAP64() throws Exception {
-        testTransformer("datasources-full.xml", ModelTestControllerVersion.EAP_6_4_0, ModelVersion.create(1, 3, 0));
-    }
-
-    @Test
-    public void testTransformerExpressionEAP64() throws Exception {
-        testTransformer("datasources-full-expression111.xml", ModelTestControllerVersion.EAP_6_4_0, ModelVersion.create(1, 3, 0));
-    }
-
-    @Test
-    public void testTransformerElytronEnabledEAP64() throws Exception {
-        testTransformerElytronEnabled("datasources-elytron-enabled_5_0.xml", ModelTestControllerVersion.EAP_6_4_0, ModelVersion.create(1, 3, 0));
-    }
-    @Test
-    public void testTransformerEAP7() throws Exception {
-        testTransformerEAP7FullConfiguration("datasources-full.xml");
-    }
-
-    @Test
-    public void testRejectionsEAP7() throws Exception {
-        testTransformerEAP7Rejection("datasources-no-connection-url.xml");
+        PathAddress subsystemAddress = PathAddress.pathAddress(DataSourcesSubsystemRootDefinition.PATH_SUBSYSTEM);
+        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, eap74ModelVersion, ops, new FailedOperationTransformationConfig()
+                .addFailedAttribute(subsystemAddress.append(DataSourceDefinition.PATH_DATASOURCE),
+                        new FailedOperationTransformationConfig.NewAttributesConfig(
+                                EXCEPTION_SORTER_MODULE,
+                                VALID_CONNECTION_CHECKER_MODULE,
+                                STALE_CONNECTION_CHECKER_MODULE))
+                .addFailedAttribute(subsystemAddress.append(XaDataSourceDefinition.PATH_XA_DATASOURCE),
+                        new FailedOperationTransformationConfig.NewAttributesConfig(
+                                EXCEPTION_SORTER_MODULE,
+                                VALID_CONNECTION_CHECKER_MODULE,
+                                STALE_CONNECTION_CHECKER_MODULE))
+                );
     }
 
     private KernelServices initialKernelServices(KernelServicesBuilder builder, ModelTestControllerVersion controllerVersion, final ModelVersion modelVersion) throws Exception {
-        LegacyKernelServicesInitializer initializer = builder.createLegacyKernelServicesBuilder(null, controllerVersion, modelVersion);
+        LegacyKernelServicesInitializer initializer = builder.createLegacyKernelServicesBuilder(createAdditionalInitialization(), controllerVersion, modelVersion);
         String mavenGroupId = controllerVersion.getMavenGroupId();
         String artifactId = "wildfly-connector";
         if (controllerVersion.isEap() && controllerVersion.getMavenGavVersion().equals(controllerVersion.getCoreVersion())) { // EAP 6
@@ -171,7 +142,6 @@ public class DatasourcesSubsystemTestCase extends AbstractSubsystemBaseTest {
                 .addMavenResourceURL("org.jboss.ironjacamar:ironjacamar-common-api:1.0.28.Final")
                 .setExtensionClassName("org.jboss.as.connector.subsystems.datasources.DataSourcesExtension")
                 .excludeFromParent(SingleClassFilter.createFilter(ConnectorLogger.class));
-
         KernelServices mainServices = builder.build();
         Assert.assertTrue(mainServices.isSuccessfulBoot());
         KernelServices legacyServices = mainServices.getLegacyServices(modelVersion);
@@ -179,116 +149,5 @@ public class DatasourcesSubsystemTestCase extends AbstractSubsystemBaseTest {
         Assert.assertNotNull(legacyServices);
         return mainServices;
     }
-
-    /**
-     * Tests transformation of model from latest version into one passed into modelVersion parameter.
-     *
-     * @throws Exception
-     */
-    private void testTransformer(String subsystemXml, ModelTestControllerVersion controllerVersion, final ModelVersion modelVersion) throws Exception {
-        //Use the non-runtime version of the extension which will happen on the HC
-        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
-        KernelServices mainServices = initialKernelServices(builder, controllerVersion, modelVersion);
-        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
-        PathAddress subsystemAddress = PathAddress.pathAddress(DataSourcesSubsystemRootDefinition.PATH_SUBSYSTEM);
-
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, modelVersion, ops, new FailedOperationTransformationConfig()
-                        .addFailedAttribute(subsystemAddress.append(DataSourceDefinition.PATH_DATASOURCE), new FailedOperationTransformationConfig.NewAttributesConfig(TRACKING))
-                        .addFailedAttribute(subsystemAddress.append(XaDataSourceDefinition.PATH_XA_DATASOURCE), new FailedOperationTransformationConfig.NewAttributesConfig(TRACKING))
-        );
-    }
-
-    /**
-     * Tests transformation of model from latest version into one passed into modelVersion parameter.
-     *
-     * @throws Exception
-     */
-    private void testTransformerElytronEnabled(String subsystemXml, ModelTestControllerVersion controllerVersion, final ModelVersion modelVersion) throws Exception {
-        //Use the non-runtime version of the extension which will happen on the HC
-        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
-        KernelServices mainServices = initialKernelServices(builder, controllerVersion, modelVersion);
-        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
-        PathAddress subsystemAddress = PathAddress.pathAddress(DataSourcesSubsystemRootDefinition.PATH_SUBSYSTEM);
-
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, modelVersion, ops, new FailedOperationTransformationConfig()
-                .addFailedAttribute(subsystemAddress.append(DataSourceDefinition.PATH_DATASOURCE),
-                        new FailedOperationTransformationConfig.NewAttributesConfig(TRACKING, ELYTRON_ENABLED, AUTHENTICATION_CONTEXT, CREDENTIAL_REFERENCE))
-                .addFailedAttribute(subsystemAddress.append(XaDataSourceDefinition.PATH_XA_DATASOURCE),
-                        new FailedOperationTransformationConfig.NewAttributesConfig(TRACKING, ELYTRON_ENABLED, AUTHENTICATION_CONTEXT,
-                                RECOVERY_ELYTRON_ENABLED, RECOVERY_AUTHENTICATION_CONTEXT, CREDENTIAL_REFERENCE, RECOVERY_CREDENTIAL_REFERENCE) {
-
-                    @Override
-                    protected boolean isAttributeWritable(String attributeName) {
-                        return false;
-                    }
-
-                    @Override
-                    protected boolean checkValue(String attrName, ModelNode attribute, boolean isWriteAttribute) {
-                        return attribute.isDefined();
-                    }
-
-                    @Override
-                    protected ModelNode correctValue(ModelNode toResolve, boolean isWriteAttribute) {
-                        return new ModelNode();
-                    }
-                })
-        );
-    }
-
-    /**
-     * Tests transformation of model from latest version which works well in EAP 7.0.0 without setting up FailedOperationTransformationConfig.
-     *
-     * @throws Exception
-     */
-    private void testTransformerEAP7FullConfiguration(String subsystemXml) throws Exception {
-        ModelTestControllerVersion eap7ControllerVersion = ModelTestControllerVersion.EAP_7_0_0;
-        ModelVersion eap7ModelVersion = ModelVersion.create(4, 0, 0);
-        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
-        KernelServices mainServices = initialKernelServices(builder, eap7ControllerVersion, eap7ModelVersion);
-        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, eap7ModelVersion, ops, FailedOperationTransformationConfig.NO_FAILURES);
-    }
-
-    /**
-     * Tests transformation of model from latest version which needs to be rejected in EAP 7.0.0
-     *
-     * @throws Exception
-     */
-    private void testTransformerEAP7Rejection(String subsystemXml) throws Exception {
-        //Use the non-runtime version of the extension which will happen on the HC
-        ModelTestControllerVersion eap7ControllerVersion = ModelTestControllerVersion.EAP_7_0_0;
-        ModelVersion eap7ModelVersion = ModelVersion.create(4, 0, 0);
-        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
-        KernelServices mainServices = initialKernelServices(builder, eap7ControllerVersion, eap7ModelVersion);
-        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
-        PathAddress subsystemAddress = PathAddress.pathAddress(DataSourcesSubsystemRootDefinition.PATH_SUBSYSTEM);
-
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, eap7ModelVersion, ops, new FailedOperationTransformationConfig()
-                        .addFailedAttribute(subsystemAddress.append(DataSourceDefinition.PATH_DATASOURCE),
-                                new RejectUndefinedAttribute(Constants.CONNECTION_URL.getName()))
-        );
-    }
-
-    private static class RejectUndefinedAttribute extends AttributesPathAddressConfig<RejectUndefinedAttribute> {
-
-        private RejectUndefinedAttribute(final String... attributes) {
-            super(attributes);
-        }
-
-        @Override
-        protected boolean isAttributeWritable(final String attributeName) {
-            return true;
-        }
-
-        @Override
-        protected boolean checkValue(final String attrName, final ModelNode attribute, final boolean isWriteAttribute) {
-            return !attribute.isDefined();
-        }
-
-        @Override
-        protected ModelNode correctValue(final ModelNode toResolve, final boolean isWriteAttribute) {
-            // Correct by providing a value
-            return new ModelNode("token");
-        }
-    }
 }
+

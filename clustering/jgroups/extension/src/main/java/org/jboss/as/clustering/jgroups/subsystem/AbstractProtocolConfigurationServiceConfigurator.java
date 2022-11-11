@@ -28,7 +28,6 @@ import static org.jboss.as.clustering.jgroups.subsystem.AbstractProtocolResource
 
 import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +36,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
-import org.jboss.as.clustering.dmr.ModelNodes;
 import org.jboss.as.clustering.jgroups.ProtocolDefaults;
 import org.jboss.as.clustering.jgroups.logging.JGroupsLogger;
 import org.jboss.as.controller.OperationContext;
@@ -51,6 +49,7 @@ import org.jboss.msc.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceTarget;
+import org.jgroups.Global;
 import org.jgroups.stack.Configurator;
 import org.jgroups.stack.Protocol;
 import org.jgroups.util.StackType;
@@ -98,7 +97,7 @@ public abstract class AbstractProtocolConfigurationServiceConfigurator<P extends
     public ServiceConfigurator configure(OperationContext context, ModelNode model) throws OperationFailedException {
         this.moduleName = MODULE.resolveModelAttribute(context, model).asString();
         this.properties.clear();
-        for (Property property : ModelNodes.optionalPropertyList(PROPERTIES.resolveModelAttribute(context, model)).orElse(Collections.emptyList())) {
+        for (Property property : PROPERTIES.resolveModelAttribute(context, model).asPropertyListOrEmpty()) {
             this.properties.put(property.getName(), property.getValue().asString());
         }
         this.statisticsEnabled = STATISTICS_ENABLED.resolveModelAttribute(context, model).asBooleanOrNull();
@@ -115,24 +114,24 @@ public abstract class AbstractProtocolConfigurationServiceConfigurator<P extends
         String protocolName = this.name;
         String moduleName = this.moduleName;
         // A "native" protocol is one that is not specified as a class name
-        boolean nativeProtocol = moduleName.equals(AbstractProtocolResourceDefinition.Attribute.MODULE.getDefinition().getDefaultValue().asString()) && !protocolName.startsWith(org.jgroups.conf.ProtocolConfiguration.protocol_prefix);
-        String className = nativeProtocol ? String.join(".", org.jgroups.conf.ProtocolConfiguration.protocol_prefix, protocolName) : protocolName;
+        boolean nativeProtocol = moduleName.equals(AbstractProtocolResourceDefinition.Attribute.MODULE.getDefinition().getDefaultValue().asString()) && !protocolName.startsWith(Global.PREFIX);
+        String className = nativeProtocol ? (Global.PREFIX + protocolName) : protocolName;
         try {
             Module module = this.loader.get().loadModule(moduleName);
             Class<? extends Protocol> protocolClass = module.getClassLoader().loadClass(className).asSubclass(Protocol.class);
             Map<String, String> properties = new HashMap<>(this.defaults.get().getProperties(protocolClass));
             properties.putAll(this.properties);
-            PrivilegedExceptionAction<Protocol> action = new PrivilegedExceptionAction<Protocol>() {
+            PrivilegedExceptionAction<Protocol> action = new PrivilegedExceptionAction<>() {
                 @Override
                 public Protocol run() throws Exception {
                     try {
-                        Protocol protocol = protocolClass.newInstance();
+                        Protocol protocol = protocolClass.getConstructor().newInstance();
                         // These Configurator methods are destructive, so make a defensive copy
                         Map<String, String> copy = new HashMap<>(properties);
                         StackType type = Util.getIpStackType();
                         Configurator.resolveAndAssignFields(protocol, copy, type);
                         Configurator.resolveAndInvokePropertyMethods(protocol, copy, type);
-                        List<Object> objects = protocol.getConfigurableObjects();
+                        List<Object> objects = protocol.getComponents();
                         if (objects != null) {
                             for (Object object : objects) {
                                 Configurator.resolveAndAssignFields(object, copy, type);
@@ -161,7 +160,7 @@ public abstract class AbstractProtocolConfigurationServiceConfigurator<P extends
     }
 
     void setValue(P protocol, String propertyName, Object propertyValue) {
-        PrivilegedAction<P> action = new PrivilegedAction<P>() {
+        PrivilegedAction<P> action = new PrivilegedAction<>() {
             @Override
             public P run() {
                 return protocol.setValue(propertyName, propertyValue);

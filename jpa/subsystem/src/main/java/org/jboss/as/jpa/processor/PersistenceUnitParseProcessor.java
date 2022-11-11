@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.jboss.as.jpa.messages.JpaLogger.ROOT_LOGGER;
 
@@ -96,10 +97,6 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
         CapabilityServiceSupport capabilitySupport = phaseContext.getDeploymentUnit().getAttachment(Attachments.CAPABILITY_SERVICE_SUPPORT);
         phaseContext.addDeploymentDependency(capabilitySupport.getCapabilityServiceName(JPAServiceNames.LOCAL_TRANSACTION_PROVIDER_CAPABILITY), JpaAttachments.LOCAL_TRANSACTION_PROVIDER);
         phaseContext.addDeploymentDependency(capabilitySupport.getCapabilityServiceName(JPAServiceNames.TRANSACTION_SYNCHRONIZATION_REGISTRY_CAPABILITY), JpaAttachments.TRANSACTION_SYNCHRONIZATION_REGISTRY);
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
     }
 
     private void handleJarDeployment(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -283,6 +280,8 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
             }
 
             pu.setScopedPersistenceUnitName(scopedPersistenceUnitName);
+
+            pu.setContainingModuleName(getContainingModuleName(deploymentUnit));
         }
     }
 
@@ -318,7 +317,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
     /**
      * Eliminate duplicate PU definitions from clustering the deployment (first definition will win)
      * <p/>
-     * JPA 8.2  A persistence unit must have a name. Only one persistence unit of any given name must be defined
+     * Jakarta Persistence 8.2  A persistence unit must have a name. Only one persistence unit of any given name must be defined
      * within a single EJB-JAR file, within a single WAR file, within a single application client jar, or within
      * an EAR. See Section 8.2.2, “Persistence Unit Scope”.
      *
@@ -393,10 +392,59 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
         return unitName;
     }
 
-    private void markDU(PersistenceUnitMetadataHolder holder, DeploymentUnit deploymentUnit) {
-        if (holder.getPersistenceUnits() != null && holder.getPersistenceUnits().size() > 0) {
-            JPADeploymentMarker.mark(deploymentUnit);
+    // returns the EE deployment module name.
+    // For top level deployments, only one element will be returned representing the top level module.
+    // For sub-deployments, the first element identifies the top level module and the second element is the sub-module.
+    private ArrayList<String> getContainingModuleName(DeploymentUnit deploymentUnit) {
+        ArrayList<String> parts = new ArrayList<String>();  // order of deployment elements will start with parent
+
+        do {
+            final ResourceRoot deploymentRoot = deploymentUnit.getAttachment(Attachments.DEPLOYMENT_ROOT);
+            DeploymentUnit parentdeploymentUnit = deploymentUnit.getParent();
+            if (parentdeploymentUnit != null) {
+                ResourceRoot parentDeploymentRoot = parentdeploymentUnit.getAttachment(Attachments.DEPLOYMENT_ROOT);
+                parts.add(0, deploymentRoot.getRoot().getPathNameRelativeTo(parentDeploymentRoot.getRoot()));
+            } else {
+                parts.add(0, deploymentRoot.getRoot().getName());
+            }
         }
+        while ((deploymentUnit = deploymentUnit.getParent()) != null);
+
+        return parts;
+
+    }
+
+
+    private void markDU(PersistenceUnitMetadataHolder holder, DeploymentUnit deploymentUnit) {
+        if (holder.getPersistenceUnits() != null && !holder.getPersistenceUnits().isEmpty()) {
+            JPADeploymentMarker.mark(deploymentUnit);
+
+            // Hibernate Search backend type detection
+            for (PersistenceUnitMetadata persistenceUnit : holder.getPersistenceUnits()) {
+                Properties properties = persistenceUnit.getProperties();
+                String backendType = properties == null ? null
+                        : trimToNull(properties.getProperty(Configuration.HIBERNATE_SEARCH_BACKEND_TYPE));
+                if (backendType != null) {
+                    HibernateSearchDeploymentMarker.markBackendType(deploymentUnit, backendType);
+                }
+                String coordinationStrategy = properties == null ? null
+                        : trimToNull(properties.getProperty(Configuration.HIBERNATE_SEARCH_COORDINATION_STRATEGY));
+                if (coordinationStrategy != null) {
+                    HibernateSearchDeploymentMarker.markCoordinationStrategy(deploymentUnit, coordinationStrategy);
+                }
+            }
+        }
+    }
+
+    private String trimToNull(String string) {
+        if (string == null) {
+            return null;
+        }
+        string = string.trim();
+        if (string.isEmpty()) {
+            return null;
+        }
+        return string;
     }
 
     private void incrementPersistenceUnitCount(DeploymentUnit topDeploymentUnit, int persistenceUnitCount) {

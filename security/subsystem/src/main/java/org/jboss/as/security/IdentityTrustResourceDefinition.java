@@ -21,19 +21,22 @@
  */
 package org.jboss.as.security;
 
+import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.ListAttributeDefinition;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
 
 /**
  * @author Jason T. Greene
  */
-public class IdentityTrustResourceDefinition extends SimpleResourceDefinition {
+class IdentityTrustResourceDefinition extends SimpleResourceDefinition {
 
     public static final IdentityTrustResourceDefinition INSTANCE = new IdentityTrustResourceDefinition();
 
@@ -43,10 +46,11 @@ public class IdentityTrustResourceDefinition extends SimpleResourceDefinition {
     private IdentityTrustResourceDefinition() {
         super(PathElement.pathElement(Constants.IDENTITY_TRUST, Constants.CLASSIC),
                 SecurityExtension.getResourceDescriptionResolver(Constants.IDENTITY_TRUST),
-                new IdentityTrustResourceDefinitionAdd(), new SecurityDomainReloadRemoveHandler());
+                new IdentityTrustResourceDefinitionAdd(), ModelOnlyRemoveStepHandler.INSTANCE);
         setDeprecated(SecurityExtension.DEPRECATED_SINCE);
     }
 
+    @Override
     public void registerAttributes(final ManagementResourceRegistration resourceRegistration) {
         resourceRegistration.registerReadWriteAttribute(TRUST_MODULES, new LegacySupport.LegacyModulesAttributeReader(Constants.TRUST_MODULE), new LegacySupport.LegacyModulesAttributeWriter(Constants.TRUST_MODULE));
     }
@@ -57,14 +61,10 @@ public class IdentityTrustResourceDefinition extends SimpleResourceDefinition {
         resourceRegistration.registerSubModel(new LoginModuleResourceDefinition(Constants.TRUST_MODULE));
     }
 
-    static class IdentityTrustResourceDefinitionAdd extends SecurityDomainReloadAddHandler {
-        @Override
-        protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-        }
+    static class IdentityTrustResourceDefinitionAdd extends AbstractAddStepHandler {
 
         @Override
-        protected void updateModel(OperationContext context, ModelNode operation) throws OperationFailedException {
-            super.updateModel(context, operation);
+        protected void populateModel(OperationContext context, ModelNode operation, Resource resource) throws OperationFailedException {
             if (operation.hasDefined(TRUST_MODULES.getName())) {
                 context.addStep(new ModelNode(), operation, LEGACY_ADD_HANDLER, OperationContext.Stage.MODEL, true);
             }

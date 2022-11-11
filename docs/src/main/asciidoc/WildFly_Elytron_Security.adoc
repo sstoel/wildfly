@@ -19,16 +19,14 @@ ifndef::ebook-format[:leveloffset: 1]
 [[about]]
 == About
 
-The WildFly Elytron project is a new security framework brought to
-WildFly to provide a single unified security framework across the whole
-of the application server. As a single framework it will be usable both
-for configuring management access to the server and for applications
-deployed to the server, it will also be usable across all process types
-so there will be no need to learn a different security framework for
-host controllers in a domain compared to configuring a standalone
-server.
+WildFly Elytron brings to WildFly a single unified security framework across
+the whole of the application server. As a single framework it will be usable
+both for configuring management access to the server and for applications
+deployed to the server.  It will also be usable across all process types so
+there will be no need to learn a different security framework for host 
+controllers in a domain compared to configuring a standalone server.
 
-The project covers these main areas: -
+The project covers these main areas:
 
 * Authentication
 * Authorization
@@ -89,16 +87,18 @@ include::_elytron/Elytron_Subsystem.adoc[]
 include::_elytron/Using_the_Elytron_Subsystem.adoc[]
 include::_elytron/Using_WildFly_Elytron_with_WildFly.adoc[]
 include::_elytron/Client_Authentication_with_Elytron_Client.adoc[]
-include::_elytron/Elytron_and_Java_Authorization_Contract_for_Containers-JACC.adoc[]
+include::_elytron/Elytron_and_Jakarta_Authorization.adoc[]
 include::_elytron/Elytron_and_Java_Authentication_SPI_for_Containers-JASPI.adoc[]
 include::_elytron/Elytron_and_Java_EE_Security.adoc[]
-include::_elytron/KeyCloak_Integration.adoc[]
+include::_elytron/Keycloak_Integration.adoc[]
 include::_elytron/Bearer_Token_Authorization.adoc[]
 include::_elytron/OpenSSL.adoc[]
 include::_elytron/Web_Single_Sign_On.adoc[]
 include::_elytron/Audit.adoc[]
 include::_elytron/Credential_Store.adoc[]
+include::_elytron/Encrypted_Expressions.adoc[]
 include::_elytron/Custom_Components.adoc[]
+include::_elytron/Elytron_WildFly_Java_Security_Manager.adoc[]
 include::_elytron/Migrate_Legacy_Security_to_Elytron_Security.adoc[]
 
 :leveloffset: -1

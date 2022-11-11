@@ -21,12 +21,13 @@
 */
 package org.jboss.as.test.integration.domain.mixed;
 
-import org.junit.Assume;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import org.jboss.as.controller.ModelVersion;
+import org.junit.Assume;
 
 /**
  *
@@ -38,15 +39,11 @@ public @interface Version {
 
     AsVersion value();
 
-    String AS = "jboss-as-";
     String WILDFLY = "wildfly-";
     String EAP = "jboss-eap-";
 
     enum AsVersion {
-        EAP_6_4_0(EAP, 6, 4, 0, 8, 8),
-        EAP_7_0_0(EAP, 7, 0, 0, 8, 8),
-        EAP_7_1_0(EAP, 7, 1, 0, 8, 8),
-        EAP_7_2_0(EAP, 7, 2, 0, 11, 8),
+        EAP_7_4_0(EAP, 7, 4, 0, 11, 8, "EAP7.4", ModelVersion.create(16, 0)),
         ;
 
 
@@ -58,8 +55,21 @@ public @interface Version {
         private final int maxVM;
         private final int minVM;
         final String version;
+        final String hostExclude;
+        final ModelVersion modelVersion;
 
-        AsVersion(String basename, int major, int minor, int micro, int maxVM, int minVM){
+        /**
+         * Metadata related to the server version we are using as secondary
+         * @param basename Base name of the server, used to locate the zip file that contains the secondary under test.
+         * @param major Major release number
+         * @param minor Minor release number
+         * @param micro Micro release number
+         * @param maxVM The maximum Java version under which a legacy host can properly execute tests
+         * @param minVM The minimum Java version under which a legacy host can properly execute tests
+         * @param hostExclude The host-exclude name that represents this secondary
+         * @param modelVersion The Kernel version of this secondary
+         */
+        AsVersion(String basename, int major, int minor, int micro, int maxVM, int minVM, String hostExclude, ModelVersion modelVersion){
             this.basename = basename;
             this.major = major;
             this.minor = minor;
@@ -67,6 +77,8 @@ public @interface Version {
             this.version = major + "." + minor + "." + micro;
             this.maxVM = maxVM;
             this.minVM = minVM;
+            this.hostExclude = hostExclude;
+            this.modelVersion = modelVersion;
         }
 
         public String getBaseName() {
@@ -87,10 +99,6 @@ public @interface Version {
             } else {
                 return  getFullVersionName() + ".Final.zip";
             }
-        }
-
-        public boolean isEAP6Version() {
-            return (this == EAP_6_4_0);
         }
 
         public int getMajor() {
@@ -123,14 +131,22 @@ public @interface Version {
 
         /**
          * Checks whether the current VM version exceeds the maximum version under which a legacy host can properly
-         * execute tests. The check is disabled if system property "jboss.test.host.slave.jvmhome" is set.
+         * execute tests. The check is disabled if system property "jboss.test.host.secondary.jvmhome" is set.
          */
         public void assumeMaxVM() {
-            if (System.getProperty("jboss.test.host.slave.jvmhome") == null) {
+            if (System.getProperty("jboss.test.host.secondary.jvmhome") == null) {
                 String javaSpecVersion = System.getProperty("java.specification.version");
                 int vm = "1.8".equals(javaSpecVersion) ? 8 : Integer.parseInt(javaSpecVersion);
                 Assume.assumeFalse(vm > maxVM);
             }
+        }
+
+        public String getHostExclude() {
+            return hostExclude;
+        }
+
+        public ModelVersion getModelVersion() {
+            return modelVersion;
         }
 
         int compare(int major, int minor) {

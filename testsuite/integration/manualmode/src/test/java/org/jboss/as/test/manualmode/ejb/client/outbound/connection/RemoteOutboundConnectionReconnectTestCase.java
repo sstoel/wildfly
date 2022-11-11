@@ -22,13 +22,14 @@
 
 package org.jboss.as.test.manualmode.ejb.client.outbound.connection;
 
-import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createFilePermission;
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 
+import java.io.File;
+import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.Properties;
+
 import javax.naming.Context;
 import javax.naming.NamingException;
 
@@ -51,7 +52,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests that an EJB client context containing a reference to a remote outbound connection, has the ability to
+ * Tests that an Jakarta Enterprise Beans client context containing a reference to a remote outbound connection, has the ability to
  * reconnect a failed connection
  *
  * @author Jaikiran Pai
@@ -104,12 +105,11 @@ public class RemoteOutboundConnectionReconnectTestCase {
     public static Archive<?> createContainer2Deployment() {
         final JavaArchive ejbJar = ShrinkWrap.create(JavaArchive.class, SERVER_ONE_MODULE_NAME + ".jar");
         ejbJar.addClasses(EchoOnServerOne.class, RemoteEcho.class, IndependentBean.class);
-        ejbJar.addAsManifestResource(EchoOnServerOne.class.getPackage(), "jboss-ejb-client.xml", "jboss-ejb-client.xml")
-                .addAsManifestResource(createPermissionsXmlAsset(createFilePermission("read,write", "basedir"
-                        , Arrays.asList("target", "jbossas-with-remote-outbound-connection", "standalone", "data", "ejb-xa-recovery")),
-                        createFilePermission("read,write", "basedir"
-                                , Arrays.asList("target", "jbossas-with-remote-outbound-connection", "standalone", "data", "ejb-xa-recovery", "-"))
-                ), "permissions.xml");
+        ejbJar.addAsManifestResource(EchoOnServerOne.class.getPackage(), "jboss-ejb-client.xml", "jboss-ejb-client.xml");
+        ejbJar.addAsManifestResource(
+                createPermissionsXmlAsset(
+                        new FilePermission(System.getProperty("jboss.home") + File.separatorChar + "standalone" + File.separatorChar + "tmp" + File.separatorChar + "auth" + File.separatorChar + "-", "read")),
+                "permissions.xml");
         return ejbJar;
     }
 
@@ -128,7 +128,7 @@ public class RemoteOutboundConnectionReconnectTestCase {
         this.container.start(JBOSSAS_WITH_REMOTE_OUTBOUND_CONNECTION_NON_CLUSTERED);
         boolean defaultContainerStarted = false;
         try {
-            // deploy a deployment which contains jboss-ejb-client.xml that contains an EJB receiver pointing
+            // deploy a deployment which contains jboss-ejb-client.xml that contains an Jakarta Enterprise Beans receiver pointing
             // to a server which hasn't yet started. Should succeed without throwing deployment error
             this.deployer.deploy(DEPLOYMENT_WITH_JBOSS_EJB_CLIENT_XML);
             // To make sure deployment succeeded and invocations are possible, call an independent bean
@@ -137,8 +137,8 @@ public class RemoteOutboundConnectionReconnectTestCase {
             final String echoFromIndependentBean = independentBean.echo(msg);
             Assert.assertEquals("Unexpected echo from independent bean", msg, echoFromIndependentBean);
 
-            // now try invoking the EJB (which calls a delegate bean on other server) on this server.
-            // should fail with no EJB receivers, since the other server
+            // now try invoking the Jakarta Enterprise Beans (which calls a delegate bean on other server) on this server.
+            // should fail with no Jakarta Enterprise Beans receivers, since the other server
             // which can handle the delegate bean invocation hasn't yet started.
             try {
                 final RemoteEcho dependentBean = (RemoteEcho) context.lookup("ejb:/" + SERVER_ONE_MODULE_NAME + "//" + EchoOnServerOne.class.getSimpleName() + "!" + RemoteEcho.class.getName());
@@ -154,7 +154,7 @@ public class RemoteOutboundConnectionReconnectTestCase {
             // deploy to this container
             this.deployer.deploy(DEFAULT_AS_DEPLOYMENT);
 
-            // now invoke the EJB (which had failed earlier)
+            // now invoke the Jakarta Enterprise Beans (which had failed earlier)
             final RemoteEcho dependentBean = (RemoteEcho) context.lookup("ejb:/" + SERVER_ONE_MODULE_NAME + "//" + EchoOnServerOne.class.getSimpleName() + "!" + RemoteEcho.class.getName());
             final String echoAfterOtherServerStarted = dependentBean.echo(msg);
             Assert.assertEquals("Unexpected echo from bean", EchoOnServerTwo.ECHO_PREFIX + msg, echoAfterOtherServerStarted);
@@ -182,7 +182,7 @@ public class RemoteOutboundConnectionReconnectTestCase {
      * Deploy (X) to server A. X contains a jboss-ejb-client.xml pointing to server B. The deployment and invocations
      * must succeed.
      * Now stop server (B). Invoke again on the bean. Invocation should fail since server B is down. Now
-     * restart server B and invoke again on the bean. Invocation should pass since the EJB client context is
+     * restart server B and invoke again on the bean. Invocation should pass since the Jakarta Enterprise Beans client context is
      * expected to reconnect to the restarted server B.
      *
      * @throws Exception
@@ -206,8 +206,8 @@ public class RemoteOutboundConnectionReconnectTestCase {
             final String echoFromIndependentBean = independentBean.echo(msg);
             Assert.assertEquals("Unexpected echo from independent bean", msg, echoFromIndependentBean);
 
-            // now try invoking the EJB (which calls a delegate bean on other server) on this server.
-            // should fail with no EJB receivers, since the other server
+            // now try invoking the Jakarta Enterprise Beans (which calls a delegate bean on other server) on this server.
+            // should fail with no Jakarta Enterprise Beans receivers, since the other server
             // which can handle the delegate bean invocation hasn't yet started.
             final RemoteEcho dependentBean = (RemoteEcho) context.lookup("ejb:/" + SERVER_ONE_MODULE_NAME + "//" + EchoOnServerOne.class.getSimpleName() + "!" + RemoteEcho.class.getName());
             final String echoBeforeShuttingDownServer = dependentBean.echo(msg);
@@ -253,7 +253,7 @@ public class RemoteOutboundConnectionReconnectTestCase {
     }
 
     /**
-     * Sets up the EJB client properties based on this testcase specific jboss-ejb-client.properties file
+     * Sets up the Jakarta Enterprise Beans client properties based on this testcase specific jboss-ejb-client.properties file
      *
      * @return
      * @throws java.io.IOException

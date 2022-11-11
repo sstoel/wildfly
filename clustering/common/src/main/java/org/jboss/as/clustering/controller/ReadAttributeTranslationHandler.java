@@ -26,6 +26,9 @@ import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.controller.logging.ControllerLogger;
+import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.registry.ImmutableManagementResourceRegistration;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
@@ -47,14 +50,28 @@ public class ReadAttributeTranslationHandler implements OperationStepHandler {
         PathAddress currentAddress = context.getCurrentAddress();
         PathAddress targetAddress = this.translation.getPathAddressTransformation().apply(currentAddress);
         Attribute targetAttribute = this.translation.getTargetAttribute();
-        ModelNode targetOperation = Operations.createReadAttributeOperation(targetAddress, targetAttribute);
-        ImmutableManagementResourceRegistration targetRegistration = this.translation.getResourceRegistrationTransformation().apply(context.getResourceRegistration());
-        OperationStepHandler readAttributeHandler = targetRegistration.getAttributeAccess(PathAddress.EMPTY_ADDRESS, targetAttribute.getName()).getReadHandler();
+        ModelNode targetOperation = Util.getReadAttributeOperation(targetAddress, targetAttribute.getName());
+        if (operation.hasDefined(ModelDescriptionConstants.INCLUDE_DEFAULTS)) {
+            targetOperation.get(ModelDescriptionConstants.INCLUDE_DEFAULTS).set(operation.get(ModelDescriptionConstants.INCLUDE_DEFAULTS));
+        }
+        ImmutableManagementResourceRegistration registration = (currentAddress == targetAddress) ? context.getResourceRegistration() : context.getRootResourceRegistration().getSubModel(targetAddress);
+        if (registration == null) {
+            throw new OperationFailedException(ControllerLogger.MGMT_OP_LOGGER.noSuchResourceType(targetAddress));
+        }
+        OperationStepHandler readAttributeHandler = registration.getAttributeAccess(PathAddress.EMPTY_ADDRESS, targetAttribute.getName()).getReadHandler();
         OperationStepHandler readTranslatedAttributeHandler = new ReadTranslatedAttributeStepHandler(readAttributeHandler, targetAttribute, this.translation.getReadTranslator());
         // If targetOperation applies to the current resource, we can execute in the current step
         if (targetAddress == currentAddress) {
             readTranslatedAttributeHandler.execute(context, targetOperation);
         } else {
+            if (registration.isRuntimeOnly()) {
+                try {
+                    context.readResourceFromRoot(targetAddress, false);
+                } catch (Resource.NoSuchResourceException ignore) {
+                    // If the target runtime resource does not exist return UNDEFINED
+                    return;
+                }
+            }
             context.addStep(targetOperation, readTranslatedAttributeHandler, context.getCurrentStage(), true);
         }
     }
@@ -81,8 +98,11 @@ public class ReadAttributeTranslationHandler implements OperationStepHandler {
                     ModelNode result = context.getResult();
                     if (model.hasDefined(this.targetAttribute.getName())) {
                         result.set(model.get(this.targetAttribute.getName()));
-                    } else if (Operations.isIncludeDefaults(operation)) {
-                        result.set(this.targetAttribute.getDefinition().getDefaultValue());
+                    } else if (operation.get(ModelDescriptionConstants.INCLUDE_DEFAULTS).asBoolean(true)) {
+                        ModelNode defaultValue = this.targetAttribute.getDefinition().getDefaultValue();
+                        if (defaultValue != null) {
+                            result.set(defaultValue);
+                        }
                     }
                 } catch (Resource.NoSuchResourceException ignore) {
                     // If the target resource does not exist return UNDEFINED

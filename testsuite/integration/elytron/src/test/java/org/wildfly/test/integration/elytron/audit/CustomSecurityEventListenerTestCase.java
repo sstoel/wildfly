@@ -21,8 +21,8 @@
  */
 package org.wildfly.test.integration.elytron.audit;
 
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.junit.Assert.assertEquals;
 
 import java.io.BufferedReader;
@@ -106,7 +106,7 @@ public class CustomSecurityEventListenerTestCase extends AbstractAuditLogTestCas
 
                 setEventListenerOfApplicationDomain(cli, NAME);
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         @Override
@@ -117,7 +117,7 @@ public class CustomSecurityEventListenerTestCase extends AbstractAuditLogTestCas
                 cli.sendLine("/subsystem=elytron/custom-security-event-listener=" + NAME + ":remove");
             }
             module.remove();
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
     }

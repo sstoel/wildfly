@@ -24,24 +24,27 @@ package org.wildfly.extension.undertow;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import org.jboss.as.network.SocketBinding;
 import org.jboss.as.web.host.CommonWebServer;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.StartContext;
-import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.InjectedValue;
 import org.wildfly.extension.undertow.logging.UndertowLogger;
 
 /**
  * @author Stuart Douglas
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
-class WebServerService implements CommonWebServer, Service<WebServerService> {
-    private InjectedValue<Server> serverInjectedValue = new InjectedValue<>();
+final class WebServerService implements CommonWebServer, Service<WebServerService> {
+    private final Consumer<WebServerService> serviceConsumer;
+    private final Supplier<Server> server;
 
-    InjectedValue<Server> getServerInjectedValue() {
-        return serverInjectedValue;
+    WebServerService(final Consumer<WebServerService> serviceConsumer, final Supplier<Server> server) {
+        this.serviceConsumer = serviceConsumer;
+        this.server = server;
     }
 
     //todo we need to handle cases when deployments reference listeners/server/host directly
@@ -49,9 +52,9 @@ class WebServerService implements CommonWebServer, Service<WebServerService> {
     public int getPort(final String protocol, final boolean secure) {
         Map<String, UndertowListener> listeners = getListenerMap();
         UndertowListener listener = null;
-        for (String p : listeners.keySet()) {
-            if (protocol.toLowerCase().contains(p)) {
-                listener = listeners.get(p);
+        for (Map.Entry<String, UndertowListener> entry : listeners.entrySet()) {
+            if (protocol.toLowerCase().contains(entry.getKey())) {
+                listener = entry.getValue();
             }
         }
         if (listener != null && listener.getProtocol() == HttpListenerService.PROTOCOL && secure) {
@@ -71,23 +74,24 @@ class WebServerService implements CommonWebServer, Service<WebServerService> {
 
     private Map<String, UndertowListener> getListenerMap() {
         HashMap<String, UndertowListener> listeners = new HashMap<>();
-        for (UndertowListener listener : serverInjectedValue.getValue().getListeners()) {
+        for (UndertowListener listener : server.get().getListeners()) {
             listeners.put(listener.getProtocol(), listener);
         }
         return listeners;
     }
 
     @Override
-    public void start(final StartContext context) throws StartException {
-
+    public void start(final StartContext context) {
+        serviceConsumer.accept(this);
     }
 
     @Override
     public void stop(final StopContext context) {
+        serviceConsumer.accept(null);
     }
 
     @Override
-    public WebServerService getValue() throws IllegalStateException, IllegalArgumentException {
+    public WebServerService getValue() {
         return this;
     }
 }

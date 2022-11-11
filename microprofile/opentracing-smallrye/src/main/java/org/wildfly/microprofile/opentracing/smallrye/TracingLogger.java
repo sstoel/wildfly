@@ -29,13 +29,14 @@ import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
 
 import static org.jboss.logging.Logger.Level.DEBUG;
+import static org.jboss.logging.Logger.Level.INFO;
 import static org.jboss.logging.Logger.Level.WARN;
 
 @MessageLogger(projectCode = "WFLYTRAC", length = 4)
 public interface TracingLogger extends BasicLogger {
     TracingLogger ROOT_LOGGER = Logger.getMessageLogger(TracingLogger.class, TracingLogger.class.getPackage().getName());
 
-    @LogMessage(level = DEBUG)
+    @LogMessage(level = INFO)
     @Message(id = 1, value = "Tracer initialized: %s")
     void initializing(String message);
 
@@ -43,7 +44,7 @@ public interface TracingLogger extends BasicLogger {
     @Message(id = 2, value = "A Tracer is already registered at the GlobalTracer. Skipping resolution.")
     void alreadyRegistered();
 
-    @LogMessage(level = WARN)
+    @LogMessage(level = DEBUG)
     @Message(id = 3, value = "Could not determine the service name and can't therefore use Jaeger Tracer. Using NoopTracer.")
     void noServiceName();
 
@@ -52,10 +53,18 @@ public interface TracingLogger extends BasicLogger {
     void registeringTracer(String message);
 
     @LogMessage(level = WARN)
-    @Message(id = 5, value = "No tracer available to JAX-RS. Skipping MicroProfile OpenTracing configuration for JAX-RS")
+    @Message(id = 5, value = "No tracer available to Jakarta RESTful Web Services. Skipping MicroProfile OpenTracing configuration for Jakarta RESTful Web Services")
     void noTracerAvailable();
 
     @LogMessage(level = DEBUG)
     @Message(id = 6, value = "Extra Tracer bean found: %s. Vetoing it, please use TracerResolver to specify a custom tracer to use.")
     void extraTracerBean(String clazz);
+
+    @LogMessage(level = WARN)
+    @Message(id = 7, value = "Provided operation name does not match 'http-path' or 'class-method'. Using default 'class-method'.")
+    void wrongOperationNameProvider();
+
+    @LogMessage(level = DEBUG)
+    @Message(id = 8, value = "Producing tracer from ServletContext, using %s.")
+    void producingTracer(Object tracerObject);
 }

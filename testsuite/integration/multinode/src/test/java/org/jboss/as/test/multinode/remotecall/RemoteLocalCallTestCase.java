@@ -27,7 +27,7 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 
 import java.security.SecurityPermission;
 import java.util.Arrays;
-import javax.ejb.EJBException;
+import jakarta.ejb.EJBException;
 import javax.naming.InitialContext;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -75,11 +75,11 @@ public class RemoteLocalCallTestCase {
         jar.addAsManifestResource("META-INF/jboss-ejb-client-receivers.xml", "jboss-ejb-client.xml");
         jar.addAsManifestResource(
                 createPermissionsXmlAsset(
-                        new SecurityPermission("putProviderProperty.WildFlyElytron"),createFilePermission("read,write",
-                                "jbossas.multinode.client", Arrays.asList("standalone", "data", "ejb-xa-recovery")),
-                        createFilePermission("read,write",
-                                "jbossas.multinode.client", Arrays.asList("standalone", "data", "ejb-xa-recovery", "-"))),
-
+                        createFilePermission("delete",
+                                "jbossas.multinode.client", Arrays.asList("standalone", "data", "ejb-xa-recovery", "-")),
+                        createFilePermission("read",
+                                "jboss.home", Arrays.asList("standalone", "tmp", "auth", "-")),
+                        new SecurityPermission("putProviderProperty.WildFlyElytron")),
                 "permissions.xml");
         return jar;
     }

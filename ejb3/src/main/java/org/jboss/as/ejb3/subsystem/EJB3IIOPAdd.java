@@ -24,6 +24,7 @@ package org.jboss.as.ejb3.subsystem;
 import static org.jboss.as.ejb3.logging.EjbLogger.ROOT_LOGGER;
 
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
+import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.ejb3.deployment.processors.EjbIIOPDeploymentUnitProcessor;
@@ -33,16 +34,15 @@ import org.jboss.as.server.deployment.Phase;
 import org.jboss.dmr.ModelNode;
 
 /**
- * A {@link org.jboss.as.controller.AbstractBoottimeAddStepHandler} to handle the add operation for the EJB
+ * A {@link org.jboss.as.controller.AbstractBoottimeAddStepHandler} to handle the add operation for the Jakarta Enterprise Beans
  * IIOP service
  *
  * @author Stuart Douglas
  */
 public class EJB3IIOPAdd extends AbstractBoottimeAddStepHandler {
 
-    static final EJB3IIOPAdd INSTANCE = new EJB3IIOPAdd();
-
-    private EJB3IIOPAdd() {
+    EJB3IIOPAdd(AttributeDefinition... attributes) {
+        super(attributes);
     }
 
     @Override
@@ -52,18 +52,11 @@ public class EJB3IIOPAdd extends AbstractBoottimeAddStepHandler {
         final IIOPSettingsService settingsService = new IIOPSettingsService(enableByDefault, useQualifiedName);
         context.addStep(new AbstractDeploymentChainStep() {
             protected void execute(DeploymentProcessorTarget processorTarget) {
-                ROOT_LOGGER.debug("Adding EJB IIOP support");
+                ROOT_LOGGER.debug("Adding Jakarta Enterprise Beans IIOP support");
                 processorTarget.addDeploymentProcessor(EJB3Extension.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_EJB_IIOP, new EjbIIOPDeploymentUnitProcessor(settingsService));
             }
         }, OperationContext.Stage.RUNTIME);
 
-        context.getServiceTarget().addService(IIOPSettingsService.SERVICE_NAME, settingsService).install();
-    }
-
-
-    @Override
-    protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-        EJB3IIOPResourceDefinition.ENABLE_BY_DEFAULT.validateAndSet(operation, model);
-        EJB3IIOPResourceDefinition.USE_QUALIFIED_NAME.validateAndSet(operation, model);
+        context.getCapabilityServiceTarget().addCapability(EJB3IIOPResourceDefinition.EJB3_IIOP_SETTINGS_CAPABILITY).setInstance(settingsService).install();
     }
 }

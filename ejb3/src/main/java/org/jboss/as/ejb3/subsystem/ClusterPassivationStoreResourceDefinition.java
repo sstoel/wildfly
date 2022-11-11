@@ -22,20 +22,31 @@
 
 package org.jboss.as.ejb3.subsystem;
 
+import org.jboss.as.clustering.controller.CapabilityReference;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.OperationEntry;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.wildfly.clustering.ejb.BeanManagerFactoryServiceConfiguratorConfiguration;
+import org.wildfly.clustering.infinispan.service.InfinispanCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanDefaultCacheRequirement;
 
 /**
  * @author Paul Ferraro
  */
 @Deprecated
 public class ClusterPassivationStoreResourceDefinition extends LegacyPassivationStoreResourceDefinition {
+
+    protected static final String INFINISPAN_CACHE_CONTAINER_CAPABILITY_NAME = "org.wildfly.clustering.infinispan.cache-container";
+
+    public static final String CLUSTER_PASSIVATION_STORE_CAPABILITY_NAME = "org.wildfly.ejb.cluster-passivation-store";
+    public static final RuntimeCapability<Void> CLUSTER_PASSIVATION_STORE_CAPABILITY = RuntimeCapability.Builder.of(CLUSTER_PASSIVATION_STORE_CAPABILITY_NAME)
+            .setServiceType(Void.class)
+            .build();
 
     @Deprecated
     static final SimpleAttributeDefinition MAX_SIZE = new SimpleAttributeDefinitionBuilder(MAX_SIZE_BUILDER.build())
@@ -46,24 +57,33 @@ public class ClusterPassivationStoreResourceDefinition extends LegacyPassivation
     static final SimpleAttributeDefinition CACHE_CONTAINER = new SimpleAttributeDefinitionBuilder(EJB3SubsystemModel.CACHE_CONTAINER, ModelType.STRING, true)
             .setXmlName(EJB3SubsystemXMLAttribute.CACHE_CONTAINER.getLocalName())
             .setDefaultValue(new ModelNode(BeanManagerFactoryServiceConfiguratorConfiguration.DEFAULT_CONTAINER_NAME))
-            .setAllowExpression(true)
+            // Capability references should not allow expressions
+            .setAllowExpression(false)
             .setFlags(AttributeAccess.Flag.RESTART_NONE)
+            // a CapabilityReference to a UnaryRequirement
+            .setCapabilityReference(new CapabilityReference(()->CLUSTER_PASSIVATION_STORE_CAPABILITY, InfinispanDefaultCacheRequirement.CONFIGURATION))
             .build()
     ;
     @Deprecated
     static final SimpleAttributeDefinition BEAN_CACHE = new SimpleAttributeDefinitionBuilder(EJB3SubsystemModel.BEAN_CACHE, ModelType.STRING, true)
             .setXmlName(EJB3SubsystemXMLAttribute.BEAN_CACHE.getLocalName())
-            .setAllowExpression(true)
+            // Capability references should not allow expressions
+            .setAllowExpression(false)
             .setFlags(AttributeAccess.Flag.RESTART_NONE)
+            // a CapabilityReference to a BinaryRequirement (including a parent attribute)
+            .setCapabilityReference(new CapabilityReference(()->CLUSTER_PASSIVATION_STORE_CAPABILITY, InfinispanCacheRequirement.CONFIGURATION, ()->CACHE_CONTAINER))
             .build()
     ;
     @Deprecated
     static final SimpleAttributeDefinition CLIENT_MAPPINGS_CACHE = new SimpleAttributeDefinitionBuilder(EJB3SubsystemModel.CLIENT_MAPPINGS_CACHE, ModelType.STRING, true)
             .setXmlName(EJB3SubsystemXMLAttribute.CLIENT_MAPPINGS_CACHE.getLocalName())
             .setDefaultValue(new ModelNode("remote-connector-client-mappings"))
-            .setAllowExpression(true)
+            // Capability references should not allow expressions
+            .setAllowExpression(false)
             .setFlags(AttributeAccess.Flag.RESTART_NONE)
             .setDeprecated(DEPRECATED_VERSION)
+            // TODO: replace this with a Requirement reference when the ejb-spi module for clustering is available
+            .setCapabilityReference(INFINISPAN_CACHE_CONTAINER_CAPABILITY_NAME, CLUSTER_PASSIVATION_STORE_CAPABILITY)
             .build()
     ;
     @Deprecated
@@ -85,6 +105,6 @@ public class ClusterPassivationStoreResourceDefinition extends LegacyPassivation
     static final ClusterPassivationStoreResourceDefinition INSTANCE = new ClusterPassivationStoreResourceDefinition();
 
     private ClusterPassivationStoreResourceDefinition() {
-        super(EJB3SubsystemModel.CLUSTER_PASSIVATION_STORE, ADD_HANDLER, REMOVE_HANDLER, OperationEntry.Flag.RESTART_NONE, OperationEntry.Flag.RESTART_RESOURCE_SERVICES, ATTRIBUTES);
+        super(EJB3SubsystemModel.CLUSTER_PASSIVATION_STORE, ADD_HANDLER, REMOVE_HANDLER, OperationEntry.Flag.RESTART_NONE, OperationEntry.Flag.RESTART_RESOURCE_SERVICES, CLUSTER_PASSIVATION_STORE_CAPABILITY, ATTRIBUTES);
     }
 }

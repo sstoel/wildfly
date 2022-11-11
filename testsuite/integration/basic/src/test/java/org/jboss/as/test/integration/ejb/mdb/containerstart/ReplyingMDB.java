@@ -23,22 +23,22 @@
 package org.jboss.as.test.integration.ejb.mdb.containerstart;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.jms.DeliveryMode.NON_PERSISTENT;
+import static jakarta.jms.DeliveryMode.NON_PERSISTENT;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.annotation.Resource;
-import javax.ejb.ActivationConfigProperty;
-import javax.ejb.MessageDriven;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.Destination;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.MessageListener;
-import javax.jms.MessageProducer;
-import javax.jms.Session;
-import javax.jms.TextMessage;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.annotation.Resource;
+import jakarta.ejb.ActivationConfigProperty;
+import jakarta.ejb.MessageDriven;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.MessageListener;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.logging.Logger;
@@ -47,7 +47,7 @@ import org.jboss.logging.Logger;
  * @author <a href="cdewolf@redhat.com">Carlo de Wolf</a>
  */
 @MessageDriven(activationConfig = {
-        @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "javax.jms.Queue"),
+        @ActivationConfigProperty(propertyName = "destinationType", propertyValue = "jakarta.jms.Queue"),
         @ActivationConfigProperty(propertyName = "destination", propertyValue = "java:jboss/exported/queue/sendMessage"),
         @ActivationConfigProperty(propertyName = "maxSession", propertyValue = "1"),
         @ActivationConfigProperty(propertyName = "transactionTimeout", propertyValue = "10"),
@@ -73,7 +73,7 @@ public class ReplyingMDB implements MessageListener {
             if (message instanceof TextMessage) {
                 if (text.equals("await") && !message.getJMSRedelivered()) {
                     // we have received the first message
-                    log.infof("Message [%s, %s] contains text 'await'", message, text);
+                    log.debugf("Message [%s, %s] contains text 'await'", message, text);
                     // synchronize with test to start with undeploy
                     HelperSingletonImpl.barrier.await(WAIT_S, SECONDS);
                     HelperSingletonImpl.barrier.reset();
@@ -96,7 +96,7 @@ public class ReplyingMDB implements MessageListener {
             Destination destination = message.getJMSReplyTo();
             message.setJMSDeliveryMode(NON_PERSISTENT);
             sender.send(destination, replyMessage);
-            log.infof("onMessage method [OK], msg: [%s] with id [%s]. Replying to destination [%s].",
+            log.debugf("onMessage method [OK], msg: [%s] with id [%s]. Replying to destination [%s].",
                     text, message, destination);
         } catch (Exception e) {
             throw new RuntimeException(e);

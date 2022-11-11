@@ -21,7 +21,7 @@
  */
 package org.jboss.as.test.integration.weld.modules.deployment;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -40,7 +40,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Verifies that a bean (FooImpl3) in the top-level deployment unit is visible from a static CDI-enabled module.
+ * Verifies that a bean (FooImpl3) in the top-level deployment unit is visible from a static Jakarta Contexts and Dependency Injection enabled module.
  * At the same time beans from sub-deployments (FooImpl1, FooImpl2) are not visible.
  *
  * @author Jozef Hartinger
@@ -70,13 +70,13 @@ public class StaticModuleToDeploymentVisibilityEarTest {
         doSetup();
         WebArchive war1 = ShrinkWrap.create(WebArchive.class)
                 .addClasses(StaticModuleToDeploymentVisibilityEarTest.class, FooImpl1.class, TestModule.class)
-                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+                .addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         WebArchive war2 = ShrinkWrap.create(WebArchive.class)
                 .addClasses(FooImpl2.class)
-                .addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+                .addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         JavaArchive library = ShrinkWrap.create(JavaArchive.class)
                 .addClass(FooImpl3.class)
-                .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+                .addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         return ShrinkWrap.create(EnterpriseArchive.class)
                 .addAsModules(war1, war2)
                 .addAsLibrary(library)

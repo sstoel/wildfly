@@ -44,7 +44,7 @@ public class CredentialHandlerResourceDefinition extends AbstractIDMResourceDefi
        .setAlternatives(ModelElement.COMMON_CODE.getName())
        .build();
     public static final SimpleAttributeDefinition CODE = new SimpleAttributeDefinitionBuilder(ModelElement.COMMON_CODE.getName(), ModelType.STRING, true)
-        .setValidator(new EnumValidator<CredentialTypeEnum>(CredentialTypeEnum.class, true, true))
+        .setValidator(EnumValidator.create(CredentialTypeEnum.class))
         .setAllowExpression(true)
         .setAlternatives(ModelElement.COMMON_CLASS_NAME.getName())
         .build();
@@ -55,8 +55,7 @@ public class CredentialHandlerResourceDefinition extends AbstractIDMResourceDefi
     public static final CredentialHandlerResourceDefinition INSTANCE = new CredentialHandlerResourceDefinition(CLASS_NAME, CODE, MODULE);
 
     private CredentialHandlerResourceDefinition(SimpleAttributeDefinition... attributes) {
-        super(ModelElement.IDENTITY_STORE_CREDENTIAL_HANDLER, new IDMConfigAddStepHandler(
-            getModelValidators(), attributes), attributes);
+        super(ModelElement.IDENTITY_STORE_CREDENTIAL_HANDLER, getModelValidators(), address -> address.getParent().getParent().getParent(),  attributes);
     }
 
     private static ModelValidationStepHandler[] getModelValidators() {
@@ -68,13 +67,6 @@ public class CredentialHandlerResourceDefinition extends AbstractIDMResourceDefi
                 }
             }
         };
-    }
-
-    @Override
-    protected void doRegisterModelWriteAttributeHandler(OperationContext context, ModelNode operation) {
-        for (ModelValidationStepHandler validator : getModelValidators()) {
-            context.addStep(validator, OperationContext.Stage.MODEL);
-        }
     }
 
     private static String getCredentialType(OperationContext context, ModelNode elementNode) throws OperationFailedException {

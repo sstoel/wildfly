@@ -36,8 +36,8 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.annotation.Resource;
-import javax.jms.ConnectionFactory;
+import jakarta.annotation.Resource;
+import jakarta.jms.ConnectionFactory;
 import java.io.IOException;
 import java.util.Map;
 
@@ -74,7 +74,7 @@ public class ConnectionFactoryClientMappingTestCase {
             attr.get("connectors").add("http-test-connector");
             ops.addJmsConnectionFactory("TestConnectionFactory", CONNECTION_FACTORY_JNDI_NAME, attr);
 
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
+            ServerReload.executeReloadAndWaitForCompletion(managementClient);
         }
 
         private ModelNode clientMapping(String destAddr, String destPort) {

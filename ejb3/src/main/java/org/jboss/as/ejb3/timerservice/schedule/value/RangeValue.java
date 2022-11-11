@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 import org.jboss.as.ejb3.logging.EjbLogger;
 
 /**
- * Represents a value for a {@link javax.ejb.ScheduleExpression} which is expressed as a range type. An
+ * Represents a value for a {@link jakarta.ejb.ScheduleExpression} which is expressed as a range type. An
  * {@link RangeValue} comprises of a start and an end value for the range, separated by a "-"
  * <p/>
  * <p>
@@ -88,7 +88,7 @@ public class RangeValue implements ScheduleValue {
     public RangeValue(String range) {
         String[] values = getRangeValues(range);
         if (values == null || values.length != 2) {
-            throw EjbLogger.EJB3_TIMER_LOGGER.invalidRange(range);
+            throw EjbLogger.EJB3_TIMER_LOGGER.invalidScheduleValue(ScheduleExpressionType.RANGE.name(), range);
         }
 
         this.rangeStart = values[0].trim();

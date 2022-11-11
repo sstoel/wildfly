@@ -44,10 +44,9 @@ import org.jboss.as.weld.WeldCapability;
 import org.jboss.modules.Module;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.jboss.msc.value.ImmediateValue;
 
 /**
- * Creates a bean validation factory and adds it to the deployment and binds it to JNDI.
+ * Creates a Jakarta Bean Validation factory and adds it to the deployment and binds it to JNDI.
  * <p/>
  * We use a lazy wrapper around the ValidatorFactory to stop it being initialized until it is used.
  * TODO: it would be neat if hibernate validator could make use of our annotation scanning etc
@@ -102,7 +101,7 @@ public class BeanValidationFactoryDeployer implements DeploymentUnitProcessor {
     private void bindServices(LazyValidatorFactory factory, ServiceTarget serviceTarget, EEModuleDescription description, String componentName, ServiceName contextServiceName) {
 
         BinderService validatorFactoryBindingService = new BinderService("ValidatorFactory");
-        validatorFactoryBindingService.getManagedObjectInjector().inject(new ValueManagedReferenceFactory(new ImmediateValue<Object>(factory)));
+        validatorFactoryBindingService.getManagedObjectInjector().inject(new ValueManagedReferenceFactory(factory));
         serviceTarget.addService(contextServiceName.append("ValidatorFactory"), validatorFactoryBindingService)
             .addDependency(contextServiceName, ServiceBasedNamingStore.class, validatorFactoryBindingService.getNamingStoreInjector())
             .install();
@@ -125,7 +124,7 @@ public class BeanValidationFactoryDeployer implements DeploymentUnitProcessor {
                     .get().isPartOfWeldDeployment(context);
         }
         if (validatorFactory != null && !partOfWeldDeployment) {
-            // If the ValidatorFactory is not CDI-enabled, close it here. Otherwise, it's
+            // If the ValidatorFactory is not Jakarta Contexts and Dependency Injection enabled, close it here. Otherwise, it's
             // closed via CdiValidatorFactoryService before the Weld service is stopped.
             validatorFactory.close();
         }

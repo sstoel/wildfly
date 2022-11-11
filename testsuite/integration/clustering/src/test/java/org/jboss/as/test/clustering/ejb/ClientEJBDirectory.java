@@ -21,8 +21,8 @@
  */
 package org.jboss.as.test.clustering.ejb;
 
-import javax.ejb.EJBHome;
-import javax.transaction.UserTransaction;
+import jakarta.ejb.EJBHome;
+import jakarta.transaction.UserTransaction;
 
 import org.jboss.ejb.client.EJBClient;
 import org.jboss.ejb.client.EJBHomeLocator;
@@ -30,7 +30,7 @@ import org.jboss.ejb.client.StatelessEJBLocator;
 import org.wildfly.transaction.client.RemoteTransactionContext;
 
 /**
- * {@link EJBDirectory} that uses the EJB client API.
+ * {@link EJBDirectory} that uses the Jakarta Enterprise Beans client API.
  * @author Paul Ferraro
  */
 public class ClientEJBDirectory implements EJBDirectory {

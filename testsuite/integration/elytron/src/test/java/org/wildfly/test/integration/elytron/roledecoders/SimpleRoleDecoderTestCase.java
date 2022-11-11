@@ -27,8 +27,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.apache.http.message.BasicNameValuePair;
@@ -195,7 +195,7 @@ public class SimpleRoleDecoderTestCase {
                 cli.sendLine(String.format("/subsystem=elytron/simple-role-decoder=%s:remove()", DECODE_FROM_ROLE_ATTRIBUTE_B));
                 cli.sendLine(String.format("/subsystem=elytron/simple-role-decoder=%s:remove()", DECODE_FROM_ROLE_ATTRIBUTE_A));
             }
-            ServerReload.reloadIfRequired(mc.getControllerClient());
+            ServerReload.reloadIfRequired(mc);
         }
 
         @Override

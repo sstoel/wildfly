@@ -27,6 +27,7 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.ReloadRequiredRemoveStepHandler;
 import org.jboss.as.controller.SimpleAttributeDefinition;
@@ -51,11 +52,10 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
             .build();
 
     static final String REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE_NAME = "require-bean-descriptor";
+    static final String LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE_NAME = "legacy-empty-beans-xml-treatment";
     static final String NON_PORTABLE_MODE_ATTRIBUTE_NAME = "non-portable-mode";
     static final String DEVELOPMENT_MODE_ATTRIBUTE_NAME = "development-mode";
     static final String THREAD_POOL_SIZE = "thread-pool-size";
-
-    static final WeldResourceDefinition INSTANCE = new WeldResourceDefinition();
 
     static final SimpleAttributeDefinition REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE =
             new SimpleAttributeDefinitionBuilder(REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE_NAME, ModelType.BOOLEAN, true)
@@ -63,6 +63,13 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
             .setDefaultValue(ModelNode.FALSE)
             .setRestartAllServices()
             .build();
+
+    static final SimpleAttributeDefinition LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE =
+            new SimpleAttributeDefinitionBuilder(LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE_NAME, ModelType.BOOLEAN, true)
+                    .setAllowExpression(true)
+                    .setDefaultValue(ModelNode.FALSE)
+                    .setRestartAllServices()
+                    .build();
 
     static final SimpleAttributeDefinition NON_PORTABLE_MODE_ATTRIBUTE =
             new SimpleAttributeDefinitionBuilder(NON_PORTABLE_MODE_ATTRIBUTE_NAME, ModelType.BOOLEAN, true)
@@ -76,6 +83,7 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
             .setAllowExpression(true)
             .setDefaultValue(ModelNode.FALSE)
             .setRestartAllServices()
+            .setDeprecated(ModelVersion.create(5, 0))
             .build();
 
     static final SimpleAttributeDefinition THREAD_POOL_SIZE_ATTRIBUTE =
@@ -85,9 +93,12 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
             .setRestartAllServices()
             .build();
 
+    private static final AttributeDefinition[] ATTRIBUTES = new AttributeDefinition[] { REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE, LEGACY_EMPTY_BEANS_XML_TREATMENT_ATTRIBUTE, NON_PORTABLE_MODE_ATTRIBUTE, DEVELOPMENT_MODE_ATTRIBUTE, THREAD_POOL_SIZE_ATTRIBUTE };
+    static final WeldResourceDefinition INSTANCE = new WeldResourceDefinition();
+
     private WeldResourceDefinition() {
         super( new SimpleResourceDefinition.Parameters(WeldExtension.PATH_SUBSYSTEM, WeldExtension.getResourceDescriptionResolver())
-                .setAddHandler(WeldSubsystemAdd.INSTANCE)
+                .setAddHandler(new WeldSubsystemAdd(ATTRIBUTES))
                 .setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE)
                 .setCapabilities(WELD_CAPABILITY)
         );
@@ -95,7 +106,7 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
 
     @Override
     public Collection<AttributeDefinition> getAttributes() {
-        return Arrays.asList(new AttributeDefinition[] {REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE, NON_PORTABLE_MODE_ATTRIBUTE, DEVELOPMENT_MODE_ATTRIBUTE, THREAD_POOL_SIZE_ATTRIBUTE});
+        return Arrays.asList(ATTRIBUTES);
     }
 
     @Override
@@ -105,8 +116,6 @@ class WeldResourceDefinition extends PersistentResourceDefinition {
                     RuntimePackageDependency.passive("org.jboss.as.weld.beanvalidation"),
                     RuntimePackageDependency.passive("org.jboss.as.weld.webservices"),
                     RuntimePackageDependency.passive("org.jboss.as.weld.transactions"),
-                    // Warning, large file system content.
-                    RuntimePackageDependency.optional("org.jboss.weld.probe"),
                     RuntimePackageDependency.required("javax.inject.api"),
                     RuntimePackageDependency.required("javax.persistence.api"),
                     RuntimePackageDependency.required("org.hibernate.validator.cdi"));

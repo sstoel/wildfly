@@ -21,14 +21,11 @@
  */
 package org.jboss.as.test.clustering.cluster.xsite;
 
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-
-import javax.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -39,18 +36,14 @@ import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
-import org.jboss.as.test.shared.CLIServerSetupTask;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.http.util.TestHttpClientUtils;
+import org.jboss.as.test.shared.ManagementServerSetupTask;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
-import org.jgroups.util.StackType;
-import org.jgroups.util.Util;
 import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -75,13 +68,13 @@ import org.junit.runner.RunWith;
  * @author Richard Achmatowicz
  */
 @RunWith(Arquillian.class)
-@ServerSetup({XSiteSimpleTestCase.ServerSetupTask.class})
+@ServerSetup({ XSiteSimpleTestCase.CacheSetupTask.class, XSiteSimpleTestCase.ServerSetupTask.class })
 public class XSiteSimpleTestCase extends AbstractClusteringTestCase {
 
     private static final String MODULE_NAME = XSiteSimpleTestCase.class.getSimpleName();
 
     public XSiteSimpleTestCase() {
-        super(FOUR_NODES, FOUR_DEPLOYMENTS);
+        super(NODE_1_2_3_4);
     }
 
     @Deployment(name = DEPLOYMENT_1, managed = false, testable = false)
@@ -116,12 +109,18 @@ public class XSiteSimpleTestCase extends AbstractClusteringTestCase {
         return war;
     }
 
-    @BeforeClass
-    public static void beforeClass() {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            Assume.assumeFalse("Disable on Windows+IPv6 until CI environment is fixed", Util.checkForWindows() && (Util.getIpStackType() == StackType.IPv6));
-            return null;
-        });
+    @Override
+    public void beforeTestMethod() throws Exception {
+        // Orchestrate startup of clusters to purge previously discovered views.
+        stop();
+        start(NODE_1);
+        deploy(DEPLOYMENT_1);
+        start(NODE_3);
+        deploy(DEPLOYMENT_3);
+        start(NODE_4);
+        deploy(DEPLOYMENT_4);
+        start(NODE_2);
+        deploy(DEPLOYMENT_2);
     }
 
     @Test
@@ -199,56 +198,88 @@ public class XSiteSimpleTestCase extends AbstractClusteringTestCase {
         }
     }
 
-    public static class ServerSetupTask extends CLIServerSetupTask {
+    public static class CacheSetupTask extends ManagementServerSetupTask {
+        public CacheSetupTask() {
+            super(NODE_1_2_3_4, createContainerConfigurationBuilder()
+                    .setupScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=infinispan/cache-container=foo:add(marshaller=JBOSS)")
+                                .add("/subsystem=infinispan/cache-container=foo/transport=jgroups:add")
+                                .add("/subsystem=infinispan/cache-container=foo/distributed-cache=bar:add")
+                            .endBatch()
+                            .build())
+                    .tearDownScript(createScriptBuilder()
+                            .add("/subsystem=infinispan/cache-container=foo:remove")
+                            .build())
+                    .build());
+        }
+    }
+
+    public static class ServerSetupTask extends ManagementServerSetupTask {
         public ServerSetupTask() {
-            this.builder
+            super(createContainerSetConfigurationBuilder()
                     // LON
-                    .node(NODE_1, NODE_2)
-                    .setup("/subsystem=infinispan/cache-container=web/distributed-cache=dist/component=backups/backup=NYC:add(failure-policy=WARN,strategy=SYNC,timeout=10000,enabled=true)")
-                    .setup("/subsystem=infinispan/cache-container=web/distributed-cache=dist/component=backups/backup=SFO:add(failure-policy=WARN,strategy=SYNC,timeout=10000,enabled=true)")
-                    .setup("/subsystem=jgroups/channel=bridge:add(stack=tcp)")
-                    .setup("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=udp)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY:add(site=LON)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=NYC:add(channel=bridge)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=SFO:add(channel=bridge)")
-                    .setup("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=%s)", TESTSUITE_MCAST3)
-                    .teardown("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=\"${jboss.default.multicast.address:230.0.0.4}\"")
-                    .teardown("/subsystem=jgroups/stack=udp/relay=RELAY:remove")
-                    .teardown("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=tcp)")
-                    .teardown("/subsystem=jgroups/channel=bridge:remove")
-                    .teardown("/subsystem=infinispan/cache-container=web/distributed-cache=dist/component=backups/backup=SFO:remove")
-                    .teardown("/subsystem=infinispan/cache-container=web/distributed-cache=dist/component=backups/backup=NYC:remove")
-                    .parent()
+                    .addContainers(NODE_1_2, createContainerConfigurationBuilder()
+                        .setupScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=infinispan/cache-container=foo/distributed-cache=bar/component=backups/backup=NYC:add(failure-policy=WARN, strategy=SYNC, timeout=10000, enabled=true)")
+                                .add("/subsystem=infinispan/cache-container=foo/distributed-cache=bar/component=backups/backup=SFO:add(failure-policy=WARN, strategy=SYNC, timeout=10000, enabled=true)")
+                                .add("/subsystem=jgroups/channel=bridge:add(stack=tcp-bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:add(site=LON)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=NYC:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=SFO:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-1, node-2])")
+                            .endBatch()
+                            .build())
+                        .tearDownScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-1, node-2, node-3, node-4])")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:remove")
+                                .add("/subsystem=jgroups/channel=bridge:remove")
+                                .add("/subsystem=infinispan/cache-container=foo/distributed-cache=bar/component=backups/backup=SFO:remove")
+                                .add("/subsystem=infinispan/cache-container=foo/distributed-cache=bar/component=backups/backup=NYC:remove")
+                            .endBatch()
+                            .build())
+                        .build())
                     // NYC
-                    .node(NODE_3)
-                    .setup("/subsystem=jgroups/channel=bridge:add(stack=tcp)")
-                    .setup("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=udp)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY:add(site=NYC)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=LON:add(channel=bridge)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=SFO:add(channel=bridge)")
-                    .setup("/socket-binding-group=standard-sockets/socket-binding=jgroups-udp:write-attribute(name=multicast-address,value=%s)", TESTSUITE_MCAST1)
-                    .setup("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=%s)", TESTSUITE_MCAST3)
-                    .teardown("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=\"${jboss.default.multicast.address:230.0.0.4}\"")
-                    .teardown("/socket-binding-group=standard-sockets/socket-binding=jgroups-udp:write-attribute(name=multicast-address,value=\"${jboss.default.multicast.address:230.0.0.4}\"")
-                    .teardown("/subsystem=jgroups/stack=udp/relay=RELAY:remove")
-                    .teardown("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=tcp)")
-                    .teardown("/subsystem=jgroups/channel=bridge:remove")
-                    .parent()
+                    .addContainer(NODE_3, createContainerConfigurationBuilder()
+                        .setupScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=jgroups/channel=bridge:add(stack=tcp-bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:add(site=NYC)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=LON:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=SFO:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-3])")
+                            .endBatch()
+                            .build())
+                        .tearDownScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-1, node-2, node-3, node-4])")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:remove")
+                                .add("/subsystem=jgroups/channel=bridge:remove")
+                            .endBatch()
+                            .build())
+                        .build())
                     // SFO
-                    .node(NODE_4)
-                    .setup("/subsystem=jgroups/channel=bridge:add(stack=tcp)")
-                    .setup("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=udp)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY:add(site=SFO)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=LON:add(channel=bridge)")
-                    .setup("/subsystem=jgroups/stack=udp/relay=RELAY/remote-site=NYC:add(channel=bridge)")
-                    .setup("/socket-binding-group=standard-sockets/socket-binding=jgroups-udp:write-attribute(name=multicast-address,value=%s)", TESTSUITE_MCAST2)
-                    .setup("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=%s)", TESTSUITE_MCAST3)
-                    .teardown("/socket-binding-group=standard-sockets/socket-binding=jgroups-mping:write-attribute(name=multicast-address,value=\"${jboss.default.multicast.address:230.0.0.4}\"")
-                    .teardown("/socket-binding-group=standard-sockets/socket-binding=jgroups-udp:write-attribute(name=multicast-address,value=\"${jboss.default.multicast.address:230.0.0.4}\"")
-                    .teardown("/subsystem=jgroups/stack=udp/relay=RELAY:remove")
-                    .teardown("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=tcp)")
-                    .teardown("/subsystem=jgroups/channel=bridge:remove")
-            ;
+                    .addContainer(NODE_4, createContainerConfigurationBuilder()
+                        .setupScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=jgroups/channel=bridge:add(stack=tcp-bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:add(site=SFO)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=LON:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2/remote-site=NYC:add(channel=bridge)")
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-4])")
+                            .endBatch()
+                            .build())
+                        .tearDownScript(createScriptBuilder()
+                            .startBatch()
+                                .add("/subsystem=jgroups/stack=tcp/protocol=TCPPING:write-attribute(name=socket-bindings, value=[node-1, node-2, node-3, node-4])")
+                                .add("/subsystem=jgroups/stack=tcp/relay=relay.RELAY2:remove")
+                                .add("/subsystem=jgroups/channel=bridge:remove")
+                            .endBatch()
+                            .build())
+                        .build())
+                    .build());
         }
     }
 }

@@ -23,7 +23,6 @@
 package org.wildfly.extension.undertow;
 
 import io.undertow.connector.ByteBufferPool;
-import io.undertow.security.api.AuthenticationMechanismFactory;
 import io.undertow.server.handlers.cache.DirectBufferCache;
 import io.undertow.servlet.api.CrawlerSessionManagerConfig;
 import io.undertow.servlet.api.ServletContainer;
@@ -32,9 +31,7 @@ import io.undertow.servlet.api.SessionPersistenceManager;
 
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.StartContext;
-import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.InjectedValue;
 import org.xnio.XnioWorker;
 
 import java.util.ArrayList;
@@ -42,21 +39,26 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * Central Undertow 'Container' HTTP listeners will make this container accessible whilst deployers will add content.
  *
  * @author <a href="mailto:darran.lofthouse@jboss.com">Darran Lofthouse</a>
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
-public class ServletContainerService implements Service<ServletContainerService> {
+public final class ServletContainerService implements Service<ServletContainerService> {
 
+    private final Consumer<ServletContainerService> serviceConsumer;
+    private final Supplier<SessionPersistenceManager> sessionPersistenceManager;
+    private final Supplier<DirectBufferCache> bufferCache;
+    private final Supplier<ByteBufferPool> websocketsBufferPool;
+    private final Supplier<XnioWorker> websocketsWorker;
     private final boolean allowNonStandardWrappers;
     private final ServletStackTraces stackTraces;
     private final SessionCookieConfig sessionCookieConfig;
     private final JSPConfig jspConfig;
-    private volatile ServletContainer servletContainer;
-    private final InjectedValue<DirectBufferCache> bufferCacheInjectedValue = new InjectedValue<>();
-    private final InjectedValue<SessionPersistenceManager> sessionPersistenceManagerInjectedValue = new InjectedValue<>();
     private final String defaultEncoding;
     private final boolean useListenerEncoding;
     private final boolean ignoreFlush;
@@ -66,18 +68,13 @@ public class ServletContainerService implements Service<ServletContainerService>
     private final Boolean directoryListingEnabled;
     private final int sessionIdLength;
     private final CrawlerSessionManagerConfig crawlerSessionManagerConfig;
-
     private final boolean websocketsEnabled;
-    private final InjectedValue<ByteBufferPool> websocketsBufferPool = new InjectedValue<>();
-    private final InjectedValue<XnioWorker> websocketsWorker = new InjectedValue<>();
     private final boolean dispatchWebsocketInvocationToWorker;
     private final boolean perMessageDeflate;
     private final int deflaterLevel;
-
     private final Map<String, String> mimeMappings;
     private final List<String> welcomeFiles;
     private final boolean proactiveAuth;
-    private final Map<String, AuthenticationMechanismFactory> authenticationMechanisms;
     private final Integer maxSessions;
     private final boolean disableFileWatchService;
     private final boolean disableSessionIdReuse;
@@ -85,14 +82,24 @@ public class ServletContainerService implements Service<ServletContainerService>
     private final int fileCacheMaxFileSize;
     private final Integer fileCacheTimeToLive;
     private final int defaultCookieVersion;
+    private boolean preservePathOnForward;
 
-    public ServletContainerService(boolean allowNonStandardWrappers, ServletStackTraces stackTraces, SessionCookieConfig sessionCookieConfig, JSPConfig jspConfig,
-                                   String defaultEncoding, boolean useListenerEncoding, boolean ignoreFlush, boolean eagerFilterInit, int defaultSessionTimeout,
-                                   boolean disableCachingForSecuredPages, boolean websocketsEnabled, boolean dispatchWebsocketInvocationToWorker, boolean perMessageDeflate,
-                                   int deflaterLevel, Map<String, String> mimeMappings, List<String> welcomeFiles, Boolean directoryListingEnabled, boolean proactiveAuth,
-                                   int sessionIdLength, Map<String, AuthenticationMechanismFactory> authenticationMechanisms, Integer maxSessions,
-                                   CrawlerSessionManagerConfig crawlerSessionManagerConfig, boolean disableFileWatchService, boolean disableSessionIdReuse, int fileCacheMetadataSize, int fileCacheMaxFileSize, Integer fileCacheTimeToLive, int defaultCookieVersion) {
+    private volatile ServletContainer servletContainer;
 
+    public ServletContainerService(
+            final Consumer<ServletContainerService> serviceConsumer, final Supplier<SessionPersistenceManager> sessionPersistenceManager, final Supplier<DirectBufferCache> bufferCache,
+            final Supplier<ByteBufferPool> websocketsBufferPool, final Supplier<XnioWorker> websocketsWorker,
+            boolean allowNonStandardWrappers, ServletStackTraces stackTraces, SessionCookieConfig sessionCookieConfig, JSPConfig jspConfig,
+            String defaultEncoding, boolean useListenerEncoding, boolean ignoreFlush, boolean eagerFilterInit, int defaultSessionTimeout,
+            boolean disableCachingForSecuredPages, boolean websocketsEnabled, boolean dispatchWebsocketInvocationToWorker, boolean perMessageDeflate,
+            int deflaterLevel, Map<String, String> mimeMappings, List<String> welcomeFiles, Boolean directoryListingEnabled, boolean proactiveAuth,
+            int sessionIdLength, Integer maxSessions,
+            CrawlerSessionManagerConfig crawlerSessionManagerConfig, boolean disableFileWatchService, boolean disableSessionIdReuse, int fileCacheMetadataSize, int fileCacheMaxFileSize, Integer fileCacheTimeToLive, int defaultCookieVersion, boolean preservePathOnForward) {
+        this.serviceConsumer = serviceConsumer;
+        this.sessionPersistenceManager = sessionPersistenceManager;
+        this.bufferCache = bufferCache;
+        this.websocketsBufferPool = websocketsBufferPool;
+        this.websocketsWorker = websocketsWorker;
         this.allowNonStandardWrappers = allowNonStandardWrappers;
         this.stackTraces = stackTraces;
         this.sessionCookieConfig = sessionCookieConfig;
@@ -115,31 +122,28 @@ public class ServletContainerService implements Service<ServletContainerService>
         this.welcomeFiles = new ArrayList<>(welcomeFiles);
         this.mimeMappings = new HashMap<>(mimeMappings);
         this.sessionIdLength = sessionIdLength;
-        this.authenticationMechanisms = authenticationMechanisms;
         this.disableSessionIdReuse = disableSessionIdReuse;
         this.fileCacheMetadataSize = fileCacheMetadataSize;
         this.fileCacheMaxFileSize = fileCacheMaxFileSize;
         this.fileCacheTimeToLive = fileCacheTimeToLive;
         this.defaultCookieVersion = defaultCookieVersion;
+        this.preservePathOnForward = preservePathOnForward;
     }
 
     @Override
-    public void start(StartContext context) throws StartException {
+    public void start(final StartContext context) {
         servletContainer = ServletContainer.Factory.newInstance();
+        serviceConsumer.accept(this);
     }
 
     @Override
-    public void stop(StopContext context) {
-
+    public void stop(final StopContext context) {
+        serviceConsumer.accept(null);
     }
 
     @Override
     public ServletContainerService getValue() throws IllegalStateException, IllegalArgumentException {
         return this;
-    }
-
-    public Map<String, AuthenticationMechanismFactory> getAuthenticationMechanisms() {
-        return authenticationMechanisms;
     }
 
     public ServletContainer getServletContainer() {
@@ -162,12 +166,8 @@ public class ServletContainerService implements Service<ServletContainerService>
         return sessionCookieConfig;
     }
 
-    InjectedValue<DirectBufferCache> getBufferCacheInjectedValue() {
-        return bufferCacheInjectedValue;
-    }
-
     public DirectBufferCache getBufferCache() {
-        return bufferCacheInjectedValue.getOptionalValue();
+        return bufferCache != null ? bufferCache.get() : null;
     }
 
     public boolean isDisableCachingForSecuredPages() {
@@ -176,14 +176,6 @@ public class ServletContainerService implements Service<ServletContainerService>
 
     public boolean isDispatchWebsocketInvocationToWorker() {
         return dispatchWebsocketInvocationToWorker;
-    }
-
-    public InjectedValue<XnioWorker> getWebsocketsWorker() {
-        return websocketsWorker;
-    }
-
-    public InjectedValue<ByteBufferPool> getWebsocketsBufferPool() {
-        return websocketsBufferPool;
     }
 
     public boolean isPerMessageDeflate() {
@@ -202,12 +194,16 @@ public class ServletContainerService implements Service<ServletContainerService>
         return disableSessionIdReuse;
     }
 
-    InjectedValue<SessionPersistenceManager> getSessionPersistenceManagerInjectedValue() {
-        return sessionPersistenceManagerInjectedValue;
+    public SessionPersistenceManager getSessionPersistenceManager() {
+        return sessionPersistenceManager != null ? sessionPersistenceManager.get() : null;
     }
 
-    public SessionPersistenceManager getSessionPersistenceManager() {
-        return sessionPersistenceManagerInjectedValue.getOptionalValue();
+    public XnioWorker getWebsocketsWorker() {
+        return websocketsWorker != null ? websocketsWorker.get() : null;
+    }
+
+    public ByteBufferPool getWebsocketsBufferPool() {
+        return websocketsBufferPool != null ? websocketsBufferPool.get() : null;
     }
 
     public String getDefaultEncoding() {
@@ -277,5 +273,9 @@ public class ServletContainerService implements Service<ServletContainerService>
 
     public int getDefaultCookieVersion() {
         return defaultCookieVersion;
+    }
+
+    public boolean isPreservePathOnForward() {
+        return preservePathOnForward;
     }
 }

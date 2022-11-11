@@ -27,14 +27,15 @@ package org.jboss.as.mail.extension;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Properties;
-import javax.mail.PasswordAuthentication;
-import javax.mail.Session;
 
 import org.jboss.as.subsystem.test.KernelServices;
 import org.jboss.as.subsystem.test.KernelServicesBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.junit.Assert;
 import org.junit.Test;
+
+import jakarta.mail.PasswordAuthentication;
+import jakarta.mail.Session;
 
 /**
  * @author <a href="mailto:tomaz.cerar@redhat.com">Tomaz Cerar</a>
@@ -50,21 +51,8 @@ public class MailSubsystem30TestCase extends MailSubsystemTestBase {
     }
 
     @Override
-    protected String getSubsystemXsdPath() throws Exception {
-        return "schema/wildfly-mail_3_0.xsd";
-    }
-
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[]{
-                "/subsystem-templates/mail.xml"
-        };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+    protected KernelServices standardSubsystemTest(String configId, boolean compareXml) throws Exception {
+        return super.standardSubsystemTest(configId, false);
     }
 
     @Test
@@ -105,8 +93,8 @@ public class MailSubsystem30TestCase extends MailSubsystemTestBase {
 
         MailSessionService service = (MailSessionService) customMailService.getService();
         Credentials credentials = service.getConfig().getCustomServers()[0].getCredentials();
-        Assert.assertEquals(credentials.getUsername(), "username");
-        Assert.assertEquals(credentials.getPassword(), "password");
+        Assert.assertEquals("username", credentials.getUsername());
+        Assert.assertEquals("password", credentials.getPassword());
 
 
     }

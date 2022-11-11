@@ -21,30 +21,20 @@
  */
 package org.wildfly.clustering.web.session;
 
-import java.time.Duration;
 import java.time.Instant;
 
 /**
  * Abstraction for immutable meta information about a web session.
  * @author Paul Ferraro
  */
-public interface ImmutableSessionMetaData {
+public interface ImmutableSessionMetaData extends SessionExpirationMetaData {
 
     /**
      * Indicates whether or not this session was created by the current thread.
      * @return true, if this session is new, false otherwise
      */
     default boolean isNew() {
-        return this.getCreationTime().equals(this.getLastAccessedTime());
-    }
-
-    /**
-     * Indicates whether or not this session was previously idle for longer than the maximum inactive interval.
-     * @return true, if this session is expired, false otherwise
-     */
-    default boolean isExpired() {
-        Duration maxInactiveInterval = this.getMaxInactiveInterval();
-        return !maxInactiveInterval.isZero() ? this.getLastAccessedTime().plus(maxInactiveInterval).isBefore(Instant.now()) : false;
+        return this.getCreationTime().equals(this.getLastAccessStartTime());
     }
 
     /**
@@ -54,15 +44,8 @@ public interface ImmutableSessionMetaData {
     Instant getCreationTime();
 
     /**
-     * Returns the time this session was last accessed.
-     * @return the time this session was last accessed
+     * Returns the start time of the last request to access this session.
+     * @return the start time of the last request to access this session.
      */
-    Instant getLastAccessedTime();
-
-    /**
-     * Returns the time interval, using the specified unit, after which this session will expire.
-     * @param unit a time unit
-     * @return a time interval
-     */
-    Duration getMaxInactiveInterval();
+    Instant getLastAccessStartTime();
 }

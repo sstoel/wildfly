@@ -29,7 +29,7 @@ import java.util.concurrent.Callable;
 import org.jboss.as.test.shared.integration.ejb.security.Util;
 import org.jboss.logging.Logger;
 
-import javax.ejb.EJBAccessException;
+import jakarta.ejb.EJBAccessException;
 import javax.naming.InitialContext;
 
 import org.junit.Assert;
@@ -63,7 +63,9 @@ public class SingletonSecurityTestCase {
         jar.addClass(Util.class);
         jar.addAsResource(createPermissionsXmlAsset(
                 new RuntimePermission("org.jboss.security.setSecurityContext"),
-                new ElytronPermission("getSecurityDomain")
+                new ElytronPermission("getSecurityDomain"),
+                new ElytronPermission("authenticate"),
+                new ElytronPermission("setRunAsPrincipal")
                 ), "META-INF/permissions.xml");
         return jar;
     }

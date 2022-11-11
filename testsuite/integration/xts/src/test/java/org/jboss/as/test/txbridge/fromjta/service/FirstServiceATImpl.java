@@ -22,15 +22,15 @@
 
 package org.jboss.as.test.txbridge.fromjta.service;
 
-import javax.ejb.Remote;
-import javax.ejb.Stateless;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.jws.WebMethod;
-import javax.jws.WebService;
-import javax.jws.soap.SOAPBinding;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.jws.WebMethod;
+import jakarta.jws.WebService;
+import jakarta.jws.soap.SOAPBinding;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import org.jboss.logging.Logger;
 
@@ -48,8 +48,8 @@ public class FirstServiceATImpl implements FirstServiceAT {
     protected EntityManager em;
 
     /**
-     * Increment the first counter. This is done by updating the counter within a JTA transaction.
-     * The JTA transaction was automatically bridged from the WS-AT transaction.
+     * Increment the first counter. This is done by updating the counter within Jakarta Transactions transaction.
+     * The Jakarta Transactions transaction was automatically bridged from the WS-AT transaction.
      */
     @WebMethod
     public void incrementCounter(int num) {

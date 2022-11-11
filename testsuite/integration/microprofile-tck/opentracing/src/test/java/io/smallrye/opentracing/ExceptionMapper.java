@@ -21,17 +21,17 @@
  */
 package io.smallrye.opentracing;
 
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.ext.Provider;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.ext.Provider;
 
 /**
- * Temporal fix to catch exceptions thrown in JAX-RS endpoints, see https://issues.jboss.org/browse/RESTEASY-1758
+ * Temporal fix to catch exceptions thrown in Jakarta RESTful Web Services endpoints, see https://issues.jboss.org/browse/RESTEASY-1758
  *
  * @author Pavol Loffay
  */
 @Provider
-public class ExceptionMapper implements javax.ws.rs.ext.ExceptionMapper<RuntimeException> {
+public class ExceptionMapper implements jakarta.ws.rs.ext.ExceptionMapper<RuntimeException> {
 
     @Override
     public Response toResponse(RuntimeException exception) {

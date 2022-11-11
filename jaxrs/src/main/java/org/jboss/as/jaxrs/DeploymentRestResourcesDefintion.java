@@ -41,14 +41,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import javax.ws.rs.CookieParam;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.MatrixParam;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.CookieParam;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.MatrixParam;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.core.MediaType;
 
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.ObjectListAttributeDefinition;
@@ -72,7 +72,7 @@ import org.jboss.dmr.ModelType;
 import org.jboss.logmanager.Level;
 import org.jboss.modules.Module;
 import org.jboss.msc.service.ServiceController;
-import org.jboss.resteasy.core.ResourceInvoker;
+import org.jboss.resteasy.spi.ResourceInvoker;
 import org.jboss.resteasy.core.ResourceLocatorInvoker;
 import org.jboss.resteasy.core.ResourceMethodInvoker;
 import org.jboss.resteasy.core.ResourceMethodRegistry;
@@ -91,7 +91,7 @@ import org.wildfly.extension.undertow.deployment.UndertowDeploymentService;
 @SuppressWarnings("deprecation")
 public class DeploymentRestResourcesDefintion extends SimpleResourceDefinition {
 
-    public static DeploymentRestResourcesDefintion INSTANCE = new DeploymentRestResourcesDefintion();
+    public static final DeploymentRestResourcesDefintion INSTANCE = new DeploymentRestResourcesDefintion();
 
     public static final String REST_RESOURCE_NAME = "rest-resource";
 
@@ -212,7 +212,9 @@ public class DeploymentRestResourcesDefintion extends SimpleResourceDefinition {
             }
             final ResourceMeta resourceMeta = resMeta;
             try {
-
+                if(deploymentService.getDeployment() == null) {
+                    return;
+                }
                 deploymentService.getDeployment().createThreadSetupAction(new ThreadSetupHandler.Action<Object, Object>() {
                     @Override
                     public Object call(HttpServerExchange exchange, Object ctxObject) throws Exception {
@@ -222,7 +224,7 @@ public class DeploymentRestResourcesDefintion extends SimpleResourceDefinition {
                                 resteasyServlets.add((HttpServletDispatcher) servletHandler.getValue().getManagedServlet().getServlet().getInstance());
                             }
                         }
-                        if (resteasyServlets.size() > 0) {
+                        if (!resteasyServlets.isEmpty()) {
                             context.addStep(new OperationStepHandler() {
                                 @Override
                                 public void execute(OperationContext context, ModelNode operation) throws OperationFailedException {
@@ -461,7 +463,7 @@ public class DeploymentRestResourcesDefintion extends SimpleResourceDefinition {
         }
 
         private boolean containsMethodResources() {
-            if (this.methodsDescriptions.size() > 0) {
+            if (!this.methodsDescriptions.isEmpty()) {
                 return true;
             }
             for (JaxrsResourceLocatorDescription p : this.subLocatorDescriptions) {

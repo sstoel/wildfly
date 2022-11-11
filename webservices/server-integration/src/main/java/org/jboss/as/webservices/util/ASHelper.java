@@ -33,8 +33,8 @@ import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.List;
 
-import javax.jws.WebService;
-import javax.xml.ws.WebServiceProvider;
+import jakarta.jws.WebService;
+import jakarta.xml.ws.WebServiceProvider;
 
 import org.jboss.as.ee.component.EEModuleClassDescription;
 import org.jboss.as.ee.metadata.ClassAnnotationInformation;
@@ -83,10 +83,10 @@ public final class ASHelper {
     }
 
     /**
-     * Gets list of JAXWS EJBs meta data.
+     * Gets list of Jakarta XML Web Services Jakarta Enterprise Beans meta data.
      *
      * @param unit deployment unit
-     * @return list of JAXWS EJBs meta data
+     * @return list of Jakarta XML Web Services Jakarta Enterprise Beans meta data
      */
     public static List<EJBEndpoint> getJaxwsEjbs(final DeploymentUnit unit) {
         final JAXWSDeployment jaxwsDeployment = getOptionalAttachment(unit, WSAttachmentKeys.JAXWS_ENDPOINTS_KEY);
@@ -201,7 +201,7 @@ public final class ASHelper {
         final short flags = clazz.flags();
         if (!Modifier.isInterface(flags)) return false;
         if (!Modifier.isPublic(flags)) return false;
-        return clazz.annotations().containsKey(WEB_SERVICE_ANNOTATION);
+        return clazz.annotationsMap().containsKey(WEB_SERVICE_ANNOTATION);
     }
 
     public static boolean hasClassesFromPackage(final Index index, final String pck) {
@@ -224,8 +224,8 @@ public final class ASHelper {
         if (Modifier.isAbstract(flags)) return false;
         if (!Modifier.isPublic(flags)) return false;
         if (isJaxwsService(clazz, index)) return false;
-        final boolean hasWebServiceAnnotation = clazz.annotations().containsKey(WEB_SERVICE_ANNOTATION);
-        final boolean hasWebServiceProviderAnnotation = clazz.annotations().containsKey(WEB_SERVICE_PROVIDER_ANNOTATION);
+        final boolean hasWebServiceAnnotation = clazz.annotationsMap().containsKey(WEB_SERVICE_ANNOTATION);
+        final boolean hasWebServiceProviderAnnotation = clazz.annotationsMap().containsKey(WEB_SERVICE_PROVIDER_ANNOTATION);
         if (!hasWebServiceAnnotation && !hasWebServiceProviderAnnotation) {
             return false;
         }
@@ -410,7 +410,7 @@ public final class ASHelper {
         // wars define resource roots
         AttachmentList<ResourceRoot> resourceRoots = unit.getAttachment(RESOURCE_ROOTS);
         if (!unit.getName().endsWith(".war") && EjbDeploymentMarker.isEjbDeployment(unit)) {
-            // ejb archives don't define resource roots, using root resource
+            // Jakarta Enterprise Beans archives don't define resource roots, using root resource
             resourceRoots = new AttachmentList<ResourceRoot>(ResourceRoot.class);
             final ResourceRoot root = unit.getAttachment(DEPLOYMENT_ROOT);
             resourceRoots.add(root);

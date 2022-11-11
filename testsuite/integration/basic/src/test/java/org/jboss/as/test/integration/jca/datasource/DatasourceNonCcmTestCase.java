@@ -30,7 +30,7 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 import java.io.FilePermission;
 import java.sql.Connection;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -57,13 +57,13 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Running tests on data-source in non-jta mode.
+ * Running tests on data-source in non-Jakarta Transactions mode.
  *
  * @author <a href="mailto:lgao@redhat.com>Lin Gao</a>
  */
 @RunWith(Arquillian.class)
 @ServerSetup(DatasourceNonCcmTestCase.DatasourceServerSetupTask.class)
-public class DatasourceNonCcmTestCase extends JcaMgmtBase {
+public class DatasourceNonCcmTestCase {
 
     private static final String NON_TX_DS_NAME = "NonJTADS";
 
@@ -149,11 +149,12 @@ public class DatasourceNonCcmTestCase extends JcaMgmtBase {
         jar.addAsManifestResource(new StringAsset(
                 "Dependencies: javax.inject.api,org.jboss.as.connector," +
                     "org.jboss.as.controller, " +
-                    "org.jboss.dmr,org.jboss.as.cli, " +
+                    "org.jboss.dmr, " +
                     "org.jboss.staxmapper,  " +
+                    // Needed for RemotingPermission class if security manager is enabled
+                    (System.getProperty("security.manager") == null ? "" : "org.jboss.remoting,") +
                     "org.jboss.ironjacamar.impl, " +
-                    "org.jboss.ironjacamar.jdbcadapters, " +
-                    "org.jboss.remoting3\n"
+                    "org.jboss.ironjacamar.jdbcadapters\n"
         ), "MANIFEST.MF");
 
         jar.addAsManifestResource(createPermissionsXmlAsset(

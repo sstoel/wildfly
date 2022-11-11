@@ -32,8 +32,8 @@ import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.registry.AttributeAccess.Flag;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelType;
-import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
-import org.wildfly.clustering.infinispan.spi.InfinispanDefaultCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanDefaultCacheRequirement;
 
 /**
  * Definition of the /subsystem=distributable-web/infinispan-session-management=* resource.
@@ -41,7 +41,10 @@ import org.wildfly.clustering.infinispan.spi.InfinispanDefaultCacheRequirement;
  */
 public class InfinispanSessionManagementResourceDefinition extends SessionManagementResourceDefinition {
 
-    static final PathElement WILDCARD_PATH = PathElement.pathElement("infinispan-session-management");
+    static final PathElement WILDCARD_PATH = pathElement(PathElement.WILDCARD_VALUE);
+    static PathElement pathElement(String name) {
+        return PathElement.pathElement("infinispan-session-management", name);
+    }
 
     enum Attribute implements org.jboss.as.clustering.controller.Attribute, UnaryOperator<SimpleAttributeDefinitionBuilder> {
         CACHE_CONTAINER("cache-container", ModelType.STRING) {
@@ -49,7 +52,7 @@ public class InfinispanSessionManagementResourceDefinition extends SessionManage
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setAllowExpression(false)
                         .setRequired(true)
-                        .setCapabilityReference(new CapabilityReference(Capability.SESSION_MANAGEMENT_PROVIDER, InfinispanDefaultCacheRequirement.CACHE))
+                        .setCapabilityReference(new CapabilityReference(Capability.SESSION_MANAGEMENT_PROVIDER, InfinispanDefaultCacheRequirement.CONFIGURATION))
                         ;
             }
         },
@@ -57,7 +60,7 @@ public class InfinispanSessionManagementResourceDefinition extends SessionManage
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setAllowExpression(false)
-                        .setCapabilityReference(new CapabilityReference(Capability.SESSION_MANAGEMENT_PROVIDER, InfinispanCacheRequirement.CACHE, CACHE_CONTAINER))
+                        .setCapabilityReference(new CapabilityReference(Capability.SESSION_MANAGEMENT_PROVIDER, InfinispanCacheRequirement.CONFIGURATION, CACHE_CONTAINER))
                         ;
             }
         },
@@ -78,7 +81,7 @@ public class InfinispanSessionManagementResourceDefinition extends SessionManage
         }
     }
 
-    private static final UnaryOperator<ResourceDescriptor> CONFIGURATOR = new UnaryOperator<ResourceDescriptor>() {
+    private static final UnaryOperator<ResourceDescriptor> CONFIGURATOR = new UnaryOperator<>() {
         @Override
         public ResourceDescriptor apply(ResourceDescriptor descriptor) {
             return descriptor.addAttributes(Attribute.class)

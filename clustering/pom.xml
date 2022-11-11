@@ -33,28 +33,46 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>18.0.0.Beta1-SNAPSHOT</version>
+        <version>28.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-clustering</artifactId>
     <packaging>pom</packaging>
 
-    <name>WildFly: Clustering Subsystems</name>
+    <name>WildFly: Clustering subsystems and modules</name>
+    <description>
+        Contains modules containing subsystems related to clustering, modules implementing clustering behavior,
+        and modules used to integration with other (non-clustering) subsystems.
+    </description>
 
     <modules>
-        <module>api</module>
         <module>common</module>
+        <module>context</module>
         <module>ee</module>
         <module>ejb</module>
+        <module>el</module>
+        <module>faces</module>
         <module>infinispan</module>
         <module>jgroups</module>
         <module>marshalling</module>
         <module>server</module>
         <module>service</module>
         <module>singleton</module>
-        <module>spi</module>
         <module>web</module>
+        <module>weld</module>
     </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>wildfly-standard-ee-bom</artifactId>
+                <version>${ee.maven.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -63,13 +81,13 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
+            <groupId>org.jboss.byteman</groupId>
+            <artifactId>byteman</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.byteman</groupId>
-            <artifactId>byteman</artifactId>
+            <artifactId>byteman-bmunit</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -89,10 +107,26 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.jboss.byteman</groupId>
-            <artifactId>byteman-bmunit</artifactId>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

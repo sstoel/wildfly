@@ -30,7 +30,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SER
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SOCKET_BINDING;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SOCKET_BINDING_GROUP;
 import static org.jboss.as.test.integration.domain.management.util.DomainTestSupport.validateResponse;
-import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
+import static org.jboss.as.test.shared.PermissionUtils.createPermissionsXmlAsset;
 
 import java.io.InputStream;
 import java.net.URL;
@@ -39,6 +39,7 @@ import java.util.Map;
 
 import org.apache.http.impl.client.HttpClients;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
+import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.junit.Assert;
 
 import org.apache.http.HttpResponse;
@@ -54,7 +55,6 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.Property;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
-import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -67,56 +67,62 @@ import org.xnio.IoUtils;
  */
 public class ReadEnvironmentVariablesTestCase {
     private static DomainTestSupport testSupport;
-    private static DomainLifecycleUtil domainMasterLifecycleUtil;
-    private static DomainLifecycleUtil domainSlaveLifecycleUtil;
+    private static DomainLifecycleUtil domainPrimaryLifecycleUtil;
+    private static DomainLifecycleUtil domainSecondaryLifecycleUtil;
 
     @BeforeClass
     public static void setupDomain() throws Exception {
         testSupport = DomainTestSuite.createSupport(ReadEnvironmentVariablesTestCase.class.getSimpleName());
 
-        domainMasterLifecycleUtil = testSupport.getDomainMasterLifecycleUtil();
-        domainSlaveLifecycleUtil = testSupport.getDomainSlaveLifecycleUtil();
+        domainPrimaryLifecycleUtil = testSupport.getDomainPrimaryLifecycleUtil();
+        domainSecondaryLifecycleUtil = testSupport.getDomainSecondaryLifecycleUtil();
     }
 
     @AfterClass
     public static void tearDownDomain() throws Exception {
         DomainTestSuite.stopSupport();
         testSupport = null;
-        domainMasterLifecycleUtil = null;
-        domainSlaveLifecycleUtil = null;
+        domainPrimaryLifecycleUtil = null;
+        domainSecondaryLifecycleUtil = null;
     }
 
     @Test
     public void testReadEnvironmentVariablesForServers() throws Exception {
-        DomainClient client = domainMasterLifecycleUtil.createDomainClient();
+        DomainClient client = domainPrimaryLifecycleUtil.createDomainClient();
         DomainDeploymentManager manager = client.getDeploymentManager();
 
         try {
             //Deploy the archive
-            WebArchive archive = ShrinkWrap.create(WebArchive.class, "env-test.war").addClass(EnvironmentTestServlet.class);
+            String archiveName = "env-test.war";
+            WebArchive archive = ShrinkWrap.create(WebArchive.class, archiveName).addClass(EnvironmentTestServlet.class);
             archive.addAsResource(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.dmr \n"),"META-INF/MANIFEST.MF");
             archive.addAsManifestResource(createPermissionsXmlAsset(new RuntimePermission("getenv.*")), "permissions.xml");
 
             final InputStream contents = archive.as(ZipExporter.class).exportAsInputStream();
             try {
-                DeploymentPlan plan = manager.newDeploymentPlan().add("env-test.war", contents).deploy("env-test.war").toServerGroup("main-server-group").toServerGroup("other-server-group").build();
+                DeploymentPlan plan = manager.newDeploymentPlan()
+                                          .add("env-test.war", contents)
+                                          .deploy("env-test.war")
+                                          .toServerGroup("main-server-group")
+                                          .toServerGroup("other-server-group")
+                                          .build();
                 DeploymentPlanResult result = manager.execute(plan).get();
                 Assert.assertTrue(result.isValid());
             } finally {
                 IoUtils.safeClose(contents);
             }
 
-            Map<String, String> env = getEnvironmentVariables(client, "master", "main-one", "standard-sockets");
+            Map<String, String> env = getEnvironmentVariables(client, "primary", "main-one", "standard-sockets");
             checkEnvironmentVariable(env, "DOMAIN_TEST_MAIN_GROUP", "main_group");
             checkEnvironmentVariable(env, "DOMAIN_TEST_SERVER", "server");
             checkEnvironmentVariable(env, "DOMAIN_TEST_JVM", "jvm");
 
-            env = getEnvironmentVariables(client, "slave", "main-three", "standard-sockets");
+            env = getEnvironmentVariables(client, "secondary", "main-three", "standard-sockets");
             checkEnvironmentVariable(env, "DOMAIN_TEST_MAIN_GROUP", "main_group");
             Assert.assertFalse(env.containsKey("DOMAIN_TEST_SERVER"));
             Assert.assertFalse(env.containsKey("DOMAIN_TEST_JVM"));
 
-            env = getEnvironmentVariables(client, "slave", "other-two", "other-sockets");
+            env = getEnvironmentVariables(client, "secondary", "other-two", "other-sockets");
             Assert.assertFalse(env.containsKey("DOMAIN_TEST_MAIN_GROUP"));
             Assert.assertFalse(env.containsKey("DOMAIN_TEST_SERVER"));
             Assert.assertFalse(env.containsKey("DOMAIN_TEST_JVM"));

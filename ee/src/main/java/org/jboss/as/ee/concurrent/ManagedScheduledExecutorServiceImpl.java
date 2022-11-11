@@ -21,9 +21,7 @@
  */
 package org.jboss.as.ee.concurrent;
 
-import static org.jboss.as.ee.concurrent.SecurityIdentityUtils.doIdentityWrap;
 import org.glassfish.enterprise.concurrent.ContextServiceImpl;
-import org.glassfish.enterprise.concurrent.ManagedThreadFactoryImpl;
 import org.wildfly.extension.requestcontroller.ControlPoint;
 
 import javax.enterprise.concurrent.LastExecution;
@@ -32,23 +30,27 @@ import java.util.Date;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static org.jboss.as.ee.concurrent.ControlPointUtils.doScheduledWrap;
 import static org.jboss.as.ee.concurrent.ControlPointUtils.doWrap;
+import static org.jboss.as.ee.concurrent.SecurityIdentityUtils.doIdentityWrap;
 
 /**
- * WildFly's extension of Java EE 7 RI {@link org.glassfish.enterprise.concurrent.ManagedScheduledExecutorServiceImpl}.
+ * WildFly's extension of {@link org.glassfish.enterprise.concurrent.ManagedScheduledExecutorServiceImpl}.
  *
  * @author Eduardo Martins
  */
-public class ManagedScheduledExecutorServiceImpl extends org.glassfish.enterprise.concurrent.ManagedScheduledExecutorServiceImpl {
+public class ManagedScheduledExecutorServiceImpl extends org.glassfish.enterprise.concurrent.ManagedScheduledExecutorServiceImpl implements ManagedExecutorWithHungThreads {
 
     private final ControlPoint controlPoint;
+    private final ManagedExecutorRuntimeStats runtimeStats;
 
     public ManagedScheduledExecutorServiceImpl(String name, ManagedThreadFactoryImpl managedThreadFactory, long hungTaskThreshold, boolean longRunningTasks, int corePoolSize, long keepAliveTime, TimeUnit keepAliveTimeUnit, long threadLifeTime, ContextServiceImpl contextService, RejectPolicy rejectPolicy, ControlPoint controlPoint) {
         super(name, managedThreadFactory, hungTaskThreshold, longRunningTasks, corePoolSize, keepAliveTime, keepAliveTimeUnit, threadLifeTime, contextService, rejectPolicy);
         this.controlPoint = controlPoint;
+        this.runtimeStats = new ManagedExecutorRuntimeStatsImpl(this);
     }
 
     @Override
@@ -105,6 +107,19 @@ public class ManagedScheduledExecutorServiceImpl extends org.glassfish.enterpris
         return super.scheduleWithFixedDelay(doIdentityWrap(doScheduledWrap(command, controlPoint)), initialDelay, delay, unit);
     }
 
+    @Override
+    protected ThreadPoolExecutor getThreadPoolExecutor() {
+        return (ThreadPoolExecutor) super.getThreadPoolExecutor();
+    }
+
+    /**
+     *
+     * @return the executor's runtime stats
+     */
+    public ManagedExecutorRuntimeStats getRuntimeStats() {
+        return runtimeStats;
+    }
+
     /**
      * A {@link javax.enterprise.concurrent.Trigger} wrapper that stops scheduling if the related {@link java.util.concurrent.ScheduledFuture} is cancelled.
      */
@@ -131,5 +146,4 @@ public class ManagedScheduledExecutorServiceImpl extends org.glassfish.enterpris
             return trigger.skipRun(lastExecution, date);
         }
     }
-
 }

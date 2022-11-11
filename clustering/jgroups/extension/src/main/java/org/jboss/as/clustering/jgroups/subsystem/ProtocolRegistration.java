@@ -32,15 +32,9 @@ import org.jboss.as.clustering.controller.Registration;
 import org.jboss.as.clustering.controller.ResourceDescriptor;
 import org.jboss.as.clustering.controller.ResourceServiceConfiguratorFactory;
 import org.jboss.as.clustering.controller.RuntimeResourceRegistration;
-import org.jboss.as.controller.ModelVersion;
-import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
+import org.jgroups.Global;
 import org.jgroups.PhysicalAddress;
-import org.jgroups.conf.ProtocolConfiguration;
-import org.jgroups.protocols.MERGE3;
-import org.jgroups.protocols.UNICAST3;
-import org.jgroups.protocols.pbcast.NAKACK2;
 import org.jgroups.stack.IpAddress;
 import org.jgroups.stack.Protocol;
 
@@ -85,13 +79,21 @@ public class ProtocolRegistration implements Registration<ManagementResourceRegi
     }
 
     enum SocketProtocol {
-        FD_SOCK;
+        FD_SOCK(LegacyFailureDetectionProtocolConfigurationServiceConfigurator::new),
+        FD_SOCK2(FailureDetectionProtocolConfigurationServiceConfigurator::new),
+        ;
+        private final ResourceServiceConfiguratorFactory factory;
+
+        SocketProtocol(ResourceServiceConfiguratorFactory factory) {
+            this.factory = factory;
+        }
+
+        ResourceServiceConfiguratorFactory getResourceServiceConfiguratorFactory() {
+            return this.factory;
+        }
     }
 
     enum LegacyProtocol {
-        MERGE2(MERGE3.class, JGroupsModel.VERSION_6_0_0),
-        NAKACK("pbcast.NAKACK", NAKACK2.class, JGroupsModel.VERSION_6_0_0),
-        UNICAST2(UNICAST3.class, JGroupsModel.VERSION_6_0_0),
         ;
         final String name;
         final String targetName;
@@ -103,58 +105,8 @@ public class ProtocolRegistration implements Registration<ManagementResourceRegi
 
         LegacyProtocol(String name, Class<? extends Protocol> targetProtocol, JGroupsModel deprecation) {
             this.name = (name != null) ? name : this.name();
-            this.targetName = targetProtocol.getName().substring(ProtocolConfiguration.protocol_prefix.length() + 1);
+            this.targetName = targetProtocol.getName().substring(Global.PREFIX.length());
             this.deprecation = deprecation;
-        }
-    }
-
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        ProtocolResourceDefinition.addTransformations(version, parent.addChildResource(ProtocolResourceDefinition.WILDCARD_PATH));
-
-        for (SocketProtocol protocol : EnumSet.allOf(SocketProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            SocketProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-        }
-
-        for (MulticastProtocol protocol : EnumSet.allOf(MulticastProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            MulticastProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-        }
-
-        for (JdbcProtocol protocol : EnumSet.allOf(JdbcProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            if (JGroupsModel.VERSION_5_0_0.requiresTransformation(version)) {
-                parent.rejectChildResource(path);
-            } else {
-                JDBCProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-            }
-        }
-
-        for (EncryptProtocol protocol : EnumSet.allOf(EncryptProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            if (JGroupsModel.VERSION_5_0_0.requiresTransformation(version)) {
-                parent.rejectChildResource(path);
-            } else {
-                EncryptProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-            }
-        }
-
-        for (InitialHostsProtocol protocol : EnumSet.allOf(InitialHostsProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            if (JGroupsModel.VERSION_5_0_0.requiresTransformation(version)) {
-                parent.rejectChildResource(path);
-            } else {
-                SocketDiscoveryProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-            }
-        }
-
-        for (AuthProtocol protocol : EnumSet.allOf(AuthProtocol.class)) {
-            PathElement path = ProtocolResourceDefinition.pathElement(protocol.name());
-            if (JGroupsModel.VERSION_5_0_0.requiresTransformation(version)) {
-                parent.rejectChildResource(path);
-            } else {
-                AuthProtocolResourceDefinition.addTransformations(version, parent.addChildResource(path));
-            }
         }
     }
 
@@ -190,7 +142,7 @@ public class ProtocolRegistration implements Registration<ManagementResourceRegi
 
         // Override definitions for protocol types
         for (SocketProtocol protocol : EnumSet.allOf(SocketProtocol.class)) {
-            new SocketProtocolResourceDefinition(protocol.name(), this.configurator, this.parentServiceConfiguratorFactory).register(registration);
+            new SocketProtocolResourceDefinition(protocol.name(), this.configurator, protocol.getResourceServiceConfiguratorFactory(), this.parentServiceConfiguratorFactory).register(registration);
         }
         for (MulticastProtocol protocol : EnumSet.allOf(MulticastProtocol.class)) {
             new MulticastProtocolResourceDefinition(protocol.name(), this.configurator, this.parentServiceConfiguratorFactory).register(registration);
@@ -220,8 +172,10 @@ public class ProtocolRegistration implements Registration<ManagementResourceRegi
             new GenericProtocolResourceDefinition(protocol.name(), JGroupsModel.VERSION_5_0_0, this.configurator, this.parentServiceConfiguratorFactory).register(registration);
         }
 
-        for (LegacyProtocol protocol : EnumSet.allOf(LegacyProtocol.class)) {
-            new LegacyProtocolResourceDefinition(protocol.name, protocol.targetName, protocol.deprecation, this.configurator, this.parentServiceConfiguratorFactory).register(registration);
+        if (registration.getProcessType().isServer()) { // only auto-update legacy protocols in server processes
+            for (LegacyProtocol protocol : EnumSet.allOf(LegacyProtocol.class)) {
+                new LegacyProtocolResourceDefinition(protocol.name, protocol.targetName, protocol.deprecation, this.configurator, this.parentServiceConfiguratorFactory).register(registration);
+            }
         }
     }
 }

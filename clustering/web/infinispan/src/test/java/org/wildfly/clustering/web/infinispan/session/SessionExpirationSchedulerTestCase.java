@@ -33,8 +33,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 import org.wildfly.clustering.ee.Batcher;
 import org.wildfly.clustering.ee.Remover;
+import org.wildfly.clustering.ee.Scheduler;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
+import org.wildfly.clustering.web.cache.session.ImmutableSessionMetaDataFactory;
 import org.wildfly.clustering.web.session.ImmutableSessionMetaData;
+import org.wildfly.clustering.web.session.SessionExpirationMetaData;
 
 /**
  * Unit test for {@link SessionExpirationScheduler}.
@@ -47,6 +50,7 @@ public class SessionExpirationSchedulerTestCase {
         Batcher<TransactionBatch> batcher = mock(Batcher.class);
         TransactionBatch batch = mock(TransactionBatch.class);
         Remover<String> remover = mock(Remover.class);
+        ImmutableSessionMetaDataFactory<Object> metaDataFactory = mock(ImmutableSessionMetaDataFactory.class);
         ImmutableSessionMetaData immortalSessionMetaData = mock(ImmutableSessionMetaData.class);
         ImmutableSessionMetaData expiringSessionMetaData = mock(ImmutableSessionMetaData.class);
         ImmutableSessionMetaData canceledSessionMetaData = mock(ImmutableSessionMetaData.class);
@@ -61,22 +65,21 @@ public class SessionExpirationSchedulerTestCase {
         when(canceledSessionMetaData.getMaxInactiveInterval()).thenReturn(Duration.ofSeconds(100L));
 
         Instant now = Instant.now();
-        when(expiringSessionMetaData.getLastAccessedTime()).thenReturn(now);
-        when(canceledSessionMetaData.getLastAccessedTime()).thenReturn(now);
+        when(expiringSessionMetaData.getLastAccessEndTime()).thenReturn(now);
+        when(canceledSessionMetaData.getLastAccessEndTime()).thenReturn(now);
+        when(remover.remove(expiringSessionId)).thenReturn(true);
 
-        try (Scheduler scheduler = new SessionExpirationScheduler(batcher, remover)) {
+        try (Scheduler<String, SessionExpirationMetaData> scheduler = new SessionExpirationScheduler<>(batcher, metaDataFactory, remover, Duration.ZERO)) {
             scheduler.schedule(immortalSessionId, immortalSessionMetaData);
             scheduler.schedule(canceledSessionId, canceledSessionMetaData);
             scheduler.schedule(expiringSessionId, expiringSessionMetaData);
 
-            TimeUnit.SECONDS.sleep(1L);
-
             scheduler.cancel(canceledSessionId);
-            scheduler.schedule(canceledSessionId, canceledSessionMetaData);
+
+            TimeUnit.MILLISECONDS.sleep(500);
         }
 
         verify(remover, never()).remove(immortalSessionId);
-        verify(remover).remove(expiringSessionId);
         verify(remover, never()).remove(canceledSessionId);
         verify(batch).close();
     }

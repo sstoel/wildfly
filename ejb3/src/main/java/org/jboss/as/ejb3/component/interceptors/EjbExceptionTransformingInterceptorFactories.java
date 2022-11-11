@@ -24,25 +24,26 @@ package org.jboss.as.ejb3.component.interceptors;
 import java.rmi.NoSuchObjectException;
 import java.rmi.RemoteException;
 
-import javax.ejb.CreateException;
-import javax.ejb.EJBException;
-import javax.ejb.EJBTransactionRequiredException;
-import javax.ejb.EJBTransactionRolledbackException;
-import javax.ejb.NoSuchEJBException;
-import javax.ejb.NoSuchEntityException;
-import javax.ejb.NoSuchObjectLocalException;
-import javax.ejb.TransactionRequiredLocalException;
-import javax.ejb.TransactionRolledbackLocalException;
-import javax.transaction.TransactionRequiredException;
-import javax.transaction.TransactionRolledbackException;
+import jakarta.ejb.CreateException;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.EJBTransactionRequiredException;
+import jakarta.ejb.EJBTransactionRolledbackException;
+import jakarta.ejb.NoSuchEJBException;
+import jakarta.ejb.NoSuchEntityException;
+import jakarta.ejb.NoSuchObjectLocalException;
+import jakarta.ejb.TransactionRequiredLocalException;
+import jakarta.ejb.TransactionRolledbackLocalException;
+import jakarta.transaction.TransactionRequiredException;
+import jakarta.transaction.TransactionRolledbackException;
 
+import org.jboss.as.ejb3.component.EJBComponentUnavailableException;
 import org.jboss.invocation.ImmediateInterceptorFactory;
 import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorContext;
 import org.jboss.invocation.InterceptorFactory;
 
 /**
- * An interceptor that transforms EJB 3.0 business interface exceptions to EJB 2.x exceptions when required.
+ * An interceptor that transforms Enterprise Beans 3.0 business interface exceptions to Enterprise Beans 2.x exceptions when required.
  * <p/>
  * This allows us to keep the actual
  *
@@ -90,6 +91,9 @@ public class EjbExceptionTransformingInterceptorFactories {
             } catch (NoSuchEntityException e) {
                 // this exception explicitly forbids initializing a cause
                 throw copyStackTrace(new NoSuchObjectException(e.getMessage()), e);
+            } catch(EJBComponentUnavailableException e) {
+                // do not wrap this exception in RemoteException as it is not destined for the client (WFLY-13871)
+                throw e;
             } catch (EJBException e) {
                 //as the create exception is not propagated the init method interceptor just stashes it in a ThreadLocal
                 CreateException createException = popCreateException();

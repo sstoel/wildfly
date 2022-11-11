@@ -26,12 +26,12 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import javax.batch.runtime.JobExecution;
-import javax.ejb.EJB;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.batch.runtime.JobExecution;
+import jakarta.inject.Inject;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.jboss.as.test.shared.TimeoutUtil;
 
@@ -45,7 +45,7 @@ public class StartBatchServlet extends AbstractBatchServlet {
     protected static final String TIMEOUT_PARAM = "timeout";
     public static final String WAIT_FOR_COMPLETION = "wait";
 
-    @EJB
+    @Inject
     private BatchExecutionService service;
 
     @Override

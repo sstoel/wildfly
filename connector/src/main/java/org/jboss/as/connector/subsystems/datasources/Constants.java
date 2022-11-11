@@ -21,17 +21,17 @@
  */
 package org.jboss.as.connector.subsystems.datasources;
 
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.DISABLE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ENABLE;
 
 import org.jboss.as.connector._private.Capabilities;
-import org.jboss.as.connector.logging.ConnectorLogger;
 import org.jboss.as.connector.metadata.api.common.Credential;
 import org.jboss.as.connector.metadata.api.common.Security;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.ObjectListAttributeDefinition;
 import org.jboss.as.controller.ObjectTypeAttributeDefinition;
-import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PrimitiveListAttributeDefinition;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
@@ -42,7 +42,6 @@ import org.jboss.as.controller.access.constraint.SensitivityClassification;
 import org.jboss.as.controller.access.management.SensitiveTargetAccessConstraintDefinition;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.descriptions.NonResolvingResourceDescriptionResolver;
-import org.jboss.as.controller.operations.validation.ParameterValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.security.CredentialReference;
 import org.jboss.dmr.ModelNode;
@@ -113,8 +112,6 @@ public class Constants {
 
     private static final String URL_SELECTOR_STRATEGY_CLASS_NAME_NAME = "url-selector-strategy-class-name";
 
-    private static final String USE_JAVA_CONTEXT_NAME = "use-java-context";
-
     private static final String CONNECTABLE_NAME = "connectable";
 
     private static final String MCP_NAME = "mcp";
@@ -128,8 +125,6 @@ public class Constants {
     private static final String ENABLED_NAME = "enabled";
 
     private static final String JTA_NAME = "jta";
-
-    private static final String JNDINAME_NAME = "jndi-name";
 
     private static final String ALLOCATION_RETRY_NAME = "allocation-retry";
 
@@ -167,6 +162,8 @@ public class Constants {
 
     private static final String VALID_CONNECTION_CHECKER_CLASSNAME_NAME = "valid-connection-checker-class-name";
 
+    private static final String VALID_CONNECTION_CHECKER_MODULE_NAME = "valid-connection-checker-module";
+
     private static final String CHECKVALIDCONNECTIONSQL_NAME = "check-valid-connection-sql";
 
     private static final String VALIDATEONMATCH_NAME = "validate-on-match";
@@ -177,7 +174,11 @@ public class Constants {
 
     private static final String STALECONNECTIONCHECKERCLASSNAME_NAME = "stale-connection-checker-class-name";
 
+    private static final String STALECONNECTIONCHECKERMODULE_NAME = "stale-connection-checker-module";
+
     private static final String EXCEPTIONSORTERCLASSNAME_NAME = "exception-sorter-class-name";
+
+    private static final String EXCEPTIONSORTERMODULE_NAME = "exception-sorter-module";
 
     private static final String XADATASOURCEPROPERTIES_NAME = "xa-datasource-properties";
 
@@ -227,18 +228,18 @@ public class Constants {
     static final SensitiveTargetAccessConstraintDefinition DS_SECURITY_DEF = new SensitiveTargetAccessConstraintDefinition(DS_SECURITY);
 
     static final SimpleAttributeDefinition DEPLOYMENT_NAME = SimpleAttributeDefinitionBuilder.create("deployment-name", ModelType.STRING)
-            .setAllowExpression(true)
             .setRequired(false)
+            .setDeprecated(ModelVersion.create(6, 0, 0))
             .build();
 
     static final SimpleAttributeDefinition MODULE_SLOT = SimpleAttributeDefinitionBuilder.create("module-slot", ModelType.STRING)
-            .setAllowExpression(true)
             .setRequired(false)
+            .setAllowExpression(true)
             .build();
 
     static final SimpleAttributeDefinition JDBC_COMPLIANT = SimpleAttributeDefinitionBuilder.create("jdbc-compliant", ModelType.BOOLEAN)
             .setRequired(false)
-            .setAllowExpression(true)
+            .setDeprecated(ModelVersion.create(6, 0, 0))
             .build();
 
     @Deprecated
@@ -269,34 +270,6 @@ public class Constants {
             .setXmlName(DataSource.Tag.DATASOURCE_CLASS.getLocalName())
             .setAllowExpression(true)
             .setRequired(false)
-            .setRestartAllServices()
-            .build();
-
-    static SimpleAttributeDefinition JNDI_NAME = new SimpleAttributeDefinitionBuilder(JNDINAME_NAME, ModelType.STRING, false)
-            .setXmlName(DataSource.Attribute.JNDI_NAME.getLocalName())
-            .setAllowExpression(true)
-            .setValidator(new ParameterValidator() {
-                @Override
-                public void validateParameter(String parameterName, ModelNode value) throws OperationFailedException {
-                    if (value.isDefined()) {
-                        if (value.getType() != ModelType.EXPRESSION) {
-                            String str = value.asString();
-                            if (!str.startsWith("java:/") && !str.startsWith("java:jboss/")) {
-                                throw ConnectorLogger.ROOT_LOGGER.jndiNameInvalidFormat();
-                            } else if (str.endsWith("/") || str.indexOf("//") != -1) {
-                                throw ConnectorLogger.ROOT_LOGGER.jndiNameShouldValidate();
-                            }
-                        }
-                    } else {
-                        throw ConnectorLogger.ROOT_LOGGER.jndiNameRequired();
-                    }
-                }
-
-                @Override
-                public void validateResolvedParameter(String parameterName, ModelNode value) throws OperationFailedException {
-                    validateParameter(parameterName, value.resolve());
-                }
-            })
             .setRestartAllServices()
             .build();
 
@@ -334,14 +307,7 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
-    static SimpleAttributeDefinition USE_JAVA_CONTEXT = new SimpleAttributeDefinitionBuilder(USE_JAVA_CONTEXT_NAME, ModelType.BOOLEAN, true)
-            .setXmlName(DataSource.Attribute.USE_JAVA_CONTEXT.getLocalName())
-            .setDefaultValue(new ModelNode(Defaults.USE_JAVA_CONTEXT))
-            .setAllowExpression(true)
-            .setRestartAllServices()
-            .build();
-
-    public static SimpleAttributeDefinition ENABLED = new SimpleAttributeDefinitionBuilder(ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition ENABLED = new SimpleAttributeDefinitionBuilder(ENABLED_NAME, ModelType.BOOLEAN)
             .setXmlName(DataSource.Attribute.ENABLED.getLocalName())
             .setAllowExpression(true)
             .setDefaultValue(new ModelNode(Defaults.ENABLED))
@@ -399,7 +365,7 @@ public class Constants {
             .setAllowExpression(true)
             .build();
 
-    public static SimpleAttributeDefinition USERNAME = new SimpleAttributeDefinitionBuilder(USERNAME_NAME, ModelType.STRING, true)
+    public static final SimpleAttributeDefinition USERNAME = new SimpleAttributeDefinitionBuilder(USERNAME_NAME, ModelType.STRING, true)
             .setXmlName(Credential.Tag.USER_NAME.getLocalName())
             .setAllowExpression(true)
             .addAlternatives(SECURITY_DOMAIN_NAME, AUTHENTICATION_CONTEXT_NAME)
@@ -408,7 +374,7 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
-    public static SimpleAttributeDefinition PASSWORD = new SimpleAttributeDefinitionBuilder(PASSWORD_NAME, ModelType.STRING)
+    public static final SimpleAttributeDefinition PASSWORD = new SimpleAttributeDefinitionBuilder(PASSWORD_NAME, ModelType.STRING)
             .setXmlName(Credential.Tag.PASSWORD.getLocalName())
             .setAllowExpression(true)
             .setRequired(false)
@@ -436,7 +402,7 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
-    public static SimpleAttributeDefinition ELYTRON_ENABLED = new SimpleAttributeDefinitionBuilder(ELYTRON_ENABLED_NAME, ModelType.BOOLEAN, true)
+    public static final SimpleAttributeDefinition ELYTRON_ENABLED = new SimpleAttributeDefinitionBuilder(ELYTRON_ENABLED_NAME, ModelType.BOOLEAN, true)
             .setXmlName(Security.Tag.ELYTRON_ENABLED.getLocalName())
             .setDefaultValue(new ModelNode(ELYTRON_MANAGED_SECURITY))
             .setAllowExpression(true)
@@ -444,7 +410,7 @@ public class Constants {
             .setNullSignificant(false)
             .setRestartAllServices()
             .build();
-    public static SimpleAttributeDefinition AUTHENTICATION_CONTEXT = new SimpleAttributeDefinitionBuilder(AUTHENTICATION_CONTEXT_NAME, ModelType.STRING, true)
+    public static final SimpleAttributeDefinition AUTHENTICATION_CONTEXT = new SimpleAttributeDefinitionBuilder(AUTHENTICATION_CONTEXT_NAME, ModelType.STRING, true)
             .setXmlName(Security.Tag.AUTHENTICATION_CONTEXT.getLocalName())
             .setAllowExpression(false)
             .setRequires(ELYTRON_ENABLED_NAME)
@@ -504,13 +470,13 @@ public class Constants {
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName())
             .setRestartAllServices()
             .build();
+
     static PropertiesAttributeDefinition CONNECTION_LISTENER_PROPERTIES = new PropertiesAttributeDefinition.Builder(CONNECTION_LISTENER_PROPERTY_NAME, true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Tag.CONFIG_PROPERTY.getLocalName())
             .setRequired(false)
             .setAllowExpression(true)
             .setRestartAllServices()
             .build();
-
 
     static SimpleAttributeDefinition QUERY_TIMEOUT = new SimpleAttributeDefinitionBuilder(QUERYTIMEOUT_NAME, ModelType.LONG, true)
             .setXmlName(TimeOut.Tag.QUERY_TIMEOUT.getLocalName())
@@ -549,6 +515,12 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
+    static SimpleAttributeDefinition EXCEPTION_SORTER_MODULE = new SimpleAttributeDefinitionBuilder(EXCEPTIONSORTERMODULE_NAME, ModelType.STRING, true)
+            .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName())
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+
     static PropertiesAttributeDefinition EXCEPTION_SORTER_PROPERTIES = new PropertiesAttributeDefinition.Builder(EXCEPTIONSORTER_PROPERTIES_NAME, true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Tag.CONFIG_PROPERTY.getLocalName())
             .setAllowExpression(true)
@@ -563,6 +535,12 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
+    static SimpleAttributeDefinition STALE_CONNECTION_CHECKER_MODULE = new SimpleAttributeDefinitionBuilder(STALECONNECTIONCHECKERMODULE_NAME, ModelType.STRING, true)
+            .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName())
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+
     static PropertiesAttributeDefinition STALE_CONNECTION_CHECKER_PROPERTIES = new PropertiesAttributeDefinition.Builder(STALECONNECTIONCHECKER_PROPERTIES_NAME, true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Tag.CONFIG_PROPERTY.getLocalName())
             .setRequired(false)
@@ -573,6 +551,12 @@ public class Constants {
 
     static SimpleAttributeDefinition VALID_CONNECTION_CHECKER_CLASSNAME = new SimpleAttributeDefinitionBuilder(VALID_CONNECTION_CHECKER_CLASSNAME_NAME, ModelType.STRING, true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName())
+            .setAllowExpression(true)
+            .setRestartAllServices()
+            .build();
+
+    static SimpleAttributeDefinition VALID_CONNECTION_CHECKER_MODULE = new SimpleAttributeDefinitionBuilder(VALID_CONNECTION_CHECKER_MODULE_NAME, ModelType.STRING, true)
+            .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.MODULE.getLocalName())
             .setAllowExpression(true)
             .setRestartAllServices()
             .build();
@@ -699,8 +683,11 @@ public class Constants {
             TRANSACTION_ISOLATION,
             CHECK_VALID_CONNECTION_SQL,
             EXCEPTION_SORTER_CLASSNAME,
+            EXCEPTION_SORTER_MODULE,
             STALE_CONNECTION_CHECKER_CLASSNAME,
+            STALE_CONNECTION_CHECKER_MODULE,
             VALID_CONNECTION_CHECKER_CLASSNAME,
+            VALID_CONNECTION_CHECKER_MODULE,
             org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATIONMILLIS,
             org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATION,
             org.jboss.as.connector.subsystems.common.pool.Constants.USE_FAST_FAIL,
@@ -807,8 +794,11 @@ public class Constants {
             QUERY_TIMEOUT, USE_TRY_LOCK, SET_TX_QUERY_TIMEOUT,
             TRANSACTION_ISOLATION, CHECK_VALID_CONNECTION_SQL,
             EXCEPTION_SORTER_CLASSNAME,
+            EXCEPTION_SORTER_MODULE,
             STALE_CONNECTION_CHECKER_CLASSNAME,
+            STALE_CONNECTION_CHECKER_MODULE,
             VALID_CONNECTION_CHECKER_CLASSNAME,
+            VALID_CONNECTION_CHECKER_MODULE,
             org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATIONMILLIS,
             org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATION,
             org.jboss.as.connector.subsystems.common.pool.Constants.USE_FAST_FAIL,
@@ -846,8 +836,8 @@ public class Constants {
             .build();
 
     static final SimpleAttributeDefinition DRIVER_MODULE_NAME = new SimpleAttributeDefinitionBuilder(DRIVER_MODULE_NAME_NAME, ModelType.STRING)
-            .setXmlName(Driver.Attribute.MODULE.getLocalName())
             .setAllowExpression(true)
+            .setXmlName(Driver.Attribute.MODULE.getLocalName())
             .build();
 
     static final SimpleAttributeDefinition DRIVER_MAJOR_VERSION = new SimpleAttributeDefinitionBuilder(DRIVER_MAJOR_VERSION_NAME, ModelType.INT)
@@ -908,7 +898,7 @@ public class Constants {
             .build();
 
     //static final SimpleOperationDefinition INSTALLED_DRIVERS_LIST = new SimpleOperationDefinitionBuilder("installed-drivers-list", DataSourcesExtension.getResourceDescriptionResolver())
-    static final SimpleOperationDefinition INSTALLED_DRIVERS_LIST = new SimpleOperationDefinitionBuilder("installed-drivers-list", new NonResolvingResourceDescriptionResolver())
+    static final SimpleOperationDefinition INSTALLED_DRIVERS_LIST = new SimpleOperationDefinitionBuilder("installed-drivers-list", NonResolvingResourceDescriptionResolver.INSTANCE)
             .setReadOnly()
             .setRuntimeOnly()
             .setReplyType(ModelType.LIST)

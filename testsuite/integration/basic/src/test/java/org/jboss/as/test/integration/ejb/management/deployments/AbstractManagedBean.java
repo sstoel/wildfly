@@ -21,7 +21,8 @@
  */
 package org.jboss.as.test.integration.ejb.management.deployments;
 
-import javax.ejb.Remove;
+import jakarta.ejb.Asynchronous;
+import jakarta.ejb.Remove;
 
 /**
  * @author <a href="mailto:cdewolf@redhat.com">Carlo de Wolf</a>
@@ -37,5 +38,9 @@ public abstract class AbstractManagedBean implements BusinessInterface {
 
     @Remove
     public void remove() {
+    }
+
+    @Asynchronous
+    public void async(int a, int b) {
     }
 }

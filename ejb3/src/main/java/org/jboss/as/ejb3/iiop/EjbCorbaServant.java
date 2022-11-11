@@ -25,20 +25,18 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.rmi.RemoteException;
-import java.security.AccessController;
 import java.security.Principal;
-import java.security.PrivilegedAction;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.ejb.EJBMetaData;
-import javax.ejb.HomeHandle;
+import jakarta.ejb.EJBMetaData;
+import jakarta.ejb.HomeHandle;
 import javax.management.MBeanException;
-import javax.transaction.Status;
-import javax.transaction.Transaction;
-import javax.transaction.TransactionManager;
+import jakarta.transaction.Status;
+import jakarta.transaction.Transaction;
+import jakarta.transaction.TransactionManager;
 
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentView;
@@ -54,9 +52,6 @@ import org.jboss.marshalling.InputStreamByteInput;
 import org.jboss.marshalling.MarshallerFactory;
 import org.jboss.marshalling.MarshallingConfiguration;
 import org.jboss.marshalling.Unmarshaller;
-import org.jboss.security.SecurityContext;
-import org.jboss.security.SecurityContextAssociation;
-import org.jboss.security.SecurityContextFactory;
 import org.omg.CORBA.BAD_OPERATION;
 import org.omg.CORBA.InterfaceDef;
 import org.omg.CORBA.ORB;
@@ -341,39 +336,9 @@ public class EjbCorbaServant extends Servant implements InvokeHandler, LocalIIOP
                             // legacy security behavior: setup the security context if a SASCurrent is available and invoke the component.
                             // One of the EJB security interceptors will authenticate and authorize the client.
 
-                            SecurityContext legacyContext = null;
-                            if (this.legacySecurityDomain != null && (identityPrincipal != null || principal != null)) {
-                                // we don't have any real way to establish trust in identity based auth so we just use
-                                // the SASCurrent as a credential, and a custom legacy login module can make a decision for us.
-                                final Object finalCredential = identityPrincipal != null ? this.sasCurrent : credential;
-                                final Principal finalPrincipal = identityPrincipal != null ? identityPrincipal : principal;
-                                if (WildFlySecurityManager.isChecking()) {
-                                    legacyContext = AccessController.doPrivileged((PrivilegedExceptionAction<SecurityContext>) () -> {
-                                        SecurityContext sc = SecurityContextFactory.createSecurityContext(this.legacySecurityDomain);
-                                        sc.getUtil().createSubjectInfo(finalPrincipal, finalCredential, null);
-                                        return sc;
-                                    });
-                                } else {
-                                    legacyContext = SecurityContextFactory.createSecurityContext(this.legacySecurityDomain);
-                                    legacyContext.getUtil().createSubjectInfo(finalPrincipal, finalCredential, null);
-                                }
-                            }
-
-                            if (legacyContext != null) {
-                                setSecurityContextOnAssociation(legacyContext);
-                            }
-                            try {
-                                final InterceptorContext interceptorContext = new InterceptorContext();
-                                if (legacyContext != null) {
-                                    interceptorContext.putPrivateData(SecurityContext.class, legacyContext);
-                                }
-                                prepareInterceptorContext(op, params, interceptorContext);
-                                retVal = this.componentView.invoke(interceptorContext);
-                            } finally {
-                                if (legacyContext != null) {
-                                    clearSecurityContextOnAssociation();
-                                }
-                            }
+                            final InterceptorContext interceptorContext = new InterceptorContext();
+                            prepareInterceptorContext(op, params, interceptorContext);
+                            retVal = this.componentView.invoke(interceptorContext);
                         }
                     }
                 }
@@ -400,11 +365,9 @@ public class EjbCorbaServant extends Servant implements InvokeHandler, LocalIIOP
     }
 
     private void prepareInterceptorContext(final SkeletonStrategy op, final Object[] params, final InterceptorContext interceptorContext) throws IOException, ClassNotFoundException {
-        if (!home) {
-            if (componentView.getComponent() instanceof StatefulSessionComponent) {
-                final SessionID sessionID = (SessionID) unmarshalIdentifier();
-                interceptorContext.putPrivateData(SessionID.class, sessionID);
-            }
+        if (!home && componentView.getComponent() instanceof StatefulSessionComponent) {
+            final SessionID sessionID = (SessionID) unmarshalIdentifier();
+            interceptorContext.putPrivateData(SessionID.class, sessionID);
         }
         interceptorContext.setContextData(new HashMap<>());
         interceptorContext.setParameters(params);
@@ -422,12 +385,10 @@ public class EjbCorbaServant extends Servant implements InvokeHandler, LocalIIOP
 
     private Object unmarshalIdentifier() throws IOException, ClassNotFoundException {
         final Object id;
-        try {
+        try (final Unmarshaller unmarshaller = factory.createUnmarshaller(configuration)) {
             final byte[] idData = poaCurrent.get_object_id();
-            final Unmarshaller unmarshaller = factory.createUnmarshaller(configuration);
             unmarshaller.start(new InputStreamByteInput(new ByteArrayInputStream(idData)));
             id = unmarshaller.readObject();
-            unmarshaller.finish();
         } catch (NoContext noContext) {
             throw new RuntimeException(noContext);
         }
@@ -462,10 +423,9 @@ public class EjbCorbaServant extends Servant implements InvokeHandler, LocalIIOP
             prepareInterceptorContext(op, arguments, interceptorContext);
             return componentView.invoke(interceptorContext);
         } finally {
-            if (tx != null) {
-                if (transactionManager.getStatus() != Status.STATUS_NO_TRANSACTION) {
-                    transactionManager.suspend();
-                }
+            if (tx != null
+                    && transactionManager.getStatus() != Status.STATUS_NO_TRANSACTION) {
+                transactionManager.suspend();
             }
         }
 
@@ -477,21 +437,6 @@ public class EjbCorbaServant extends Servant implements InvokeHandler, LocalIIOP
 
     public void setEjbMetaData(final EJBMetaData ejbMetaData) {
         this.ejbMetaData = ejbMetaData;
-    }
-
-
-    private static void setSecurityContextOnAssociation(final SecurityContext sc) {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            SecurityContextAssociation.setSecurityContext(sc);
-            return null;
-        });
-    }
-
-    private static void clearSecurityContextOnAssociation() {
-        AccessController.doPrivileged((PrivilegedAction<Void>) () -> {
-            SecurityContextAssociation.clearSecurityContext();
-            return null;
-        });
     }
 
     /**

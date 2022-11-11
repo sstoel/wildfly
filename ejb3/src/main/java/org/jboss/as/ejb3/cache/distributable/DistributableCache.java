@@ -21,7 +21,11 @@
  */
 package org.jboss.as.ejb3.cache.distributable;
 
-import javax.transaction.TransactionSynchronizationRegistry;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
+
+import jakarta.ejb.ConcurrentAccessTimeoutException;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.ejb3.cache.Cache;
 import org.jboss.as.ejb3.cache.Contextual;
@@ -73,8 +77,8 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
     }
 
     @Override
-    public K createIdentifier() {
-        return this.manager.getIdentifierFactory().createIdentifier();
+    public Supplier<K> getIdentifierFactory() {
+        return this.manager.getIdentifierFactory();
     }
 
     @SuppressWarnings("unchecked")
@@ -117,6 +121,7 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
             // Batch is not closed here - it will be closed during release(...) or discard(...)
             Batch batch = batcher.createBatch();
             try {
+                // TODO WFLY-14167 Cache lookup timeout should reflect @AccessTimeout of associated bean/invocation
                 Bean<K, V> bean = this.manager.findBean(id);
                 if (bean == null) {
                     batch.close();
@@ -129,6 +134,9 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
                     this.tsr.putResource(Batch.class, batch);
                 }
                 return result;
+            } catch (TimeoutException e) {
+                batch.close();
+                throw new ConcurrentAccessTimeoutException(e.getMessage());
             } catch (RuntimeException | Error e) {
                 batch.discard();
                 batch.close();
@@ -143,11 +151,11 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
             try (Batch batch = value.getCacheContext()) {
                 try {
                     Bean<K, V> bean = this.manager.findBean(value.getId());
-                    if (bean != null) {
-                        if (bean.release()) {
-                            bean.close();
-                        }
+                    if (bean != null && bean.release()) {
+                        bean.close();
                     }
+                } catch (TimeoutException e) {
+                    throw new ConcurrentAccessTimeoutException(e.getMessage());
                 } catch (RuntimeException | Error e) {
                     batch.discard();
                     throw e;
@@ -160,10 +168,13 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
     public void remove(K id) {
         try (Batch batch = this.manager.getBatcher().createBatch()) {
             try {
+                // TODO WFLY-14167 Cache lookup timeout should reflect @AccessTimeout of associated bean/invocation
                 Bean<K, V> bean = this.manager.findBean(id);
                 if (bean != null) {
                     bean.remove(this.listener);
                 }
+            } catch (TimeoutException e) {
+                throw new ConcurrentAccessTimeoutException(e.getMessage());
             } catch (RuntimeException | Error e) {
                 batch.discard();
                 throw e;
@@ -180,6 +191,8 @@ public class DistributableCache<K, V extends Identifiable<K> & Contextual<Batch>
                     if (bean != null) {
                         bean.remove(null);
                     }
+                } catch (TimeoutException e) {
+                    throw new ConcurrentAccessTimeoutException(e.getMessage());
                 } catch (RuntimeException | Error e) {
                     batch.discard();
                     throw e;

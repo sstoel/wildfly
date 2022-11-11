@@ -29,7 +29,7 @@ import static org.jboss.as.webservices.util.WSAttachmentKeys.JAXWS_ENDPOINTS_KEY
 import java.util.HashSet;
 import java.util.Set;
 
-import javax.jws.WebService;
+import jakarta.jws.WebService;
 
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -52,7 +52,7 @@ import org.jboss.modules.Module;
 
 /**
  * @author sfcoy
- * @autor <a href="mailto:alessio.soldano@jboss.com">Alessio Soldano</a>
+ * @author <a href="mailto:alessio.soldano@jboss.com">Alessio Soldano</a>
  *
  */
 public class WSClassVerificationProcessor implements DeploymentUnitProcessor {
@@ -93,7 +93,7 @@ public class WSClassVerificationProcessor implements DeploymentUnitProcessor {
             final WebService webServiceAnnotation = endpointClass.getAnnotation(WebService.class);
             if (webServiceAnnotation != null) {
                 verifyJwsEndpoint(endpointClass, webServiceAnnotation, moduleClassLoader, deploymentReflectionIndex);
-            } // otherwise it's probably a javax.xml.ws.Provider implementation
+            } // otherwise it's probably a jakarta.xml.ws.Provider implementation
         } catch (ClassNotFoundException e) {
             throw WSLogger.ROOT_LOGGER.endpointClassNotFound(pojoEndpoint.getClassName());
         }
@@ -127,7 +127,7 @@ public class WSClassVerificationProcessor implements DeploymentUnitProcessor {
                     AnnotationTarget at = ai.target();
                     if (at instanceof ClassInfo) {
                         final ClassInfo clazz = (ClassInfo)ai.target();
-                        for (DotName dn : clazz.annotations().keySet()) {
+                        for (DotName dn : clazz.annotationsMap().keySet()) {
                             if (dn.toString().startsWith("org.apache.cxf")) {
                                 WSLogger.ROOT_LOGGER.missingModuleDependency(dn.toString(), clazz.name().toString(), "org.apache.cxf");
                             }
@@ -138,7 +138,7 @@ public class WSClassVerificationProcessor implements DeploymentUnitProcessor {
         }
     }
 
-    private static boolean hasCxfModuleDependency(DeploymentUnit unit) {
+    static boolean hasCxfModuleDependency(DeploymentUnit unit) {
         final ModuleSpecification moduleSpec = unit.getAttachment(Attachments.MODULE_SPECIFICATION);
         for (ModuleDependency dep : moduleSpec.getUserDependencies()) {
             final String id = dep.getIdentifier().getName();
@@ -146,11 +146,38 @@ public class WSClassVerificationProcessor implements DeploymentUnitProcessor {
                 return true;
             }
         }
+        return hasExportedCxfModuleDependency(unit.getParent()) || hasSiblingCxfModuleDependency(unit);
+    }
+
+    private static boolean hasExportedCxfModuleDependency(DeploymentUnit unit) {
+        if (unit != null) {
+            final ModuleSpecification moduleSpec = unit.getAttachment(Attachments.MODULE_SPECIFICATION);
+            for (ModuleDependency dep : moduleSpec.getUserDependencies()) {
+                final String id = dep.getIdentifier().getName();
+                if (cxfExportingModules.contains(id) && dep.isExport()) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 
-    @Override
-    public void undeploy(DeploymentUnit context) {
+    private static boolean hasSiblingCxfModuleDependency(DeploymentUnit unit) {
+        if (unit.getParent() == null) {
+            return false;
+        }
+        final ModuleSpecification rootModuleSpec = unit.getParent().getAttachment(Attachments.MODULE_SPECIFICATION);
+        // if ear-subdeployments-isolated is false, we can also look at siblings exported dependencies
+        if (!rootModuleSpec.isSubDeploymentModulesIsolated()) {
+            for (DeploymentUnit siblingUnit : unit.getParent().getAttachment(Attachments.SUB_DEPLOYMENTS)) {
+                // look only at JAR dependencies, WARs are always isolated
+                if (siblingUnit.getName().endsWith(".jar")
+                        && !siblingUnit.equals(unit)
+                        && hasExportedCxfModuleDependency(siblingUnit)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
-
 }

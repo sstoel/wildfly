@@ -24,14 +24,13 @@ package org.jboss.as.test.integration.hibernate.envers;
 
 import java.util.List;
 import java.util.Properties;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
 
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
-import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.hibernate.envers.AuditReader;
@@ -39,7 +38,7 @@ import org.hibernate.envers.AuditReaderFactory;
 import org.hibernate.internal.util.config.ConfigurationHelper;
 
 /**
- * Test that Hibernate Envers is working over Native Hibernate API in AS7 container without any JPA assistance
+ * Test that Hibernate Envers is working over Native Hibernate API in AS7 container without any Jakarta Persistence assistance
  *
  * @author Madhumita Sadhukhan
  */
@@ -58,15 +57,13 @@ public class SFSBHibernateEnversSessionFactory {
         try {
 
             // prepare the configuration
-            Configuration configuration = new Configuration().setProperty(AvailableSettings.USE_NEW_ID_GENERATOR_MAPPINGS,
-                    "true");
+            Configuration configuration = new Configuration();
             configuration.setProperty(Environment.HBM2DDL_AUTO, "create-drop");
             configuration.setProperty(Environment.DATASOURCE, "java:jboss/datasources/ExampleDS");
             // fetch the properties
             Properties properties = new Properties();
             configuration = configuration.configure("hibernate.cfg.xml");
             properties.putAll(configuration.getProperties());
-            Environment.verifyProperties(properties);
             ConfigurationHelper.resolvePlaceHolders(properties);
 
             sessionFactory = configuration.buildSessionFactory();

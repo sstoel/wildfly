@@ -26,7 +26,7 @@ import org.jboss.as.controller.operations.validation.EnumValidator;
 import org.jboss.as.controller.operations.validation.ParameterValidator;
 
 /**
- * Connection factory type enumeration and their respective value in HornetQ JMS API
+ * Connection factory type enumeration and their respective value in HornetQ Jakarta Messaging API
  *
  * @author <a href="http://jmesnil.net">Jeff Mesnil</a> (c) 2012 Red Hat Inc.
  */
@@ -48,7 +48,7 @@ public enum ConnectionFactoryType {
         return type;
     }
 
-    public static final ParameterValidator VALIDATOR = new EnumValidator<>(ConnectionFactoryType.class, true, false);
+    public static final ParameterValidator VALIDATOR = EnumValidator.create(ConnectionFactoryType.class);
 
     // copied from HornetQ to avoid import HornetQ artifacts just to define attribute constants and enum validator
     private enum JMSFactoryType

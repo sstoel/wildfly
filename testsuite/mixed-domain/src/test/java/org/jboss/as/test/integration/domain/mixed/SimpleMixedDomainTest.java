@@ -21,7 +21,6 @@
 */
 package org.jboss.as.test.integration.domain.mixed;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.BLOCKING;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.CHILD_TYPE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.CLONE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.COMPOSITE;
@@ -30,7 +29,6 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.EXT
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.HOST;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.IGNORED_RESOURCES;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.IGNORED_RESOURCE_TYPE;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.INCLUDE_ALIASES;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.INCLUDE_RUNTIME;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.INTERFACE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.MANAGEMENT_CLIENT_CONTENT;
@@ -43,10 +41,8 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.PRO
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_CHILDREN_NAMES_OPERATION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_RESOURCE_OPERATION;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RECURSIVE;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESTART;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESTART_SERVERS;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RUNNING_SERVER;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SERVER_CONFIG;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SERVER_GROUP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SOCKET_BINDING_GROUP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.STEPS;
@@ -54,7 +50,6 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUB
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SYSTEM_PROPERTY;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.TO_PROFILE;
-import static org.jboss.as.test.integration.domain.management.util.DomainTestSupport.validateResponse;
 import static org.junit.Assert.assertEquals;
 
 import java.net.URL;
@@ -69,9 +64,6 @@ import org.jboss.as.controller.client.helpers.domain.DomainClient;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.operations.global.MapOperations;
-import org.jboss.as.model.test.ModelTestUtils;
-import org.jboss.as.security.Constants;
-import org.jboss.as.security.SecurityExtension;
 import org.jboss.as.test.integration.domain.management.util.DomainLifecycleUtil;
 import org.jboss.as.test.integration.domain.management.util.DomainTestSupport;
 import org.jboss.as.test.integration.domain.management.util.DomainTestUtils;
@@ -110,98 +102,36 @@ public abstract class SimpleMixedDomainTest  {
 
     @Test
     public void test00001_ServerRunning() throws Exception {
-        URLConnection connection = new URL("http://" + TestSuiteEnvironment.formatPossibleIpv6Address(DomainTestSupport.slaveAddress) + ":8080").openConnection();
+        URLConnection connection = new URL("http://" + TestSuiteEnvironment.formatPossibleIpv6Address(DomainTestSupport.secondaryAddress) + ":8080").openConnection();
         connection.connect();
     }
 
     @Test
     public void test00002_Versioning() throws Exception {
-        if (version == Version.AsVersion.EAP_7_0_0) {
-            //7.0.0 (https://issues.jboss.org/browse/WFCORE-401)
-            // have the slave report back its own version, rather than the one from the DC,
-            //which is what should happen
-            return;
+        DomainClient primaryClient = support.getDomainPrimaryLifecycleUtil().createDomainClient();
+        ModelNode primaryModel;
+        try {
+            primaryModel = readDomainModelForVersions(primaryClient);
+        } finally {
+            IoUtils.safeClose(primaryClient);
+        }
+        DomainClient secondaryClient = support.getDomainSecondaryLifecycleUtil().createDomainClient();
+        ModelNode secondaryModel;
+        try {
+            secondaryModel = readDomainModelForVersions(secondaryClient);
+        } finally {
+            IoUtils.safeClose(secondaryClient);
         }
 
-        DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
-        ModelNode masterModel;
-        try {
-            masterModel = readDomainModelForVersions(masterClient);
-        } finally {
-            IoUtils.safeClose(masterClient);
-        }
-        DomainClient slaveClient = support.getDomainSlaveLifecycleUtil().createDomainClient();
-        ModelNode slaveModel;
-        try {
-            slaveModel = readDomainModelForVersions(slaveClient);
-        } finally {
-            IoUtils.safeClose(slaveClient);
-        }
-
-        cleanupKnownDifferencesInModelsForVersioningCheck(masterModel, slaveModel);
+        cleanupKnownDifferencesInModelsForVersioningCheck(primaryModel, secondaryModel);
 
         //The version fields should be the same
-        assertEquals(masterModel, slaveModel);
-    }
-
-    @Test
-    public void test00009_SecurityTransformers() throws Exception {
-        final DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
-        final DomainClient slaveClient = support.getDomainSlaveLifecycleUtil().createDomainClient();
-        try {
-            PathAddress subsystem = PathAddress.pathAddress(PathElement.pathElement(PROFILE, ACTIVE_PROFILE), PathElement.pathElement(SUBSYSTEM, SecurityExtension.SUBSYSTEM_NAME));
-            PathAddress webPolicy = subsystem.append(Constants.SECURITY_DOMAIN, "jboss-web-policy").append(Constants.AUTHORIZATION, Constants.CLASSIC);
-            ModelNode options = new ModelNode();
-            options.add("a", "b");
-            ModelNode op = Util.getWriteAttributeOperation(webPolicy.append(Constants.POLICY_MODULE, "Delegating"), Constants.MODULE_OPTIONS, options);
-            DomainTestUtils.executeForResult(op, masterClient);
-
-            //TODO check the resources
-            //System.out.println(DomainTestUtils.executeForResult(Util.createOperation(READ_RESOURCE_OPERATION, address), modelControllerClient));
-
-            PathAddress jaspi = subsystem.append(Constants.SECURITY_DOMAIN, "jaspi-test").append(Constants.AUTHENTICATION, Constants.JASPI);
-
-            PathAddress jaspiLoginStack = jaspi.append(Constants.LOGIN_MODULE_STACK, "lm-stack");
-            op = Util.createAddOperation(jaspiLoginStack.append(Constants.LOGIN_MODULE, "test2"));
-            op.get(Constants.CODE).set("UserRoles");
-            op.get(Constants.FLAG).set("required");
-            op.get(Constants.MODULE).set("test-jaspi");
-            DomainTestUtils.executeForResult(op, masterClient);
-
-            op = Util.createAddOperation(jaspi.append(Constants.AUTH_MODULE, "Delegating"));
-            op.get(Constants.CODE).set("Delegating");
-            op.get(Constants.LOGIN_MODULE_STACK_REF).set("lm-stack");
-            op.get(Constants.FLAG).set("optional");
-            DomainTestUtils.executeForResult(op, masterClient);
-
-            op = new ModelNode();
-            op.get(OP).set(READ_RESOURCE_OPERATION);
-            op.get(OP_ADDR).set(jaspi.toModelNode());
-            op.get(INCLUDE_ALIASES).set(false);
-            op.get(RECURSIVE).set(true);
-
-            ModelNode masterResource = DomainTestUtils.executeForResult(op, masterClient);
-            ModelNode slaveResource = DomainTestUtils.executeForResult(op, slaveClient);
-
-            ModelTestUtils.compare(masterResource, slaveResource, true);
-
-        } finally {
-            try {
-                //The server will be in restart-required mode, so restart it to get rid of the changes
-                PathAddress serverAddress = PathAddress.pathAddress(HOST, "slave").append(SERVER_CONFIG, "server-one");
-                ModelNode op = Util.createOperation(RESTART, PathAddress.pathAddress(serverAddress));
-                op.get(BLOCKING).set(true);
-                Assert.assertEquals("STARTED", validateResponse(slaveClient.execute(op), true).asString());
-            } finally {
-                IoUtils.safeClose(slaveClient);
-                IoUtils.safeClose(masterClient);
-            }
-        }
+        assertEquals(primaryModel, secondaryModel);
     }
 
     @Test
     public void test00010_JgroupsTransformers() throws Exception {
-        final DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
+        final DomainClient primaryClient = support.getDomainPrimaryLifecycleUtil().createDomainClient();
         try {
             // Check composite operation
             final ModelNode compositeOp = new ModelNode();
@@ -210,9 +140,9 @@ public abstract class SimpleMixedDomainTest  {
             compositeOp.get(STEPS).add(createProtocolPutPropertyOperation("tcp", "MPING", "send_on_all_interfaces", "true"));
             compositeOp.get(STEPS).add(createProtocolPutPropertyOperation("tcp", "MPING", "receive_on_all_interfaces", "true"));
 
-            DomainTestUtils.executeForResult(compositeOp, masterClient);
+            DomainTestUtils.executeForResult(compositeOp, primaryClient);
         } finally {
-            IoUtils.safeClose(masterClient);
+            IoUtils.safeClose(primaryClient);
         }
     }
 
@@ -224,20 +154,20 @@ public abstract class SimpleMixedDomainTest  {
      */
     @Test
     public void test00011_ExampleDSConnection() throws Exception{
-        PathAddress exampleDSAddress = PathAddress.pathAddress(PathElement.pathElement(HOST, "slave"),
+        PathAddress exampleDSAddress = PathAddress.pathAddress(PathElement.pathElement(HOST, "secondary"),
                 PathElement.pathElement(RUNNING_SERVER, "server-one"), PathElement.pathElement(SUBSYSTEM, "datasources"),
                 PathElement.pathElement("data-source", "ExampleDS"));
-        DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
+        DomainClient primaryClient = support.getDomainPrimaryLifecycleUtil().createDomainClient();
         try {
             ModelNode op = Util.createOperation("test-connection-in-pool", PathAddress.pathAddress(exampleDSAddress));
-            ModelNode response = masterClient.execute(op);
+            ModelNode response = primaryClient.execute(op);
             assertEquals(op.toString() + '\n' + response.toString(), SUCCESS, response.get(OUTCOME).asString());
         } finally {
-            IoUtils.safeClose(masterClient);
+            IoUtils.safeClose(primaryClient);
         }
     }
 
-    //Do this one last since it changes the host model of the slaves
+    //Do this one last since it changes the host model of the secondary hosts
     @Test
     public void test99999_ProfileClone() throws Exception {
         if (version.getMajor() == 6) {
@@ -251,46 +181,46 @@ public abstract class SimpleMixedDomainTest  {
 
     private void profileCloneEap6x() throws Exception {
         //EAP 6 does not have the clone operation
-        //For an EAP 7 slave we will need another test since EAP 7 allows the clone operation.
+        //For an EAP 7 secondary we will need another test since EAP 7 allows the clone operation.
         // However EAP 7 will need to take into account the ignore-unused-configuration
         // setting which does not exist in 6.x
-        final DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
-        final DomainClient slaveClient = support.getDomainSlaveLifecycleUtil().createDomainClient();
+        final DomainClient primaryClient = support.getDomainPrimaryLifecycleUtil().createDomainClient();
+        final DomainClient secondaryClient = support.getDomainSecondaryLifecycleUtil().createDomainClient();
         try {
             final PathAddress newProfileAddress = PathAddress.pathAddress(PROFILE, "new-profile");
 
             //Create a new profile (so that we can ignore it on the host later)
-            DomainTestUtils.executeForResult(Util.createAddOperation(newProfileAddress), masterClient);
+            DomainTestUtils.executeForResult(Util.createAddOperation(newProfileAddress), primaryClient);
 
             //Attempt to clone it. It should fail since the transformers reject it.
             final ModelNode clone = Util.createEmptyOperation(CLONE, newProfileAddress);
             clone.get(TO_PROFILE).set("cloned");
-            DomainTestUtils.executeForFailure(clone, masterClient);
+            DomainTestUtils.executeForFailure(clone, primaryClient);
 
-            //Ignore the new profile on the slave and reload
-            final PathAddress ignoredResourceAddress = PathAddress.pathAddress(HOST, "slave")
+            //Ignore the new profile on the secondary and reload
+            final PathAddress ignoredResourceAddress = PathAddress.pathAddress(HOST, "secondary")
                     .append(CORE_SERVICE, IGNORED_RESOURCES).append(IGNORED_RESOURCE_TYPE, PROFILE);
             final ModelNode ignoreNewProfile = Util.createAddOperation(ignoredResourceAddress);
             ignoreNewProfile.get(NAMES).add("new-profile");
-            DomainTestUtils.executeForResult(ignoreNewProfile, slaveClient);
+            DomainTestUtils.executeForResult(ignoreNewProfile, secondaryClient);
 
-            //Reload slave so ignore takes effect
-            reloadHost(support.getDomainSlaveLifecycleUtil(), "slave");
+            //Reload secondary so ignore takes effect
+            reloadHost(support.getDomainSecondaryLifecycleUtil(), "secondary");
 
             //Clone should work now that the new profile is ignored
-            DomainTestUtils.executeForResult(clone, masterClient);
+            DomainTestUtils.executeForResult(clone, primaryClient);
 
-            //Adding a subsystem to the cloned profile should fail since the profile does not exist on the slave
-            DomainTestUtils.executeForFailure(Util.createAddOperation(PathAddress.pathAddress(PROFILE, "cloned").append(SUBSYSTEM, "jmx")), masterClient);
+            //Adding a subsystem to the cloned profile should fail since the profile does not exist on the secondary
+            DomainTestUtils.executeForFailure(Util.createAddOperation(PathAddress.pathAddress(PROFILE, "cloned").append(SUBSYSTEM, "jmx")), primaryClient);
 
-            //Reload slave
-            reloadHost(support.getDomainSlaveLifecycleUtil(), "slave");
+            //Reload secondary
+            reloadHost(support.getDomainSecondaryLifecycleUtil(), "secondary");
 
             //Reloading should have brought over the cloned profile, so adding a subsystem should now work
-            DomainTestUtils.executeForResult(Util.createAddOperation(PathAddress.pathAddress(PROFILE, "cloned").append(SUBSYSTEM, "jmx")), masterClient);
+            DomainTestUtils.executeForResult(Util.createAddOperation(PathAddress.pathAddress(PROFILE, "cloned").append(SUBSYSTEM, "jmx")), primaryClient);
         } finally {
-            IoUtils.safeClose(slaveClient);
-            IoUtils.safeClose(masterClient);
+            IoUtils.safeClose(secondaryClient);
+            IoUtils.safeClose(primaryClient);
         }
     }
 
@@ -299,23 +229,23 @@ public abstract class SimpleMixedDomainTest  {
         // EAP 7 allows the clone operation.
         // However EAP 7 will need to take into account the ignore-unused-configuration
         // setting which does not exist in 6.x
-        final DomainClient masterClient = support.getDomainMasterLifecycleUtil().createDomainClient();
-        final DomainClient slaveClient = support.getDomainSlaveLifecycleUtil().createDomainClient();
+        final DomainClient primaryClient = support.getDomainPrimaryLifecycleUtil().createDomainClient();
+        final DomainClient secondaryClient = support.getDomainSecondaryLifecycleUtil().createDomainClient();
         try {
             final PathAddress newProfileAddress = PathAddress.pathAddress(PROFILE, "new-profile");
 
             //Create a new profile (so that we can ignore it on the host later)
-            DomainTestUtils.executeForResult(Util.createAddOperation(newProfileAddress), masterClient);
+            DomainTestUtils.executeForResult(Util.createAddOperation(newProfileAddress), primaryClient);
 
-            //Attempt to clone it. It should work but not exist on the slave since unused configuration is ignored
+            //Attempt to clone it. It should work but not exist on the secondary since unused configuration is ignored
             final ModelNode clone = Util.createEmptyOperation(CLONE, newProfileAddress);
             clone.get(TO_PROFILE).set("cloned");
-            DomainTestUtils.executeForResult(clone, masterClient);
+            DomainTestUtils.executeForResult(clone, primaryClient);
 
-            //Check the new profile does not exist on the slave
+            //Check the new profile does not exist on the secondary
             final ModelNode readChildrenNames = Util.createEmptyOperation(READ_CHILDREN_NAMES_OPERATION, PathAddress.EMPTY_ADDRESS);
             readChildrenNames.get(CHILD_TYPE).set(PROFILE);
-            ModelNode result = DomainTestUtils.executeForResult(readChildrenNames, slaveClient);
+            ModelNode result = DomainTestUtils.executeForResult(readChildrenNames, secondaryClient);
             List<ModelNode> list = result.asList();
             Assert.assertEquals(1, list.size());
             Assert.assertEquals(list.toString(), "full-ha", list.get(0).asString());
@@ -323,17 +253,17 @@ public abstract class SimpleMixedDomainTest  {
             //Update the server group to use the new profile
             DomainTestUtils.executeForResult(
                     Util.getWriteAttributeOperation(PathAddress.pathAddress(SERVER_GROUP, "other-server-group"), PROFILE, "new-profile"),
-                    masterClient);
+                    primaryClient);
 
             //Check the profiles
-            result = DomainTestUtils.executeForResult(readChildrenNames, slaveClient);
+            result = DomainTestUtils.executeForResult(readChildrenNames, secondaryClient);
             list = result.asList();
             Assert.assertEquals(1, list.size());
             Assert.assertEquals(list.toString(), "new-profile", list.get(0).asString());
 
         } finally {
-            IoUtils.safeClose(slaveClient);
-            IoUtils.safeClose(masterClient);
+            IoUtils.safeClose(secondaryClient);
+            IoUtils.safeClose(primaryClient);
         }
     }
     /*
@@ -373,10 +303,10 @@ public abstract class SimpleMixedDomainTest  {
         return set;
     }
 
-    private void cleanupKnownDifferencesInModelsForVersioningCheck(ModelNode masterModel, ModelNode slaveModel) {
+    private void cleanupKnownDifferencesInModelsForVersioningCheck(ModelNode primaryModel, ModelNode secondaryModel) {
         //First get rid of any undefined crap
-        cleanUndefinedNodes(masterModel);
-        cleanUndefinedNodes(slaveModel);
+        cleanUndefinedNodes(primaryModel);
+        cleanUndefinedNodes(secondaryModel);
     }
 
     private void cleanUndefinedNodes(ModelNode model) {

@@ -27,7 +27,7 @@ import static org.jboss.as.test.shared.ServerReload.executeReloadAndWaitForCompl
 
 import java.net.URL;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -94,7 +94,7 @@ public class DefaultResponseCodeTestCase extends ContainerResourceMgmtTestBase {
             operation = createOpNode("subsystem=undertow/server=default-server/host=default-host", "remove");
             operation.get("address").add("location","/");
             executeOperation(operation);
-            executeReloadAndWaitForCompletion(getModelControllerClient());
+            executeReloadAndWaitForCompletion(getManagementClient());
             HttpGet httpget = new HttpGet(url.toString() + URL_PATTERN);
             HttpResponse response = this.httpclient.execute(httpget);
             Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());

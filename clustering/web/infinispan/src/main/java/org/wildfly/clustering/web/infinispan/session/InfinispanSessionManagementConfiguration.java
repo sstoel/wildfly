@@ -22,12 +22,12 @@
 
 package org.wildfly.clustering.web.infinispan.session;
 
-import org.wildfly.clustering.web.infinispan.InfinispanCacheConfiguration;
+import org.wildfly.clustering.ee.infinispan.InfinispanCacheConfiguration;
 import org.wildfly.clustering.web.session.DistributableSessionManagementConfiguration;
 
 /**
- * Configuration of an {@link InfinispanSessionManagementProvider}.
+ * Configuration of an Infinispan session management provider.
  * @author Paul Ferraro
  */
-public interface InfinispanSessionManagementConfiguration extends DistributableSessionManagementConfiguration, InfinispanCacheConfiguration {
+public interface InfinispanSessionManagementConfiguration<M> extends DistributableSessionManagementConfiguration<M>, InfinispanCacheConfiguration {
 }

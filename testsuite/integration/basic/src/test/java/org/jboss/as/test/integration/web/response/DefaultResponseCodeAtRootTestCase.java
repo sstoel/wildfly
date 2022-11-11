@@ -27,7 +27,7 @@ import static org.jboss.as.test.shared.ServerReload.executeReloadAndWaitForCompl
 
 import java.net.URL;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
@@ -114,7 +114,7 @@ public class DefaultResponseCodeAtRootTestCase extends ContainerResourceMgmtTest
             operation.get("address").add("location","/");
             cob.addStep(operation);
             executeOperation(cob.build().getOperation());
-            executeReloadAndWaitForCompletion(getModelControllerClient());
+            executeReloadAndWaitForCompletion(getManagementClient());
             deployer.deploy("test");
             HttpGet httpget = null;
             HttpResponse response = null;

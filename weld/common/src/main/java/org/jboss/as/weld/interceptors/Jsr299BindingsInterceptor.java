@@ -41,7 +41,7 @@ import org.jboss.msc.service.ServiceName;
 import org.jboss.weld.ejb.spi.InterceptorBindings;
 
 /**
- * Interceptor for applying the JSR-299 specific interceptor bindings.
+ * Jakarta Interceptors for applying interceptors bindings.
  * <p/>
  * It is a separate interceptor, as it needs to be applied after all
  * the other existing interceptors.
@@ -55,7 +55,6 @@ public class Jsr299BindingsInterceptor implements org.jboss.invocation.Intercept
     private final InterceptionType interceptionType;
     private final ComponentInterceptorSupport interceptorSupport;
     private final Supplier<InterceptorBindings> interceptorBindingsSupplier;
-    private volatile InterceptorBindings interceptorBindings;
 
     private Jsr299BindingsInterceptor(final InterceptionType interceptionType, final ComponentInterceptorSupport interceptorSupport, final Supplier<InterceptorBindings> interceptorBindingsSupplier) {
         this.interceptionType = interceptionType;
@@ -97,11 +96,7 @@ public class Jsr299BindingsInterceptor implements org.jboss.invocation.Intercept
     public Object processInvocation(final InterceptorContext context) throws Exception {
         final ComponentInstance componentInstance = context.getPrivateData(ComponentInstance.class);
         final InterceptorInstances interceptorInstances = interceptorSupport.getInterceptorInstances(componentInstance);
-        InterceptorBindings interceptorBindings = this.interceptorBindings;
-        if (interceptorBindings == null) {
-            // Cache the bindings as reading the interceptorBindingsSupplier is contended
-            interceptorBindings = this.interceptorBindings = interceptorBindingsSupplier.get();
-        }
+        final InterceptorBindings interceptorBindings = interceptorBindingsSupplier.get();
         switch (interceptionType) {
             case AROUND_INVOKE:
                 return doMethodInterception(context.getInvocationContext(), InterceptionType.AROUND_INVOKE, interceptorInstances, interceptorBindings);

@@ -26,7 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.TransactionManagementType;
 
 import com.arjuna.ats.jbossatx.jta.TransactionManagerService;
 import org.jboss.as.ee.component.Attachments;
@@ -78,7 +78,7 @@ import org.wildfly.iiop.openjdk.service.CorbaPOAService;
 import org.wildfly.iiop.openjdk.service.IORSecConfigMetaDataService;
 
 /**
- * This is the DUP that sets up IIOP for EJB's
+ * This is the DUP that sets up IIOP for Jakarta Enterprise Beans's
  */
 public class EjbIIOPDeploymentUnitProcessor implements DeploymentUnitProcessor {
 
@@ -91,24 +91,21 @@ public class EjbIIOPDeploymentUnitProcessor implements DeploymentUnitProcessor {
     @Override
     public void deploy(final DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
 
-
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
         if (!IIOPDeploymentMarker.isIIOPDeployment(deploymentUnit)) {
             return;
         }
 
-        final EEModuleDescription moduleDescription = deploymentUnit.getAttachment(Attachments.EE_MODULE_DESCRIPTION);
         if (!EjbDeploymentMarker.isEjbDeployment(deploymentUnit)) {
             return;
         }
-
 
         // a bean-name -> IIOPMetaData map, reflecting the assembly descriptor IIOP configuration.
         Map<String, IIOPMetaData> iiopMetaDataMap = new HashMap<String, IIOPMetaData>();
         final EjbJarMetaData ejbMetaData = deploymentUnit.getAttachment(EjbDeploymentAttachmentKeys.EJB_JAR_METADATA);
         if (ejbMetaData != null && ejbMetaData.getAssemblyDescriptor() != null) {
             List<IIOPMetaData> iiopMetaDatas = ejbMetaData.getAssemblyDescriptor().getAny(IIOPMetaData.class);
-            if (iiopMetaDatas != null && iiopMetaDatas.size() > 0) {
+            if (iiopMetaDatas != null && !iiopMetaDatas.isEmpty()) {
                 for (IIOPMetaData metaData : iiopMetaDatas) {
                     iiopMetaDataMap.put(metaData.getEjbName(), metaData);
                 }
@@ -116,6 +113,7 @@ public class EjbIIOPDeploymentUnitProcessor implements DeploymentUnitProcessor {
         }
 
         final DeploymentReflectionIndex deploymentReflectionIndex = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.REFLECTION_INDEX);
+        final EEModuleDescription moduleDescription = deploymentUnit.getAttachment(Attachments.EE_MODULE_DESCRIPTION);
         final Module module = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.MODULE);
         if (moduleDescription != null) {
             for (final ComponentDescription componentDescription : moduleDescription.getComponentDescriptions()) {
@@ -137,11 +135,6 @@ public class EjbIIOPDeploymentUnitProcessor implements DeploymentUnitProcessor {
                 }
             }
         }
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
-
     }
 
     private void processEjb(final EJBComponentDescription componentDescription,

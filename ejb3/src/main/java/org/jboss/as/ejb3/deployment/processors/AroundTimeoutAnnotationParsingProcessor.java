@@ -24,8 +24,8 @@ package org.jboss.as.ejb3.deployment.processors;
 
 import java.util.List;
 
-import javax.interceptor.AroundTimeout;
-import javax.interceptor.InvocationContext;
+import jakarta.interceptor.AroundTimeout;
+import jakarta.interceptor.InvocationContext;
 
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.EEModuleClassDescription;
@@ -70,9 +70,6 @@ public class AroundTimeoutAnnotationParsingProcessor implements DeploymentUnitPr
         for (AnnotationInstance annotation : aroundInvokes) {
             processAroundInvoke(annotation.target(), eeModuleDescription);
         }
-    }
-
-    public void undeploy(final DeploymentUnit context) {
     }
 
     private void processAroundInvoke(final AnnotationTarget target, final EEModuleDescription eeModuleDescription) {

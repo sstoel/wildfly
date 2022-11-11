@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
+ * Copyright 2021, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,6 +22,7 @@
 
 package org.jboss.as.test.integration.xerces.unit;
 
+import java.io.IOException;
 import java.net.URL;
 
 import org.apache.http.HttpEntity;
@@ -39,6 +40,8 @@ import org.jboss.as.test.integration.xerces.JSFManagedBean;
 import org.jboss.as.test.integration.xerces.XercesUsageServlet;
 import org.jboss.as.test.shared.integration.ejb.security.PermissionUtils;
 import org.jboss.logging.Logger;
+import org.jboss.modules.maven.ArtifactCoordinates;
+import org.jboss.modules.maven.MavenResolver;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -70,12 +73,12 @@ public class XercesUsageTestCase {
     private URL withJsf;
 
     /**
-     * Create a .ear, containing a web application (without any JSF constructs) and also the xerces jar in the .ear/lib
+     * Create a .ear, containing a web application (without any Jakarta Server Faces constructs) and also the xerces jar in the .ear/lib
      *
      * @return
      */
     @Deployment(name = "app-without-jsf", testable = false)
-    public static EnterpriseArchive createDeployment() {
+    public static EnterpriseArchive createDeployment() throws IOException {
         final WebArchive war = ShrinkWrap.create(WebArchive.class, WEB_APP_CONTEXT + ".war");
         war.addClasses(XercesUsageServlet.class);
         // add a dummy xml to parse
@@ -84,8 +87,9 @@ public class XercesUsageTestCase {
         final EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, "xerces-usage.ear");
         // add the .war
         ear.addAsModule(war);
-        // add the xerces jar in the .ear/lib
-        ear.addAsLibrary("xerces/xercesImpl.jar", "xercesImpl.jar");
+        // add the xerces jar in the .ear/lib as a MavenResolver
+        ear.addAsLibrary(MavenResolver.createDefaultResolver().resolveJarArtifact(new ArtifactCoordinates("xerces", "xercesImpl", "2.12.1")));
+
         ear.addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
             new RuntimePermission("accessClassInPackage.org.apache.xerces.util"),
             new RuntimePermission("accessClassInPackage.org.apache.xerces.xni.grammars"),
@@ -98,12 +102,12 @@ public class XercesUsageTestCase {
     }
 
     /**
-     * Create a .ear, containing a JSF web application and also the xerces jar in the .ear/lib
+     * Create a .ear, containing a Jakarta Server Faces web application and also the xerces jar in the .ear/lib
      *
      * @return
      */
     @Deployment(name = "app-with-jsf", testable = false)
-    public static EnterpriseArchive createJSFDeployment() {
+    public static EnterpriseArchive createJSFDeployment() throws IOException {
         final WebArchive war = ShrinkWrap.create(WebArchive.class, JSF_WEB_APP_CONTEXT + ".war");
         war.addClasses(XercesUsageServlet.class, JSFManagedBean.class);
         // add a dummy xml to parse
@@ -112,8 +116,9 @@ public class XercesUsageTestCase {
         final EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, "xerces-usage-jsf.ear");
         // add the .war
         ear.addAsModule(war);
-        // add the xerces jar in the .ear/lib
-        ear.addAsLibrary("xerces/xercesImpl.jar", "xercesImpl.jar");
+        // add the xerces jar in the .ear/lib as a MavenResolver
+        ear.addAsLibrary(MavenResolver.createDefaultResolver().resolveJarArtifact(new ArtifactCoordinates("xerces", "xercesImpl", "2.12.1")));
+
         ear.addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
             new RuntimePermission("accessClassInPackage.org.apache.xerces.util"),
             new RuntimePermission("accessClassInPackage.org.apache.xerces.impl.*"),
@@ -125,7 +130,7 @@ public class XercesUsageTestCase {
 
 
     /**
-     * Test that a non-JSF web application, with xerces jar packaged within the deployment, functions correctly
+     * Test that a non-Jakarta Server Faces web application, with xerces jar packaged within the deployment, functions correctly
      * while using the packaged xerces API.
      *
      * @throws Exception
@@ -149,7 +154,7 @@ public class XercesUsageTestCase {
     }
 
     /**
-     * Test that a JSF web application, with xerces jar packaged within the deployment, functions correctly while using
+     * Test that a Jakarta Server Faces web application, with xerces jar packaged within the deployment, functions correctly while using
      * the packaged xerces API.
      *
      * @throws Exception

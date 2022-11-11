@@ -171,11 +171,15 @@ public class AppClientWrapper implements Runnable {
         }
         final ZipExporter exporter = archive.as(ZipExporter.class);
         exporter.exportTo(archiveOnDisk);
+        final String archivePath = archiveOnDisk.getAbsolutePath();
+
+        // We don't directly pass the archive file and deployment name to appclient's main
+        // Instead we prove expressions work by passing an expression
         final String archiveArg;
         if(clientArchiveName == null) {
-            archiveArg = archiveOnDisk.getAbsolutePath();
+            archiveArg = "${test.expr.appclient.file: " + archivePath + "}";
         } else {
-            archiveArg = archiveOnDisk.getAbsolutePath() + "#" + clientArchiveName;
+            archiveArg = "${test.expr.appclient.file:" + archivePath + "}#${test.expr.appclient.deployment:" + clientArchiveName + "}";
         }
 
         // TODO: Move to a shared testsuite lib.
@@ -183,10 +187,9 @@ public class AppClientWrapper implements Runnable {
         if( asDist == null ) throw new Exception("'jboss.dist' property is not set.");
         if( ! new File(asDist).exists() ) throw new Exception("AS dir from 'jboss.dist' doesn't exist: " + asDist + " user.dir: " + System.getProperty("user.dir"));
 
-        // TODO: Move to a shared testsuite lib.
-        //String asInst = System.getProperty("jboss.inst");
-        //if( asInst == null ) throw new Exception("'jboss.inst' property is not set. Perhaps this test is in a multi-node tests group but runs outside container?");
-        //if( ! new File(asInst).exists() ) throw new Exception("AS dir from 'jboss.inst' doesn't exist: " + asInst + " user.dir: " + System.getProperty("user.dir"));
+        String instDir = System.getProperty("jboss.install.dir");
+        if( instDir == null ) throw new Exception("'jboss.install.dir' property is not set.");
+        if( ! new File(instDir).exists() ) throw new Exception("AS dir from 'jboss.install.dir' doesn't exist: " + instDir + " user.dir: " + System.getProperty("user.dir"));
 
         String java = System.getProperty("java.home") + File.separator + "bin" + File.separator + "java";
 
@@ -196,12 +199,14 @@ public class AppClientWrapper implements Runnable {
                 TestSuiteEnvironment.getIpv6Args() +
                 "-Djboss.bind.address=" + TestSuiteEnvironment.getServerAddress() +
                 " "+System.getProperty("server.jvm.args") +
-                " -jar "+ asDist + "/jboss-modules.jar" +
+                " -jar "+ instDir + "/jboss-modules.jar" +
                 " -mp "+ asDist + "/modules" +
                 " org.jboss.as.appclient" +
-                " -Djboss.server.base.dir="+ asDist + "/appclient" +
-                " -Djboss.home.dir="+ asDist +
+                " -Djboss.server.base.dir="+ instDir + "/appclient" +
+                " -Djboss.home.dir="+ instDir +
                 " " + this.appClientArgs + " " + archiveArg + " " + args;
+
+        System.out.println(appClientCommand);
         return appClientCommand;
     }
 
@@ -232,12 +237,12 @@ public class AppClientWrapper implements Runnable {
     }
 
     private synchronized void outputLineReceived(String line) {
-        LOGGER.trace("[" + outThreadHame + "] " + line);
+        LOGGER.info("[" + outThreadHame + "] " + line);
         outputQueue.add(line);
     }
 
     private synchronized void errorLineReceived(String line) {
-        LOGGER.trace("[" + outThreadHame + "] " + line);
+        LOGGER.info("[" + outThreadHame + "] " + line);
     }
 
 }

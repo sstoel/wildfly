@@ -26,7 +26,7 @@ import static org.junit.Assert.assertNotNull;
 
 import java.util.List;
 import java.util.Set;
-import javax.resource.spi.ActivationSpec;
+import jakarta.resource.spi.ActivationSpec;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -111,7 +111,7 @@ public class InflowFlatTestCase extends AbstractModuleDeploymentTestCase {
                 "ra.xml")
                 .addAsManifestResource(
                         new StringAsset(
-                                "Dependencies: javax.inject.api,org.jboss.as.connector,org.jboss.as.controller-client,org.jboss.dmr,org.jboss.as.cli\n"),
+                                "Dependencies: javax.inject.api,org.jboss.as.connector,org.jboss.as.controller-client,org.jboss.dmr\n"),
                         "MANIFEST.MF");
 
         return raa;

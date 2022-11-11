@@ -21,9 +21,9 @@
  */
 package org.jboss.as.test.integration.jaxrs.jackson;
 
-import javax.xml.bind.annotation.XmlRootElement;
+import jakarta.xml.bind.annotation.XmlRootElement;
 
-import org.codehaus.jackson.annotate.JsonPropertyOrder;
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * @author Stuart Douglas

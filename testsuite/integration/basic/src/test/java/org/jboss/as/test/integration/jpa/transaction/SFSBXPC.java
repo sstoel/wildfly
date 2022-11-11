@@ -22,16 +22,16 @@
 
 package org.jboss.as.test.integration.jpa.transaction;
 
-import javax.annotation.Resource;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceContextType;
-import javax.transaction.NotSupportedException;
-import javax.transaction.SystemException;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceContextType;
+import jakarta.transaction.NotSupportedException;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.UserTransaction;
 
 /**
  * stateful session bean with an extended persistence context
@@ -61,7 +61,7 @@ public class SFSBXPC {
      * <p>
      * "When a business method of the stateful session bean is invoked, if the stateful session bean
      * uses bean managed transaction demarcation and a UserTransaction is begun within the method,
-     * the container associates the persistence context with the JTA transaction and calls
+     * the container associates the persistence context with the Jakarta Transactions transaction and calls
      * EntityManager.joinTransaction.
      * "
      */

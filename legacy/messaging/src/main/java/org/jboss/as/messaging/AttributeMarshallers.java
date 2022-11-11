@@ -65,11 +65,11 @@ public final class AttributeMarshallers {
     public static final AttributeMarshaller NOOP_MARSHALLER = new AttributeMarshaller() {
         public void marshallAsElement(AttributeDefinition attribute, ModelNode resourceModel, boolean marshallDefault, XMLStreamWriter writer) throws XMLStreamException {
             // do nothing
-        };
+        }
 
         public void marshallAsAttribute(AttributeDefinition attribute, ModelNode resourceModel, boolean marshallDefault, XMLStreamWriter writer) throws XMLStreamException {
             // do nothing
-        };
+        }
     };
 
     public static final AttributeMarshaller CONNECTORS_MARSHALLER = new AttributeMarshaller() {
@@ -83,7 +83,7 @@ public final class AttributeMarshallers {
                 }
                 writer.writeEndElement();
             }
-        };
+        }
     };
 
     public static final AttributeMarshaller SELECTOR_MARSHALLER = new AttributeMarshaller() {
@@ -129,7 +129,7 @@ public final class AttributeMarshallers {
         public void marshallAsElement(AttributeDefinition attribute, ModelNode resourceModel, boolean marshallDefault, XMLStreamWriter writer) throws XMLStreamException {
             if (resourceModel.hasDefined(attribute.getName())) {
                 List<ModelNode> list = resourceModel.get(attribute.getName()).asList();
-                if (list.size() > 0) {
+                if (!list.isEmpty()) {
                     writer.writeStartElement(attribute.getXmlName());
 
                     for (ModelNode child : list) {
@@ -166,7 +166,7 @@ public final class AttributeMarshallers {
                 final XMLStreamWriter writer) throws XMLStreamException {
             if (resourceModel.hasDefined(attribute.getName())) {
                 List<ModelNode> list = resourceModel.get(attribute.getName()).asList();
-                if (list.size() > 0) {
+                if (!list.isEmpty()) {
 
                     if (wrappingElementName != null) {
                         writer.writeStartElement(wrappingElementName);
@@ -200,7 +200,7 @@ public final class AttributeMarshallers {
                 final XMLStreamWriter writer) throws XMLStreamException {
             if (resourceModel.hasDefined(attribute.getName())) {
                 List<ModelNode> list = resourceModel.get(attribute.getName()).asList();
-                if (list.size() > 0) {
+                if (!list.isEmpty()) {
                     // This is a bit of a hack, using allowNull to distinguish the connection factory case
                     // from the jms destination case
                     if (!forDestination) {

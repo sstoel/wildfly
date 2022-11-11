@@ -29,6 +29,7 @@ import static org.jboss.logging.Logger.Level.WARN;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
 import org.jboss.as.controller.OperationFailedException;
@@ -43,6 +44,7 @@ import org.jboss.logging.annotations.Cause;
 import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
+import org.jboss.msc.service.DuplicateServiceException;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartException;
 import org.jboss.vfs.VirtualFile;
@@ -64,7 +66,7 @@ public interface UndertowLogger extends BasicLogger {
      */
 
     @LogMessage(level = Logger.Level.ERROR)
-    @Message(id = 1, value = "Could not initialize JSP")
+    @Message(id = 1, value = "Could not initialize Jakarta Server Pages")
     void couldNotInitJsp(@Cause ClassNotFoundException e);
 
     // @LogMessage(level = ERROR)
@@ -166,9 +168,9 @@ public interface UndertowLogger extends BasicLogger {
     @Message(id = 24, value = "Failed to persist session attribute %s with value %s for session %s")
     void failedToPersistSessionAttribute(String attributeName, Object value, String sessionID, @Cause Exception e);
 
-    @LogMessage(level = ERROR)
-    @Message(id = 25, value = "Failed to register policy context handler for key %s")
-    void failedToRegisterPolicyContextHandler(String key, @Cause Exception e);
+    //@LogMessage(level = ERROR)
+    //@Message(id = 25, value = "Failed to register policy context handler for key %s")
+    //void failedToRegisterPolicyContextHandler(String key, @Cause Exception e);
 
     // @Message(id = 26, value = "Unknown handler '%s' encountered")
     // XMLStreamException unknownHandler(String name, @Param Location location);
@@ -416,4 +418,28 @@ public interface UndertowLogger extends BasicLogger {
 
     @Message(id = 103, value = "The time zone id %s is invalid.")
     OperationFailedException invalidTimeZoneId(String zoneId);
+
+    @Message(id = 104, value = "Some classes referenced by annotation: %s in class: %s are missing.")
+    DeploymentUnitProcessingException missingClassInAnnotation(String anCls, String resCls);
+
+    @Message(id=105, value = "Host and context path are occupied, %s can't be registered. Message was: %s")
+    DuplicateServiceException duplicateHostContextDeployments(ServiceName deploymentInfoServiceName, String errorMessage);
+
+    @LogMessage(level = ERROR)
+    @Message(id = 106, value = "Unable to generate obfuscated session route from '%s'")
+    void unableToObfuscateSessionRoute(String route, @Cause NoSuchAlgorithmException e);
+
+    @LogMessage(level = INFO)
+    @Message(id = 107, value = "Generated obfuscated session route '%s' from '%s'")
+    void obfuscatedSessionRoute(String obfuscatedRoute, String route);
+
+    @Message(id=108, value = "The deployment is configured to use legacy security which is no longer available.")
+    DeploymentUnitProcessingException deploymentConfiguredForLegacySecurity();
+
+    @Message(id = 109, value = "The deployment is configured to use legacy security which is no longer supported.")
+    StartException legacySecurityUnsupported();
+
+    @Message(id = 110, value = "The use of security realms at runtime is unsupported.")
+    OperationFailedException runtimeSecurityRealmUnsupported();
+
 }

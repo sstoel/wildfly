@@ -1,21 +1,27 @@
+<p align="center">
+  <a href="https://wildfly.org">
+      <img src="logo/wildfly_logo.svg" alt="wildfly logo" title="wildlfy" width="600"/>
+  </a>
+</p>
+
 WildFly Application Server
 ========================
-http://wildfly.org
+https://wildfly.org
 
 * Fast Startup
 * Small Footprint
 * Modular Design
 * Unified Configuration and Management
 
-And of course Java EE!
+And of course Jakarta EE!
 
 Building
 -------------------
 
 Prerequisites:
 
-* JDK 8 or newer - check `java -version`
-* Maven 3.3.1 or newer - check `mvn -v`
+* JDK 11 or newer - check `java -version`
+* Maven 3.6.0 or newer - check `mvn -v`
 * On *nix systems, make sure that the maximum number of open files for the user running the build is at least 4096
   (check `ulimit -n`) or more, depending on what other i/o intensive processes the user is running.
 
@@ -51,11 +57,18 @@ To stop the server, press Ctrl + C, or use the admin console
 
     ./jboss-cli.sh --connect command=:shutdown
 
-More information: https://docs.jboss.org/author/display/WFLY10/Getting+Started+Guide
+Check 'Getting Started Guide' in the WildFly documentation for more information about how to start and stop WildFly.
+
+Documentation
+------------------------------------------
+
+* https://docs.wildfly.org/
 
 Contributing
 ------------------
-https://developer.jboss.org/wiki/HackingOnWildFly
+* Git Setup: https://github.com/wildfly/wildfly/blob/main/docs/src/main/asciidoc/_hacking/github_setup.adoc
+* Contributing: https://github.com/wildfly/wildfly/blob/main/docs/src/main/asciidoc/_hacking/contributing.adoc
+* Pull request standard: https://github.com/wildfly/wildfly/blob/main/docs/src/main/asciidoc/_hacking/pullrequest_standards.adoc
 
 Build vs. Dist directories
 --------------------------
@@ -78,7 +91,7 @@ The testsuite module contains several submodules including the following:
 * "cluster" -- tests of the WildFly HA clustering features. Should be run with no failures before any major commits.
 * "domain" -- tests of the domain management features. Should be run with no failures before any major commits.
 * "integration" -- tests of a WildFly standalone server's internals. Should be run with no failures before any major commits.
-* "spec" -- tests of features that only involve end user use of the Java EE 7 spec APIs. Should be run with no failures before any major commits.
+* "spec" -- tests of features that only involve end user use of the Jakarta EE spec APIs. Should be run with no failures before any major commits.
 
 For basic smoke tests, simply: `mvn test`
 
@@ -89,7 +102,7 @@ To run all the tests
 Using Eclipse
 -------------
 1. Install the latest version of eclipse
-2. Make sure Xmx in eclipse.ini is at least 1280M, and it's using Java 8
+2. Make sure Xmx in eclipse.ini is at least 1280M, and it's using Java 11
 3. Launch eclipse and install the m2e plugin, make sure it uses your repo configs
    (get it from: http://www.eclipse.org/m2e/
    or install "Maven Integration for Eclipse" from the Eclipse Marketplace)

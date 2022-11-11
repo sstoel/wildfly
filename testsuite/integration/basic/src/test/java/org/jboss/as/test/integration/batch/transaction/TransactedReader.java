@@ -22,16 +22,19 @@
 
 package org.jboss.as.test.integration.batch.transaction;
 
-import javax.batch.api.BatchProperty;
-import javax.batch.api.chunk.AbstractItemReader;
-import javax.inject.Inject;
-import javax.inject.Named;
+import jakarta.batch.api.BatchProperty;
+import jakarta.batch.api.chunk.AbstractItemReader;
+import jakarta.inject.Inject;
+import jakarta.inject.Named;
+
+import org.jboss.logging.Logger;
 
 @Named
 public class TransactedReader extends AbstractItemReader {
+    private static final Logger logger = Logger.getLogger(TransactedReader.class);
 
     @Inject
-    @BatchProperty(name="job.timeout")
+    @BatchProperty(name = "job.timeout")
     private int timeout;
 
     @Inject
@@ -39,6 +42,9 @@ public class TransactedReader extends AbstractItemReader {
 
     @Override
     public Object readItem() throws Exception {
+        // one can check the log to verify which batch thread is been used to
+        // run this step or partition
+        logger.info("About to read item, job.timeout: " + timeout);
         transactedService.query(timeout);
         return null;
     }

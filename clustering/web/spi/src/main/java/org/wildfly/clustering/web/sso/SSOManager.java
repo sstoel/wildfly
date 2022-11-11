@@ -21,18 +21,22 @@
  */
 package org.wildfly.clustering.web.sso;
 
+import java.util.function.Supplier;
+
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
-import org.wildfly.clustering.web.IdentifierFactory;
+import org.wildfly.clustering.ee.Restartable;
 
 /**
  * The SSO equivalent of a session manager.
  * @author Paul Ferraro
- * @param the authentication identity type
- * @param the deployment identifier type
- * @param the local context type
+ * @param <A> the authentication identity type
+ * @param <D> the deployment identifier type
+ * @param <S> the session identifier type
+ * @param <L> the local context type
+ * @param <B> the batch type
  */
-public interface SSOManager<A, D, S, L, B extends Batch> extends IdentifierFactory<String> {
+public interface SSOManager<A, D, S, L, B extends Batch> extends Restartable {
     /**
      * Creates a new single sign on entry.
      * @param ssoId a unique SSO identifier
@@ -59,4 +63,10 @@ public interface SSOManager<A, D, S, L, B extends Batch> extends IdentifierFacto
      * @return a batching mechanism.
      */
     Batcher<B> getBatcher();
+
+    /**
+     * Returns the identifier factory of this SSO manager.
+     * @return an identifier factory
+     */
+    Supplier<String> getIdentifierFactory();
 }

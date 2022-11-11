@@ -1,12 +1,12 @@
 [[EE_Default_Bindings_Configuration]]
 = Default EE Bindings
 
-The Java EE Specification mandates the existence of a default instance
+The Jakarta EE Specification mandates the existence of a default instance
 for each of the following resources:
 
 * Context Service
 * Datasource
-* JMS Connection Factory
+* Jakarta Messaging Connection Factory
 * Managed Executor Service
 * Managed Scheduled Executor Service
 * Managed Thread Factory
@@ -38,7 +38,7 @@ they might not be required or covered by non-default resources. In such case def
 
 The default bindings are optional, if the jndi name for a default
 binding is not configured then the related resource will not be
-available to Java EE applications.
+available to Jakarta EE applications.
 
 [NOTE]
 

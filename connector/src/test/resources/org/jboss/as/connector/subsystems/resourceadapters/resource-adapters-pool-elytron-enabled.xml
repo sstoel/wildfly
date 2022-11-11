@@ -1,17 +1,19 @@
-<subsystem xmlns="urn:jboss:domain:resource-adapters:5.0">
+<subsystem xmlns="urn:jboss:domain:resource-adapters:6.1">
   <!--Optional:-->
   <resource-adapters>
     <!--1 or more repetitions:-->
     <resource-adapter id="myRA" statistics-enabled="true">
       <!--Optional:-->
       <module id="moduleID" slot="main"/>
-      <!--Optional:-->
-      <bootstrap-context>bootstrapContext</bootstrap-context>
       <bean-validation-groups>
         <!--1 or more repetitions:-->
         <bean-validation-group>group</bean-validation-group>
       </bean-validation-groups>
       <!--Optional:-->
+      <bootstrap-context>bootstrapContext</bootstrap-context>
+      <!--Optional:-->
+      <!--Zero or more repetitions:-->
+      <config-property name="config1">value</config-property>
       <transaction-support>NoTransaction</transaction-support>
         <workmanager>
             <security>
@@ -19,8 +21,6 @@
                 <elytron-security-domain>ApplicationDomain</elytron-security-domain>
             </security>
         </workmanager>
-        <!--Zero or more repetitions:-->
-      <config-property name="config1">value</config-property>
       <!--Optional:-->
       <connection-definitions>
         <!--1 or more repetitions:-->
@@ -81,8 +81,6 @@
               <!--Optional:-->
               <user-name>userName</user-name>
               <!--Optional:-->
-              <password>pwd</password>
-              <!--Optional:-->
               <credential-reference store="teststore" alias="myalias"/>
               <!--Optional:-->
               <elytron-enabled>true</elytron-enabled>
@@ -105,4 +103,5 @@
       </admin-objects>
     </resource-adapter>
   </resource-adapters>
+  <report-directory path="/tmp"/>
 </subsystem>

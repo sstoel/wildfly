@@ -93,11 +93,6 @@ public final class WSHandlerChainAnnotationProcessor implements DeploymentUnitPr
         }
     }
 
-    @Override
-    public void undeploy(final DeploymentUnit context) {
-        // noop
-    }
-
     private static void processHandlerChainAnnotations(final ResourceRoot currentResourceRoot,
             final List<ResourceRoot> resourceRoots, final Index index, final WSEndpointHandlersMapping mapping)
             throws DeploymentUnitProcessingException {
@@ -143,12 +138,12 @@ public final class WSHandlerChainAnnotationProcessor implements DeploymentUnitPr
     }
 
     private static AnnotationInstance getHandlerChainAnnotationInstance(final ClassInfo classInfo) {
-        List<AnnotationInstance> list = classInfo.annotations().get(HANDLER_CHAIN_ANNOTATION);
+        List<AnnotationInstance> list = classInfo.annotationsMap().get(HANDLER_CHAIN_ANNOTATION);
         return list != null && !list.isEmpty() ? list.iterator().next() : null;
     }
 
     private static AnnotationInstance getEndpointInterfaceHandlerChainAnnotationInstance(final ClassInfo classInfo, final Index index) {
-        AnnotationValue av = classInfo.annotations().get(WEB_SERVICE_ANNOTATION).iterator().next().value("endpointInterface");
+        AnnotationValue av = classInfo.annotationsMap().get(WEB_SERVICE_ANNOTATION).iterator().next().value("endpointInterface");
         if (av != null) {
             String intf = av.asString();
             if (intf != null && !intf.isEmpty()) {
@@ -169,12 +164,12 @@ public final class WSHandlerChainAnnotationProcessor implements DeploymentUnitPr
         try {
             is = getInputStream(currentResourceRoot, resourceRoots, handlerChainConfigFile, endpointClass);
             final Set<String> endpointHandlers = getHandlers(is);
-            if (endpointHandlers.size() > 0) {
+            if (!endpointHandlers.isEmpty()) {
                 mapping.registerEndpointHandlers(endpointClass, endpointHandlers);
             } else {
                 WSLogger.ROOT_LOGGER.invalidHandlerChainFile(handlerChainConfigFile);
             }
-        } catch (final IOException e) {
+        } catch (final IOException|URISyntaxException e) {
             throw new DeploymentUnitProcessingException(e);
         } finally {
             if (is != null) {
@@ -183,14 +178,11 @@ public final class WSHandlerChainAnnotationProcessor implements DeploymentUnitPr
         }
     }
 
-    private static InputStream getInputStream(final ResourceRoot currentResourceRoot, final List<ResourceRoot> resourceRoots, final String handlerChainConfigFile, final String annotatedClassName) throws IOException {
+    private static InputStream getInputStream(final ResourceRoot currentResourceRoot, final List<ResourceRoot> resourceRoots, final String handlerChainConfigFile, final String annotatedClassName) throws IOException, URISyntaxException {
         if (handlerChainConfigFile.startsWith("file://") || handlerChainConfigFile.startsWith("http://")) {
             return new URL(handlerChainConfigFile).openStream();
         } else {
-            URI classURI = null;
-            try {
-                classURI = new URI(annotatedClassName.replace('.', '/'));
-            } catch (final URISyntaxException ignore) {}
+            URI classURI = new URI(annotatedClassName.replace('.', '/'));
             final String handlerChainConfigFileResourcePath = classURI.resolve(handlerChainConfigFile).toString();
             VirtualFile config = currentResourceRoot.getRoot().getChild(handlerChainConfigFileResourcePath);
             if (config.exists() && config.isFile()) {
@@ -230,8 +222,8 @@ public final class WSHandlerChainAnnotationProcessor implements DeploymentUnitPr
         if (!Modifier.isPublic(flags)) return false;
         if (isJaxwsService(clazz, index)) return false;
         if (Modifier.isFinal(flags)) return false;
-        final boolean isWebService = clazz.annotations().containsKey(WEB_SERVICE_ANNOTATION);
-        final boolean isWebServiceProvider = clazz.annotations().containsKey(WEB_SERVICE_PROVIDER_ANNOTATION);
+        final boolean isWebService = clazz.annotationsMap().containsKey(WEB_SERVICE_ANNOTATION);
+        final boolean isWebServiceProvider = clazz.annotationsMap().containsKey(WEB_SERVICE_PROVIDER_ANNOTATION);
         return isWebService || isWebServiceProvider;
     }
 }

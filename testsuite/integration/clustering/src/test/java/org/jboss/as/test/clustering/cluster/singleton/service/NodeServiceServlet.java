@@ -29,16 +29,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Supplier;
 
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.jboss.as.server.CurrentServiceContainer;
+import org.jboss.as.clustering.controller.FunctionExecutor;
 import org.jboss.msc.service.ServiceName;
 import org.wildfly.clustering.group.Node;
-import org.wildfly.clustering.service.ActiveServiceSupplier;
+import org.wildfly.common.function.ExceptionFunction;
 
 @WebServlet(urlPatterns = { NodeServiceServlet.SERVLET_PATH })
 public class NodeServiceServlet extends HttpServlet {
@@ -67,15 +67,15 @@ public class NodeServiceServlet extends HttpServlet {
         String serviceName = getRequiredParameter(req, SERVICE);
         String expected = req.getParameter(EXPECTED);
         this.log(String.format("Received request for %s, expecting %s", serviceName, expected));
-        Supplier<Supplier<Node>> serviceSupplier = new ActiveServiceSupplier<>(CurrentServiceContainer.getServiceContainer(), ServiceName.parse(serviceName));
-        Supplier<Node> primaryNodeSupplier = serviceSupplier.get();
+        FunctionExecutor<Supplier<Node>> executor = NodeServiceExecutorRegistry.INSTANCE.get(ServiceName.parse(serviceName));
         Instant stop = Instant.now().plus(TIMEOUT);
-        Node node = primaryNodeSupplier.get();
+        ExceptionFunction<Supplier<Node>, Node, RuntimeException> function = Supplier::get;
+        Node node = executor.execute(function);
         if (expected != null) {
             while (Instant.now().isBefore(stop)) {
                 if ((node != null) && expected.equals(node.getName())) break;
                 Thread.yield();
-                node = primaryNodeSupplier.get();
+                node = executor.execute(function);
             }
         }
         if (node != null) {

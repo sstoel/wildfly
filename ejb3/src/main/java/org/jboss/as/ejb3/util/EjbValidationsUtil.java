@@ -26,6 +26,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -46,7 +47,7 @@ public final class EjbValidationsUtil {
     }
 
     /**
-     * Returns true if the passed <code>mdbClass</code> meets the requirements set by the EJB3 spec about bean implementation
+     * Returns true if the passed <code>mdbClass</code> meets the requirements set by the Enterprise Beans 3 spec about bean implementation
      * classes. The passed <code>mdbClass</code> must not be an interface and must be public and not final and not abstract. If
      * it passes these requirements then this method returns true. Else it returns false.
      *
@@ -165,7 +166,7 @@ public final class EjbValidationsUtil {
 
     private static boolean hasSameSignature(Method left, Method right) {
         return (left.getName().equals(right.getName()) && left.getReturnType().equals(right.getReturnType())
-                && left.getParameterCount() == right.getParameterCount() && left.getParameters().equals(right.getParameters()));
+                && left.getParameterCount() == right.getParameterCount() && Arrays.equals(left.getParameters(), right.getParameters()));
     }
 
     private static Map<String, List<Method>> indexAllMethodsFromInterfaces(Class<?>[] classes) {

@@ -33,6 +33,7 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.jca.common.api.metadata.common.Pool;
 import org.jboss.jca.common.api.metadata.ds.DataSource;
 import org.jboss.jca.common.api.metadata.ds.DsPool;
+import org.jboss.modules.ModuleClassLoader;
 
 /**
  * Runtime attribute handler for XML datasources
@@ -77,7 +78,7 @@ public class XMLDataSourceRuntimeHandler extends AbstractXMLDataSourceRuntimeHan
             setStringIfNotNull(context, dataSource.getDriverClass());
         } else if (attributeName.equals(Constants.DATASOURCE_CLASS.getName())) {
             setStringIfNotNull(context, dataSource.getDataSourceClass());
-        } else if (attributeName.equals(Constants.JNDI_NAME.getName())) {
+        } else if (attributeName.equals(org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME.getName())) {
             setStringIfNotNull(context, dataSource.getJndiName());
         } else if (attributeName.equals(Constants.DATASOURCE_DRIVER.getName())) {
             setStringIfNotNull(context, dataSource.getDriver());
@@ -87,7 +88,7 @@ public class XMLDataSourceRuntimeHandler extends AbstractXMLDataSourceRuntimeHan
             setStringIfNotNull(context, dataSource.getUrlDelimiter());
         } else if (attributeName.equals(Constants.URL_SELECTOR_STRATEGY_CLASS_NAME.getName())) {
             setStringIfNotNull(context, dataSource.getUrlSelectorStrategyClassName());
-        } else if (attributeName.equals(Constants.USE_JAVA_CONTEXT.getName())) {
+        } else if (attributeName.equals(org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT.getName())) {
             setBooleanIfNotNull(context, dataSource.isUseJavaContext());
         } else if (attributeName.equals(Constants.JTA.getName())) {
             setBooleanIfNotNull(context, dataSource.isJTA());
@@ -298,6 +299,15 @@ public class XMLDataSourceRuntimeHandler extends AbstractXMLDataSourceRuntimeHan
                 return;
             }
             setStringIfNotNull(context, dataSource.getValidation().getExceptionSorter().getClassName());
+        }
+        else if (attributeName.equals(Constants.EXCEPTION_SORTER_MODULE.getName())) {
+            if (dataSource.getValidation() == null) {
+                return;
+            }
+            if (dataSource.getValidation().getExceptionSorter() == null) {
+                return;
+            }
+            setStringIfNotNull(context, ((ModuleClassLoader)dataSource.getValidation().getExceptionSorter().getClassLoader()).getModule().toString());
         } else if (attributeName.equals(Constants.EXCEPTION_SORTER_PROPERTIES.getName())) {
             if (dataSource.getValidation() == null) {
                 return;
@@ -320,6 +330,14 @@ public class XMLDataSourceRuntimeHandler extends AbstractXMLDataSourceRuntimeHan
                 return;
             }
             setStringIfNotNull(context, dataSource.getValidation().getStaleConnectionChecker().getClassName());
+        } else if (attributeName.equals(Constants.STALE_CONNECTION_CHECKER_MODULE.getName())) {
+            if (dataSource.getValidation() == null) {
+                return;
+            }
+            if (dataSource.getValidation().getStaleConnectionChecker() == null) {
+                return;
+            }
+            setStringIfNotNull(context, ((ModuleClassLoader)dataSource.getValidation().getStaleConnectionChecker().getClassLoader()).getModule().toString());
         } else if (attributeName.equals(Constants.STALE_CONNECTION_CHECKER_PROPERTIES.getName())) {
             if (dataSource.getValidation() == null) {
                 return;
@@ -342,6 +360,14 @@ public class XMLDataSourceRuntimeHandler extends AbstractXMLDataSourceRuntimeHan
                 return;
             }
             setStringIfNotNull(context, dataSource.getValidation().getValidConnectionChecker().getClassName());
+        } else if (attributeName.equals(Constants.VALID_CONNECTION_CHECKER_MODULE.getName())) {
+            if (dataSource.getValidation() == null) {
+                return;
+            }
+            if (dataSource.getValidation().getValidConnectionChecker() == null) {
+                return;
+            }
+            setStringIfNotNull(context, ((ModuleClassLoader)dataSource.getValidation().getValidConnectionChecker().getClassLoader()).getModule().toString());
         } else if (attributeName.equals(Constants.VALID_CONNECTION_CHECKER_PROPERTIES.getName())) {
             if (dataSource.getValidation() == null) {
                 return;

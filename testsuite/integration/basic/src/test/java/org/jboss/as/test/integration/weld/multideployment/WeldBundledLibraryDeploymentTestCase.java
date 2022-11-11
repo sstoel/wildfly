@@ -21,13 +21,12 @@
  */
 package org.jboss.as.test.integration.weld.multideployment;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
@@ -35,7 +34,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests that CDI beans defined in a bundled library can be used in a deployment
+ * Tests that Jakarta Contexts and Dependency Injection beans defined in a bundled library can be used in a deployment
  *
  * @author Jozef Hartinger
  *
@@ -57,7 +56,7 @@ public class WeldBundledLibraryDeploymentTestCase extends AbstractBundledLibrary
         doSetup();
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class);
         jar.addClasses(WeldBundledLibraryDeploymentTestCase.class, AbstractBundledLibraryDeploymentTestCase.class);
-        jar.addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         jar.setManifest(new StringAsset("Extension-List: weld1\nweld1-Extension-Name: " + EXTENSION_NAME + "\n"));
         return jar;
     }

@@ -16,6 +16,9 @@
  */
 package org.jboss.as.test.integration.weld.deployment;
 
+import jakarta.enterprise.context.Dependent;
+
+@Dependent
 public class Bravo implements Ping {
 
     @Override

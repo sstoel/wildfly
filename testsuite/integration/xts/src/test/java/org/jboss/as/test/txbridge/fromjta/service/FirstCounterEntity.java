@@ -22,14 +22,14 @@
 
 package org.jboss.as.test.txbridge.fromjta.service;
 
-import javax.persistence.Entity;
-import javax.persistence.Id;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import java.io.Serializable;
 
 /**
  * Entity to verify the transaction participant
  * is handled correctly when transaction is bridged
- * from JTA to WS-AT.
+ * from Jakarta Transactions to WS-AT.
  */
 @Entity
 public class FirstCounterEntity implements Serializable {

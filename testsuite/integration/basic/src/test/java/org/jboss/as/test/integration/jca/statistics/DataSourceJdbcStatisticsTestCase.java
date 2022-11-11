@@ -29,7 +29,7 @@ import static org.junit.Assert.fail;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -43,7 +43,6 @@ import org.jboss.as.test.integration.management.base.ContainerResourceMgmtTestBa
 import org.jboss.as.test.integration.management.util.MgmtOperationException;
 import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.staxmapper.XMLElementReader;
 import org.jboss.staxmapper.XMLElementWriter;
@@ -214,11 +213,7 @@ public class DataSourceJdbcStatisticsTestCase {
         JavaArchive ja = ShrinkWrap.create(JavaArchive.class, "stat.jar");
         ja.addClasses(DataSourceJdbcStatisticsTestCase.class, MgmtOperationException.class, XMLElementReader.class,
                 XMLElementWriter.class, AbstractMgmtTestBase.class, JcaMgmtServerSetupTask.class, JcaMgmtBase.class,
-                ContainerResourceMgmtTestBase.class)
-                .addAsManifestResource(
-                        new StringAsset(
-                                "Dependencies: org.jboss.as.controller-client,org.jboss.dmr,org.jboss.as.cli,org.jboss.as.connector \n"),
-                        "MANIFEST.MF");
+                ContainerResourceMgmtTestBase.class);
         return ja;
     }
 

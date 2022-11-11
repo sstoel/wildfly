@@ -28,7 +28,7 @@ import static org.junit.Assert.fail;
 
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolationException;
 
 import org.hibernate.validator.HibernateValidatorPermission;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -43,7 +43,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * bean validation with JPA test
+ * Jakarta Bean Validation with Jakarta Persistence test
  *
  * @author Scott Marlow
  */
@@ -79,7 +79,7 @@ public class JPABeanValidationTestCase {
     }
 
     /**
-     * Test that a bean validation error is not thrown
+     * Test that a Jakarta Bean Validation error is not thrown
      *
      * @throws Exception
      */
@@ -90,7 +90,7 @@ public class JPABeanValidationTestCase {
     }
 
     /**
-     * Test that a bean validation error is thrown
+     * Test that a Jakarta Bean Validation error is thrown
      *
      * @throws Exception
      */

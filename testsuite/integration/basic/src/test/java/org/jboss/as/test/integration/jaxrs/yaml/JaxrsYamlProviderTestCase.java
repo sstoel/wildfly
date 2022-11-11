@@ -35,6 +35,7 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -45,6 +46,8 @@ import org.junit.runner.RunWith;
  */
 @RunWith(Arquillian.class)
 @RunAsClient
+// TODO (jrp) what do we do here?
+@Ignore("YAML is not built into RESTEasy any more. We need to look at this.")
 public class JaxrsYamlProviderTestCase {
 
       @Deployment
@@ -52,9 +55,9 @@ public class JaxrsYamlProviderTestCase {
         WebArchive war = ShrinkWrap.create(WebArchive.class, "jaxrsnoap.war");
         war.addPackage(HttpRequest.class.getPackage());
         war.addPackage(JaxrsYamlProviderTestCase.class.getPackage());
-        war.addAsResource(new StringAsset("org.jboss.resteasy.plugins.providers.YamlProvider"), "META-INF/services/javax.ws.rs.ext.Providers");
+        war.addAsResource(new StringAsset("org.jboss.resteasy.plugins.providers.YamlProvider"), "META-INF/services/jakarta.ws.rs.ext.Providers");
         war.addAsWebInfResource(WebXml.get("<servlet-mapping>\n" +
-                "        <servlet-name>javax.ws.rs.core.Application</servlet-name>\n" +
+                "        <servlet-name>jakarta.ws.rs.core.Application</servlet-name>\n" +
                 "        <url-pattern>/myjaxrs/*</url-pattern>\n" +
                 "    </servlet-mapping>\n" +
                 "\n"),"web.xml");

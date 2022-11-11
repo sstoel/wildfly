@@ -27,16 +27,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.security.DenyAll;
-import javax.annotation.security.PermitAll;
-import javax.annotation.security.RolesAllowed;
+import jakarta.annotation.security.DenyAll;
+import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 
 import org.jboss.as.ee.component.EEApplicationClasses;
 import org.jboss.as.ee.metadata.MethodAnnotationAggregator;
 import org.jboss.as.ee.metadata.RuntimeAnnotationInformation;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.messagedriven.MessageDrivenComponentDescription;
 import org.jboss.as.ejb3.deployment.EjbDeploymentAttachmentKeys;
 import org.jboss.as.ejb3.security.EJBMethodSecurityAttribute;
@@ -48,6 +46,7 @@ import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
 import org.jboss.metadata.ejb.spec.AssemblyDescriptorMetaData;
 import org.jboss.metadata.ejb.spec.EjbJarMetaData;
 import org.jboss.metadata.ejb.spec.ExcludeListMetaData;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.metadata.ejb.spec.MethodMetaData;
 import org.jboss.metadata.ejb.spec.MethodParametersMetaData;
 import org.jboss.metadata.ejb.spec.MethodPermissionMetaData;
@@ -55,11 +54,11 @@ import org.jboss.metadata.ejb.spec.MethodPermissionsMetaData;
 import org.jboss.metadata.ejb.spec.MethodsMetaData;
 
 /**
- * Handles the {@link javax.annotation.security.RolesAllowed} {@link DenyAll} {@link javax.annotation.security.PermitAll} annotations
+ * Handles the {@link jakarta.annotation.security.RolesAllowed} {@link DenyAll} {@link jakarta.annotation.security.PermitAll} annotations
  * <p/>
- * Also processes the &lt;method-permission&gt; elements of an EJB and sets up appropriate security permissions on the EJB.
+ * Also processes the &lt;method-permission&gt; elements of an Jakarta Enterprise Beans and sets up appropriate security permissions on the Jakarta Enterprise Beans.
  * <p/>
- * This processor should be run *after* all the views of the EJB have been identified and set in the {@link EJBComponentDescription}
+ * This processor should be run *after* all the views of the Jakarta Enterprise Beans have been identified and set in the {@link EJBComponentDescription}
  *
  * @author Stuart Douglas
  */
@@ -155,15 +154,15 @@ public class MethodPermissionsMergingProcessor extends AbstractMergingProcessor<
             final MethodsMetaData methods = methodPermissionMetaData.getMethods();
             for (final MethodMetaData method : methods) {
                 EJBMethodSecurityAttribute ejbMethodSecurityMetaData;
-                // EJB 3.1 FR 17.3.2.2 The unchecked element is used instead of a role name in the method-permission element to indicate that all roles are permitted.
+                // Enterprise Beans 3.1 FR 17.3.2.2 The unchecked element is used instead of a role name in the method-permission element to indicate that all roles are permitted.
                 if (methodPermissionMetaData.isNotChecked()) {
                     ejbMethodSecurityMetaData = EJBMethodSecurityAttribute.permitAll();
                 } else {
                     ejbMethodSecurityMetaData = EJBMethodSecurityAttribute.rolesAllowed(methodPermissionMetaData.getRoles());
                 }
                 final String methodName = method.getMethodName();
-                final MethodIntf defaultMethodIntf = (componentDescription instanceof MessageDrivenComponentDescription) ? MethodIntf.MESSAGE_ENDPOINT : MethodIntf.BEAN;
-                final MethodIntf methodIntf = this.getMethodIntf(method.getMethodIntf(), defaultMethodIntf);
+                final MethodInterfaceType defaultMethodIntf = (componentDescription instanceof MessageDrivenComponentDescription) ? MethodInterfaceType.MessageEndpoint : MethodInterfaceType.Bean;
+                final MethodInterfaceType methodIntf = this.getMethodIntf(method.getMethodIntf(), defaultMethodIntf);
                 if (methodName.equals("*")) {
                     final EJBMethodSecurityAttribute existingRoles = componentDescription.getDescriptorMethodPermissions().getAttributeStyle1(methodIntf, null);
                     ejbMethodSecurityMetaData = mergeExistingRoles(ejbMethodSecurityMetaData, existingRoles);
@@ -190,8 +189,8 @@ public class MethodPermissionsMergingProcessor extends AbstractMergingProcessor<
     private void handleExcludeMethods(final EJBComponentDescription componentDescription, final ExcludeListMetaData excludeList) {
         for (final MethodMetaData method : excludeList.getMethods()) {
             final String methodName = method.getMethodName();
-            final MethodIntf defaultMethodIntf = (componentDescription instanceof MessageDrivenComponentDescription) ? MethodIntf.MESSAGE_ENDPOINT : MethodIntf.BEAN;
-            final MethodIntf methodIntf = this.getMethodIntf(method.getMethodIntf(), defaultMethodIntf);
+            final MethodInterfaceType defaultMethodIntf = (componentDescription instanceof MessageDrivenComponentDescription) ? MethodInterfaceType.MessageEndpoint : MethodInterfaceType.Bean;
+            final MethodInterfaceType methodIntf = this.getMethodIntf(method.getMethodIntf(), defaultMethodIntf);
             if (methodName.equals("*")) {
                 componentDescription.getDescriptorMethodPermissions().setAttribute(methodIntf, null, EJBMethodSecurityAttribute.denyAll());
             } else {

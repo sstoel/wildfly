@@ -33,17 +33,19 @@ import org.jboss.modules.ModuleIdentifier;
 public class JaxrsSubsystemDefinition extends SimpleResourceDefinition {
     public static final ModuleIdentifier RESTEASY_ATOM = ModuleIdentifier.create("org.jboss.resteasy.resteasy-atom-provider");
     public static final ModuleIdentifier RESTEASY_CDI = ModuleIdentifier.create("org.jboss.resteasy.resteasy-cdi");
+    public static final ModuleIdentifier RESTEASY_CLIENT_MICROPROFILE = ModuleIdentifier.create("org.jboss.resteasy.resteasy-client-microprofile");
     public static final ModuleIdentifier RESTEASY_CRYPTO = ModuleIdentifier.create("org.jboss.resteasy.resteasy-crypto");
-    public static final ModuleIdentifier RESTEASY_VALIDATOR_11 = ModuleIdentifier.create("org.jboss.resteasy.resteasy-validator-provider-11");
     public static final ModuleIdentifier RESTEASY_VALIDATOR = ModuleIdentifier.create("org.jboss.resteasy.resteasy-validator-provider");
-    public static final ModuleIdentifier RESTEASY_JAXRS = ModuleIdentifier.create("org.jboss.resteasy.resteasy-jaxrs");
+    public static final ModuleIdentifier RESTEASY_CLIENT = ModuleIdentifier.create("org.jboss.resteasy.resteasy-client");
+    public static final ModuleIdentifier RESTEASY_CLIENT_API = ModuleIdentifier.create("org.jboss.resteasy.resteasy-client-api");
+    public static final ModuleIdentifier RESTEASY_CORE = ModuleIdentifier.create("org.jboss.resteasy.resteasy-core");
+    public static final ModuleIdentifier RESTEASY_CORE_SPI = ModuleIdentifier.create("org.jboss.resteasy.resteasy-core-spi");
     public static final ModuleIdentifier RESTEASY_JAXB = ModuleIdentifier.create("org.jboss.resteasy.resteasy-jaxb-provider");
     public static final ModuleIdentifier RESTEASY_JACKSON2 = ModuleIdentifier.create("org.jboss.resteasy.resteasy-jackson2-provider");
     public static final ModuleIdentifier RESTEASY_JSON_P_PROVIDER = ModuleIdentifier.create("org.jboss.resteasy.resteasy-json-p-provider");
     public static final ModuleIdentifier RESTEASY_JSON_B_PROVIDER = ModuleIdentifier.create("org.jboss.resteasy.resteasy-json-binding-provider");
     public static final ModuleIdentifier RESTEASY_JSAPI = ModuleIdentifier.create("org.jboss.resteasy.resteasy-jsapi");
     public static final ModuleIdentifier RESTEASY_MULTIPART = ModuleIdentifier.create("org.jboss.resteasy.resteasy-multipart-provider");
-    public static final ModuleIdentifier RESTEASY_YAML = ModuleIdentifier.create("org.jboss.resteasy.resteasy-yaml-provider");
 
 
     public static final ModuleIdentifier JACKSON_DATATYPE_JDK8 = ModuleIdentifier.create("com.fasterxml.jackson.datatype.jackson-datatype-jdk8");
@@ -53,46 +55,40 @@ public class JaxrsSubsystemDefinition extends SimpleResourceDefinition {
     public static final ModuleIdentifier JSON_API = ModuleIdentifier.create("javax.json.api");
     public static final ModuleIdentifier JAXRS_API = ModuleIdentifier.create("javax.ws.rs.api");
 
-    /**
-     * We include this so that jackson annotations will be available, otherwise they will be ignored which leads
-     * to confusing behaviour.
-     *
-     */
-    public static final ModuleIdentifier JACKSON_CORE_ASL = ModuleIdentifier.create("org.codehaus.jackson.jackson-core-asl");
+    public static final ModuleIdentifier MP_REST_CLIENT = ModuleIdentifier.create("org.eclipse.microprofile.restclient");
 
     public static final JaxrsSubsystemDefinition INSTANCE = new JaxrsSubsystemDefinition();
 
     private JaxrsSubsystemDefinition() {
          super(new Parameters(JaxrsExtension.SUBSYSTEM_PATH, JaxrsExtension.getResolver())
-                 .setAddHandler(JaxrsSubsystemAdd.INSTANCE)
+                 .setAddHandler(new JaxrsSubsystemAdd(JaxrsAttribute.ATTRIBUTES))
                  .setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE));
     }
 
     @Override
     public void registerAdditionalRuntimePackages(ManagementResourceRegistration resourceRegistration) {
         resourceRegistration.registerAdditionalRuntimePackages(RuntimePackageDependency.passive(RESTEASY_CDI.getName()),
-                    RuntimePackageDependency.passive(RESTEASY_VALIDATOR_11.getName()),
                     RuntimePackageDependency.passive(RESTEASY_VALIDATOR.getName()),
+                    RuntimePackageDependency.passive(RESTEASY_JSON_B_PROVIDER.getName()),
                     RuntimePackageDependency.required(JAXRS_API.getName()),
                     RuntimePackageDependency.required(JAXB_API.getName()),
                     RuntimePackageDependency.required(JSON_API.getName()),
                     RuntimePackageDependency.optional(RESTEASY_ATOM.getName()),
-                    RuntimePackageDependency.optional(RESTEASY_JAXRS.getName()),
+                    RuntimePackageDependency.required(RESTEASY_CORE.getName()),
+                    RuntimePackageDependency.required(RESTEASY_CORE_SPI.getName()),
+                    // The deprecated module should be activated if present for cases when other modules depend on this
+                    RuntimePackageDependency.optional("org.jboss.resteasy.resteasy-jaxrs"),
                     RuntimePackageDependency.optional(RESTEASY_JAXB.getName()),
                     RuntimePackageDependency.optional(RESTEASY_JACKSON2.getName()),
                     RuntimePackageDependency.optional(RESTEASY_JSON_P_PROVIDER.getName()),
-                    RuntimePackageDependency.optional(RESTEASY_JSON_B_PROVIDER.getName()),
                     RuntimePackageDependency.optional(RESTEASY_JSAPI.getName()),
                     RuntimePackageDependency.optional(RESTEASY_MULTIPART.getName()),
-                    RuntimePackageDependency.optional(RESTEASY_YAML.getName()),
-                    RuntimePackageDependency.optional(JACKSON_CORE_ASL.getName()),
                     RuntimePackageDependency.optional(RESTEASY_CRYPTO.getName()),
                     RuntimePackageDependency.optional(JACKSON_DATATYPE_JDK8.getName()),
-                    RuntimePackageDependency.optional(JACKSON_DATATYPE_JSR310.getName()),
+                    RuntimePackageDependency.optional(JACKSON_DATATYPE_JSR310.getName()));
                     // The following ones are optional dependencies located in org.jboss.as.jaxrs module.xml
                     // To be provisioned, they need to be explicitly added as optional packages.
-                    RuntimePackageDependency.optional("org.jboss.resteasy.resteasy-jettison-provider"),
-                    RuntimePackageDependency.optional("org.jboss.resteasy.resteasy-jackson-provider"),
-                    RuntimePackageDependency.optional("org.jboss.resteasy.resteasy-spring"));
+                    // TODO this needs to be added back once RESTEasy Spring is moved back from WildFly Preview
+                    //RuntimePackageDependency.optional("org.jboss.resteasy.resteasy-spring"));
     }
 }

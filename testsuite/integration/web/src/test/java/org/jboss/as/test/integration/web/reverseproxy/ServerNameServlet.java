@@ -21,12 +21,12 @@
  */
 package org.jboss.as.test.integration.web.reverseproxy;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 
@@ -46,6 +46,11 @@ public class ServerNameServlet extends HttpServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         if("true".equals(req.getParameter("session"))) {
             req.getSession(true);
+        }
+        if (req.getParameter("wait") != null) {
+            try {
+                Thread.sleep(Long.parseLong(req.getParameter("wait")));
+            } catch (InterruptedException e) {}
         }
         resp.getWriter().write(message);
         resp.getWriter().close();

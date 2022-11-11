@@ -580,7 +580,7 @@
             <xs:extension base="tns:store">
                 <xs:attribute name="remote-servers" type="tns:list" use="required">
                     <xs:annotation>
-                        <xs:documentation>A list of outbound socket bindings a.</xs:documentation>
+                        <xs:documentation>A list of outbound socket bindings.</xs:documentation>
                     </xs:annotation>
                 </xs:attribute>
                 <xs:attribute name="cache" type="xs:string">
@@ -1238,6 +1238,13 @@
                 <xs:documentation>
                     Enable or disable SO_TIMEOUT on socket connections to remote Hot Rod servers with the specified timeout, in milliseconds.
                     A timeout of 0 is interpreted as an infinite timeout.
+                </xs:documentation>
+            </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="statistics-enabled" type="xs:boolean" default="false">
+            <xs:annotation>
+                <xs:documentation>
+                    Enables statistics gathering for this remote cache.
                 </xs:documentation>
             </xs:annotation>
         </xs:attribute>

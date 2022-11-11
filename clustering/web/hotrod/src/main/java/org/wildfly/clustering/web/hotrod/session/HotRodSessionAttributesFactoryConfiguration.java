@@ -23,15 +23,21 @@
 package org.wildfly.clustering.web.hotrod.session;
 
 import org.wildfly.clustering.ee.cache.CacheProperties;
+import org.wildfly.clustering.ee.hotrod.HotRodConfiguration;
 import org.wildfly.clustering.web.cache.session.SessionAttributesFactoryConfiguration;
 
 /**
  * @author Paul Ferraro
+ * @param <S> the HttpSession specification type
+ * @param <C> the ServletContext specification type
+ * @param <L> the HttpSessionActivationListener specification type
+ * @param <V> attributes cache entry type
+ * @param <SV> attributes serialized form type
  */
-public interface HotRodSessionAttributesFactoryConfiguration<V, S> extends SessionAttributesFactoryConfiguration<V, S>, HotRodSessionMetaDataFactoryConfiguration {
+public interface HotRodSessionAttributesFactoryConfiguration<S, C, L, V, SV> extends SessionAttributesFactoryConfiguration<S, C, L, V, SV>, HotRodConfiguration {
 
     @Override
     default CacheProperties getCacheProperties() {
-        return HotRodSessionMetaDataFactoryConfiguration.super.getCacheProperties();
+        return HotRodConfiguration.super.getCacheProperties();
     }
 }

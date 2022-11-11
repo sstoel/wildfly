@@ -208,7 +208,7 @@ public class BeanDeploymentArchiveImpl implements WildFlyBeanDeploymentArchive {
     /**
      * Determines if a class from this {@link BeanDeploymentArchiveImpl} instance can access a class in the
      * {@link BeanDeploymentArchive} instance represented by the specified <code>BeanDeploymentArchive</code> parameter
-     * according to the Java EE class accessibility requirements.
+     * according to the Jakarta EE class accessibility requirements.
      *
      * @param target
      * @return true if an only if a class this archive can access a class from the archive represented by the specified parameter
@@ -239,17 +239,23 @@ public class BeanDeploymentArchiveImpl implements WildFlyBeanDeploymentArchive {
             return true;
         }
 
+        final String thatIdentifier = that.getModule().getName();
         // basic check whether the module is our dependency
         for (DependencySpec dependency : module.getDependencies()) {
             if (dependency instanceof ModuleDependencySpec) {
                 ModuleDependencySpec moduleDependency = (ModuleDependencySpec) dependency;
-                if (moduleDependency.getIdentifier().equals(that.getModule().getIdentifier())) {
+                if (moduleDependency.getName().equals(thatIdentifier)) {
                     return true;
                 }
+            }
+        }
 
+        for (DependencySpec dependency : module.getDependencies()) {
+            if (dependency instanceof ModuleDependencySpec) {
+                ModuleDependencySpec moduleDependency = (ModuleDependencySpec) dependency;
                 // moduleDependency might be an alias - try to load it to get lined module
                 Module module = loadModule(moduleDependency);
-                if (module != null && module.getIdentifier().equals(that.getModule().getIdentifier())) {
+                if (module != null && module.getName().equals(thatIdentifier)) {
                     return true;
                 }
             }

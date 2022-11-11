@@ -27,7 +27,7 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -47,7 +47,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import javax.ejb.EJB;
+import jakarta.ejb.EJB;
 import javax.security.auth.AuthPermission;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -245,9 +245,9 @@ public class AuthenticationTestCase {
             fail("Expected IOException");
         } catch (IOException e) {
             if (SecurityDomain.getCurrent() == null) {
-                assertThat(e.getMessage(), containsString("javax.ejb.EJBAccessException"));
+                assertThat(e.getMessage(), containsString("jakarta.ejb.EJBAccessException"));
             } else {
-                assertThat(e.getMessage(), containsString("javax.ejb.EJBException: java.lang.SecurityException: ELY01151"));
+                assertThat(e.getMessage(), containsString("jakarta.ejb.EJBException: java.lang.SecurityException: ELY01151"));
             }
         }
     }

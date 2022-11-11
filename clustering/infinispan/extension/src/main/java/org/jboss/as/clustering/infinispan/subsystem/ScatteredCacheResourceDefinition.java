@@ -25,16 +25,16 @@ package org.jboss.as.clustering.infinispan.subsystem;
 import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
 
+import org.infinispan.Cache;
+import org.jboss.as.clustering.controller.FunctionExecutorRegistry;
 import org.jboss.as.clustering.controller.SimpleResourceDescriptorConfigurator;
 import org.jboss.as.clustering.controller.validation.IntRangeValidatorBuilder;
 import org.jboss.as.clustering.controller.validation.LongRangeValidatorBuilder;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.client.helpers.MeasurementUnit;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
@@ -42,6 +42,7 @@ import org.jboss.dmr.ModelType;
  * Resource definition for a scattered-cache.
  * @author Paul Ferraro
  */
+@Deprecated
 public class ScatteredCacheResourceDefinition extends SegmentedCacheResourceDefinition {
 
     static final PathElement WILDCARD_PATH = pathElement(PathElement.WILDCARD_VALUE);
@@ -54,14 +55,15 @@ public class ScatteredCacheResourceDefinition extends SegmentedCacheResourceDefi
         BIAS_LIFESPAN("bias-lifespan", ModelType.LONG, new ModelNode(TimeUnit.MINUTES.toMillis(5))) {
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
-                return builder.setValidator(new LongRangeValidatorBuilder().min(0).configure(builder).build());
+                return builder.setValidator(new LongRangeValidatorBuilder().min(0).configure(builder).build())
+                        .setMeasurementUnit(MeasurementUnit.MILLISECONDS)
+                        ;
             }
         },
         INVALIDATION_BATCH_SIZE("invalidation-batch-size", ModelType.INT, new ModelNode(128)) {
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
                 return builder.setValidator(new IntRangeValidatorBuilder().min(0).configure(builder).build())
-                        .setMeasurementUnit(MeasurementUnit.MILLISECONDS)
                         ;
             }
         },
@@ -83,17 +85,8 @@ public class ScatteredCacheResourceDefinition extends SegmentedCacheResourceDefi
         }
     }
 
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        if (InfinispanModel.VERSION_7_0_0.requiresTransformation(version)) {
-            parent.rejectChildResource(WILDCARD_PATH);
-        } else {
-            ResourceTransformationDescriptionBuilder builder = parent.addChildResource(WILDCARD_PATH);
-
-            SegmentedCacheResourceDefinition.buildTransformation(version, builder);
-        }
-    }
-
-    ScatteredCacheResourceDefinition() {
-        super(WILDCARD_PATH, new SimpleResourceDescriptorConfigurator<>(Attribute.class), new ClusteredCacheServiceHandler(ScatteredCacheServiceConfigurator::new));
+    ScatteredCacheResourceDefinition(FunctionExecutorRegistry<Cache<?, ?>> executors) {
+        super(WILDCARD_PATH, new SimpleResourceDescriptorConfigurator<>(Attribute.class), new ClusteredCacheServiceHandler(ScatteredCacheServiceConfigurator::new), executors);
+        this.setDeprecated(InfinispanModel.VERSION_16_0_0.getVersion());
     }
 }

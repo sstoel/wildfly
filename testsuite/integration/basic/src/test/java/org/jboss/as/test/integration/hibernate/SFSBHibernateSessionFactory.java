@@ -23,20 +23,19 @@
 package org.jboss.as.test.integration.hibernate;
 
 import java.util.Properties;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
 
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
-import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.hibernate.internal.util.config.ConfigurationHelper;
 
 /**
  * Test that a Hibernate sessionfactory can be inititated from hibernate.cfg.xml and properties added to Hibernate Configuration
- * in AS7 container without any JPA assistance
+ * in AS7 container without any Jakarta Persistence assistance
  *
  * @author Madhumita Sadhukhan
  */
@@ -55,8 +54,7 @@ public class SFSBHibernateSessionFactory {
         try {
 
             // prepare the configuration
-            Configuration configuration = new Configuration().setProperty(AvailableSettings.USE_NEW_ID_GENERATOR_MAPPINGS,
-                    "true");
+            Configuration configuration = new Configuration();
             configuration.setProperty(Environment.HBM2DDL_AUTO, "create-drop");
             configuration.setProperty(Environment.DATASOURCE, "java:jboss/datasources/ExampleDS");
             configuration.setProperty("hibernate.listeners.envers.autoRegister", "false");
@@ -72,7 +70,6 @@ public class SFSBHibernateSessionFactory {
             configuration = configuration.configure("hibernate.cfg.xml");
             properties.putAll(configuration.getProperties());
 
-            Environment.verifyProperties(properties);
             ConfigurationHelper.resolvePlaceHolders(properties);
 
             sessionFactory = configuration.buildSessionFactory();
@@ -92,7 +89,7 @@ public class SFSBHibernateSessionFactory {
         student.setLastName(lastName);
 
         try {
-            // We are not explicitly initializing a Transaction as Hibernate is expected to invoke the JTA TransactionManager
+            // We are not explicitly initializing a Transaction as Hibernate is expected to invoke the Jakarta Transactions TransactionManager
             // implicitly
             Session session = sessionFactory.openSession();
             session.save(student);

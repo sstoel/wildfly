@@ -38,8 +38,8 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.jms.Message;
-import javax.jms.Queue;
+import jakarta.jms.Message;
+import jakarta.jms.Queue;
 import javax.naming.InitialContext;
 import java.util.PropertyPermission;
 
@@ -109,7 +109,7 @@ public class MDB21TestCase extends AbstractMDB2xTestCase {
     @Test
     public void testSimple21MDB() {
         sendTextMessage("Say hello to " + EJB2xMDB.class.getName(), queue, replyQueue);
-        final Message reply = receiveMessage(replyQueue, TimeoutUtil.adjust(1000));
+        final Message reply = receiveMessage(replyQueue, TimeoutUtil.adjust(5000));
         Assert.assertNotNull("Reply message was null on reply queue: " + replyQueue, reply);
     }
 }

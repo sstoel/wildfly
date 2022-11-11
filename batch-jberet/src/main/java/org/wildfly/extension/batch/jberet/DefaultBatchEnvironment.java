@@ -17,7 +17,7 @@
 package org.wildfly.extension.batch.jberet;
 
 import java.util.Properties;
-import javax.transaction.TransactionManager;
+import jakarta.transaction.TransactionManager;
 
 import org.jberet.repository.JobRepository;
 import org.jberet.spi.ArtifactFactory;
@@ -29,7 +29,7 @@ import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
  * An environment to act as a default batch environment for deployments. This environment throws an
- * {@link javax.batch.operations.BatchRuntimeException} for each method. Deployments should not end up with this
+ * {@link jakarta.batch.operations.BatchRuntimeException} for each method. Deployments should not end up with this
  * environment. This is used as a fallback in cases where the {@link org.jberet.spi.JobOperatorContextSelector} cannot
  * find an appropriate environment.
  *
@@ -74,6 +74,11 @@ public class DefaultBatchEnvironment implements BatchEnvironment {
 
     @Override
     public Properties getBatchConfigurationProperties() {
+        throw BatchLogger.LOGGER.noBatchEnvironmentFound(WildFlySecurityManager.getCurrentContextClassLoaderPrivileged());
+    }
+
+    @Override
+    public String getApplicationName() {
         throw BatchLogger.LOGGER.noBatchEnvironmentFound(WildFlySecurityManager.getCurrentContextClassLoaderPrivileged());
     }
 }

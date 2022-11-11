@@ -29,7 +29,7 @@ import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUB
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.as.arquillian.api.ServerSetupTask;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.test.integration.security.common.config.DataSource;
@@ -97,7 +97,7 @@ public abstract class AbstractDataSourceServerSetupTask extends SnapshotRestoreS
             updates.add(enableNode);
         }
         CoreUtils.applyUpdates(updates, managementClient.getControllerClient());
-        ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), 50000);
+        ServerReload.executeReloadAndWaitForCompletion(managementClient, 50000);
     }
 
     // Protected methods -----------------------------------------------------

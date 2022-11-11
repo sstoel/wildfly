@@ -21,22 +21,24 @@
  */
 package org.jboss.as.test.integration.jca.lazyconnectionmanager.rar;
 
+import static org.wildfly.common.Assert.checkNotNullParam;
+
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.resource.NotSupportedException;
-import javax.resource.ResourceException;
-import javax.resource.spi.ConnectionEvent;
-import javax.resource.spi.ConnectionEventListener;
-import javax.resource.spi.ConnectionManager;
-import javax.resource.spi.ConnectionRequestInfo;
-import javax.resource.spi.DissociatableManagedConnection;
-import javax.resource.spi.LazyEnlistableConnectionManager;
-import javax.resource.spi.LazyEnlistableManagedConnection;
-import javax.resource.spi.LocalTransaction;
-import javax.resource.spi.ManagedConnection;
-import javax.resource.spi.ManagedConnectionMetaData;
+import jakarta.resource.NotSupportedException;
+import jakarta.resource.ResourceException;
+import jakarta.resource.spi.ConnectionEvent;
+import jakarta.resource.spi.ConnectionEventListener;
+import jakarta.resource.spi.ConnectionManager;
+import jakarta.resource.spi.ConnectionRequestInfo;
+import jakarta.resource.spi.DissociatableManagedConnection;
+import jakarta.resource.spi.LazyEnlistableConnectionManager;
+import jakarta.resource.spi.LazyEnlistableManagedConnection;
+import jakarta.resource.spi.LocalTransaction;
+import jakarta.resource.spi.ManagedConnection;
+import jakarta.resource.spi.ManagedConnectionMetaData;
 import javax.security.auth.Subject;
 import javax.transaction.xa.XAResource;
 
@@ -132,7 +134,7 @@ public class LazyManagedConnection implements ManagedConnection, DissociatableMa
     @Override
     public void addConnectionEventListener(ConnectionEventListener listener) {
         logger.trace("#LazyManagedConnection.addConnectionEventListener");
-        if (listener == null) { throw new IllegalArgumentException("Listener is null"); }
+        checkNotNullParam("listener", listener);
         listeners.add(listener);
 
     }
@@ -140,7 +142,7 @@ public class LazyManagedConnection implements ManagedConnection, DissociatableMa
     @Override
     public void removeConnectionEventListener(ConnectionEventListener listener) {
         logger.trace("#LazyManagedConnection.removeConnectionEventListener");
-        if (listener == null) { throw new IllegalArgumentException("Listener is null"); }
+        checkNotNullParam("listener", listener);
         listeners.remove(listener);
     }
 

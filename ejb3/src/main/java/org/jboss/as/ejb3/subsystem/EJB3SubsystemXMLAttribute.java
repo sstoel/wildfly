@@ -32,22 +32,27 @@ public enum EJB3SubsystemXMLAttribute {
     UNKNOWN(null),
 
     ALIAS("alias"),
-    ALIASES("aliases"),
+    @Deprecated ALIASES("aliases"),
     ALLOW_EXECUTION("allow-execution"),
 
-    BEAN_CACHE("bean-cache"),
+    @Deprecated BEAN_CACHE("bean-cache"),
+    BEAN_MANAGEMENT("bean-management"),
 
-    CACHE_CONTAINER("cache-container"),
+    @Deprecated CACHE_CONTAINER("cache-container"),
     CACHE_REF("cache-ref"),
     CLIENT_MAPPINGS_CLUSTER_NAME("cluster"),
     @Deprecated CLIENT_MAPPINGS_CACHE("client-mappings-cache"),
     @Deprecated CLUSTERED_CACHE_REF("clustered-cache-ref"),
     CONNECT_TIMEOUT("connect-timeout"),
-    CONNECTOR_REF("connector-ref"),
+    @Deprecated CONNECTOR_REF("connector-ref"),
+    CONNECTORS("connectors"),
     CORE_THREADS("core-threads"),
 
     DEFAULT_ACCESS_TIMEOUT("default-access-timeout"),
+    DEFAULT_SESSION_TIMEOUT("default-session-timeout"),
     DEFAULT_DATA_STORE("default-data-store"),
+    DEFAULT_PERSISTENT_TIMER_MANAGEMENT(EJB3SubsystemModel.DEFAULT_PERSISTENT_TIMER_MANAGEMENT),
+    DEFAULT_TRANSIENT_TIMER_MANAGEMENT(EJB3SubsystemModel.DEFAULT_TRANSIENT_TIMER_MANAGEMENT),
     DATABASE("database"),
     DATASOURCE_JNDI_NAME("datasource-jndi-name"),
 
@@ -80,7 +85,7 @@ public enum EJB3SubsystemXMLAttribute {
     PASS_BY_VALUE("pass-by-value"),
     @Deprecated PASSIVATE_EVENTS_ON_REPLICATE("passivate-events-on-replicate"),
     PASSIVATION_DISABLED_CACHE_REF("passivation-disabled-cache-ref"),
-    PASSIVATION_STORE_REF("passivation-store-ref"),
+    @Deprecated PASSIVATION_STORE_REF("passivation-store-ref"),
     PATH("path"),
     POOL_NAME("pool-name"),
 
@@ -110,6 +115,7 @@ public enum EJB3SubsystemXMLAttribute {
     APP_NAME("app-name"),
     MODULE_NAME("module-name"),
     DISTINCT_NAME("distinct-name"),
+    LEGACY_COMPLIANT_PRINCIPAL_PROPAGATION("legacy-compliant-principal-propagation"),
 
 
     // server interceptors

@@ -21,7 +21,7 @@
  */
 package org.jboss.as.test.integration.weld.ejb.interceptor.injection;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -46,7 +46,7 @@ public class CDIInjectionIntoEJBInterceptorTestCase {
     public static Archive<?> deploy() {
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class);
         jar.addPackage(CDIInjectionIntoEJBInterceptorTestCase.class.getPackage());
-        jar.addAsManifestResource(new StringAsset(""), "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         return jar;
     }
 

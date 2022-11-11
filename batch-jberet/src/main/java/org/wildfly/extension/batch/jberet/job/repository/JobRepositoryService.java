@@ -19,9 +19,10 @@ package org.wildfly.extension.batch.jberet.job.repository;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
-import javax.batch.runtime.JobExecution;
-import javax.batch.runtime.JobInstance;
-import javax.batch.runtime.StepExecution;
+import java.util.function.Consumer;
+import jakarta.batch.runtime.JobExecution;
+import jakarta.batch.runtime.JobInstance;
+import jakarta.batch.runtime.StepExecution;
 
 import org.jberet.job.model.Job;
 import org.jberet.repository.ApplicationAndJobName;
@@ -43,24 +44,34 @@ import org.wildfly.extension.batch.jberet._private.BatchLogger;
  * service has been stopped.
  *
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 abstract class JobRepositoryService implements JobRepository, Service<JobRepository> {
     private volatile boolean started;
+    private final Integer executionRecordsLimit;
+    private final Consumer<JobRepository> jobRepositoryConsumer;
+
+    public JobRepositoryService(final Consumer<JobRepository> jobRepositoryConsumer, final Integer executionRecordsLimit) {
+        this.jobRepositoryConsumer = jobRepositoryConsumer;
+        this.executionRecordsLimit = executionRecordsLimit;
+    }
 
     @Override
     public final void start(final StartContext context) throws StartException {
         startJobRepository(context);
         started = true;
+        jobRepositoryConsumer.accept(this);
     }
 
     @Override
     public final void stop(final StopContext context) {
+        jobRepositoryConsumer.accept(null);
         stopJobRepository(context);
         started = false;
     }
 
     @Override
-    public final JobRepository getValue() throws IllegalStateException, IllegalArgumentException {
+    public JobRepository getValue() throws IllegalStateException, IllegalArgumentException {
         return this;
     }
 
@@ -84,9 +95,16 @@ abstract class JobRepositoryService implements JobRepository, Service<JobReposit
         return getAndCheckDelegate().getJobNames();
     }
 
+    /**
+     * {@inheritDoc}
+     * <p>
+     * WildFly JBeret subsystem validates a job name before each batch job operations.
+     * If a job name is invalid, {@code NoSuchJobException} would already have been thrown.
+     * So this method is optimized to always return true.
+     */
     @Override
     public boolean jobExists(final String jobName) {
-        return getAndCheckDelegate().jobExists(jobName);
+        return true;
     }
 
     @Override
@@ -132,6 +150,11 @@ abstract class JobRepositoryService implements JobRepository, Service<JobReposit
     @Override
     public void updateJobExecution(final JobExecutionImpl jobExecution, final boolean fullUpdate, final boolean saveJobParameters) {
         getAndCheckDelegate().updateJobExecution(jobExecution, fullUpdate, saveJobParameters);
+    }
+
+    @Override
+    public void stopJobExecution(final JobExecutionImpl jobExecution) {
+        getAndCheckDelegate().stopJobExecution(jobExecution);
     }
 
     @Override
@@ -187,6 +210,21 @@ abstract class JobRepositoryService implements JobRepository, Service<JobReposit
     @Override
     public void savePersistentData(final JobExecution jobExecution, final AbstractStepExecution stepOrPartitionExecution) {
         getAndCheckDelegate().savePersistentData(jobExecution, stepOrPartitionExecution);
+    }
+
+    @Override
+    public int savePersistentDataIfNotStopping(final JobExecution jobExecution, final AbstractStepExecution abstractStepExecution) {
+        return getAndCheckDelegate().savePersistentDataIfNotStopping(jobExecution, abstractStepExecution);
+    }
+
+    @Override
+    public List<Long> getJobExecutionsByJob(final String jobName) {
+        return getAndCheckDelegate().getJobExecutionsByJob(jobName, executionRecordsLimit);
+    }
+
+    @Override
+    public List<Long> getJobExecutionsByJob(String jobName, Integer executionRecordsLimit) {
+        return getAndCheckDelegate().getJobExecutionsByJob(jobName, executionRecordsLimit);
     }
 
     protected abstract void startJobRepository(StartContext context) throws StartException;

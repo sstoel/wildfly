@@ -38,10 +38,12 @@ abstract class JaspiTestBase {
     @ArquillianResource
     protected URL url;
 
+    final boolean ejbSupported = !Boolean.getBoolean("ts.layers") && !Boolean.getBoolean("ts.bootable");
+
     protected static WebArchive createDeployment(final String name) {
         final Package testPackage = ConfiguredJaspiTestCase.class.getPackage();
         final Permission[] permissions = new Permission[] {
-                    new SecurityPermission("getFactory"),
+                    new SecurityPermission("getProperty.authconfigprovider.factory"),
                     new SecurityPermission("setProperty.authconfigfactory.provider")
                 };
         return ShrinkWrap.create(WebArchive.class, name + ".war")

@@ -21,7 +21,7 @@
  */
 package org.jboss.as.test.integration.deployment.classloading.war;
 
-import javax.ejb.Stateless;
+import jakarta.ejb.Stateless;
 
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.junit.Assert;
@@ -36,6 +36,7 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.jboss.as.test.integration.common.WebInfLibClass;
 
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 

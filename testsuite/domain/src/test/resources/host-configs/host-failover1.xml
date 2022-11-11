@@ -20,7 +20,7 @@
   ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
   -->
 
-<host xmlns="urn:jboss:domain:10.0"
+<host xmlns="urn:jboss:domain:20.0"
       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
       xsi:schemaLocation="urn:jboss:domain:10.0 wildfly-config_10_0.xsd"
       name="failover-h1">
@@ -61,10 +61,10 @@
 
     <interfaces>
         <interface name="management">
-            <inet-address value="${jboss.test.host.master.address}"/>
+            <inet-address value="${jboss.test.host.primary.address}"/>
         </interface>
         <interface name="public">
-            <inet-address value="${jboss.test.host.master.address}"/>
+            <inet-address value="${jboss.test.host.primary.address}"/>
         </interface>
     </interfaces>
 
@@ -81,7 +81,7 @@
         <server name="failover-one" group="main-server-group">
             <interfaces>
                 <interface name="public">
-                    <inet-address value="${jboss.test.host.master.address}"/>
+                    <inet-address value="${jboss.test.host.primary.address}"/>
                 </interface>
             </interfaces>
             <paths>

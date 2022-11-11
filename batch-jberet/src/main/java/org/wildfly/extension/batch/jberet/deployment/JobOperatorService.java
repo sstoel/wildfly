@@ -22,12 +22,13 @@
 
 package org.wildfly.extension.batch.jberet.deployment;
 
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
@@ -35,35 +36,35 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
-
-import javax.batch.operations.JobExecutionAlreadyCompleteException;
-import javax.batch.operations.JobExecutionIsRunningException;
-import javax.batch.operations.JobExecutionNotMostRecentException;
-import javax.batch.operations.JobExecutionNotRunningException;
-import javax.batch.operations.JobOperator;
-import javax.batch.operations.JobRestartException;
-import javax.batch.operations.JobSecurityException;
-import javax.batch.operations.JobStartException;
-import javax.batch.operations.NoSuchJobException;
-import javax.batch.operations.NoSuchJobExecutionException;
-import javax.batch.operations.NoSuchJobInstanceException;
-import javax.batch.runtime.JobExecution;
-import javax.batch.runtime.JobInstance;
-import javax.batch.runtime.StepExecution;
+import jakarta.batch.operations.JobExecutionAlreadyCompleteException;
+import jakarta.batch.operations.JobExecutionIsRunningException;
+import jakarta.batch.operations.JobExecutionNotMostRecentException;
+import jakarta.batch.operations.JobExecutionNotRunningException;
+import jakarta.batch.operations.JobOperator;
+import jakarta.batch.operations.JobRestartException;
+import jakarta.batch.operations.JobSecurityException;
+import jakarta.batch.operations.JobStartException;
+import jakarta.batch.operations.NoSuchJobException;
+import jakarta.batch.operations.NoSuchJobExecutionException;
+import jakarta.batch.operations.NoSuchJobInstanceException;
+import jakarta.batch.runtime.JobExecution;
+import jakarta.batch.runtime.JobInstance;
+import jakarta.batch.runtime.StepExecution;
 
 import org.jberet.operations.AbstractJobOperator;
 import org.jberet.runtime.JobExecutionImpl;
 import org.jberet.spi.BatchEnvironment;
+import org.jboss.as.controller.ControlledProcessState;
+import org.jboss.as.controller.ProcessStateNotifier;
 import org.jboss.as.server.suspend.ServerActivity;
 import org.jboss.as.server.suspend.ServerActivityCallback;
 import org.jboss.as.server.suspend.SuspendController;
-import org.jboss.msc.inject.Injector;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.InjectedValue;
 import org.wildfly.extension.batch.jberet.BatchConfiguration;
 import org.wildfly.extension.batch.jberet._private.BatchLogger;
 import org.wildfly.security.auth.server.SecurityDomain;
@@ -71,7 +72,7 @@ import org.wildfly.security.auth.server.SecurityIdentity;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
- * A delegating {@linkplain javax.batch.operations.JobOperator job operator} to interact with the batch environment on
+ * A delegating {@linkplain jakarta.batch.operations.JobOperator job operator} to interact with the batch environment on
  * deployments.
  * <p>
  * Note that for each method the job name, or derived job name, must exist for the deployment. The allowed job names and
@@ -84,14 +85,16 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  * </p>
  *
  * @author <a href="mailto:jperkins@redhat.com">James R. Perkins</a>
+ * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class JobOperatorService extends AbstractJobOperator implements WildFlyJobOperator, JobOperator, Service<JobOperator> {
     private static final Properties RESTART_PROPS = new Properties();
-
-    private final InjectedValue<BatchConfiguration> batchConfigurationInjector = new InjectedValue<>();
-    private final InjectedValue<SecurityAwareBatchEnvironment> batchEnvironmentInjector = new InjectedValue<>();
-    private final InjectedValue<ExecutorService> executorInjector = new InjectedValue<>();
-    private final InjectedValue<SuspendController> suspendControllerInjector = new InjectedValue<>();
+    private final Consumer<JobOperator> jobOperatorConsumer;
+    private final Supplier<BatchConfiguration> batchConfigurationSupplier;
+    private final Supplier<SecurityAwareBatchEnvironment> batchEnvironmentSupplier;
+    private final Supplier<ExecutorService> executorSupplier;
+    private final Supplier<SuspendController> suspendControllerSupplier;
+    private final Supplier<ProcessStateNotifier> processStateSupplier;
 
     private volatile SecurityAwareBatchEnvironment batchEnvironment;
     private volatile ClassLoader classLoader;
@@ -102,7 +105,19 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
 
     private final ThreadLocal<Boolean> permissionsCheckEnabled = ThreadLocal.withInitial(() -> Boolean.TRUE);
 
-    public JobOperatorService(final Boolean restartJobsOnResume, final String deploymentName, final WildFlyJobXmlResolver resolver) {
+    public JobOperatorService(final Consumer<JobOperator> jobOperatorConsumer,
+                              final Supplier<BatchConfiguration> batchConfigurationSupplier,
+                              final Supplier<SecurityAwareBatchEnvironment> batchEnvironmentSupplier,
+                              final Supplier<ExecutorService> executorSupplier,
+                              final Supplier<SuspendController> suspendControllerSupplier,
+                              final Supplier<ProcessStateNotifier> processStateSupplier,
+                              final Boolean restartJobsOnResume, final String deploymentName, final WildFlyJobXmlResolver resolver) {
+        this.jobOperatorConsumer = jobOperatorConsumer;
+        this.batchConfigurationSupplier = batchConfigurationSupplier;
+        this.batchEnvironmentSupplier = batchEnvironmentSupplier;
+        this.executorSupplier = executorSupplier;
+        this.suspendControllerSupplier = suspendControllerSupplier;
+        this.processStateSupplier = processStateSupplier;
         this.restartJobsOnResume = restartJobsOnResume;
         this.deploymentName = deploymentName;
         this.resolver = resolver;
@@ -111,17 +126,22 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
 
     @Override
     public void start(final StartContext context) throws StartException {
-        final BatchEnvironment batchEnvironment = this.batchEnvironment = batchEnvironmentInjector.getValue();
+        final BatchEnvironment batchEnvironment = this.batchEnvironment = batchEnvironmentSupplier.get();
         // Get the class loader from the environment
         classLoader = batchEnvironment.getClassLoader();
-        suspendControllerInjector.getValue().registerActivity(serverActivity);
+        serverActivity.initialize(processStateSupplier.get().getCurrentState(), suspendControllerSupplier.get().getState());
+        processStateSupplier.get().addPropertyChangeListener(serverActivity);
+        suspendControllerSupplier.get().registerActivity(serverActivity);
+        jobOperatorConsumer.accept(this);
     }
 
     @Override
     public void stop(final StopContext context) {
+        jobOperatorConsumer.accept(null);
         // Remove the server activity
-        suspendControllerInjector.getValue().unRegisterActivity(serverActivity);
-        final ExecutorService service = executorInjector.getValue();
+        suspendControllerSupplier.get().unRegisterActivity(serverActivity);
+        processStateSupplier.get().removePropertyChangeListener(serverActivity);
+        final ExecutorService service = executorSupplier.get();
 
         final Runnable task = () -> {
             // Should already be stopped, but just to be safe we'll make one more attempt
@@ -155,13 +175,9 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
     @Override
     public Set<String> getJobNames() throws JobSecurityException {
         checkState();
-        Set<String> set = new HashSet<>();
-        for (String s : super.getJobNames()) {
-            if (resolver.isValidJobName(s)) {
-                set.add(s);
-            }
-        }
-        return set;
+        // job repository does not know a job if it has not been started.
+        // So we rely on the resolver to provide complete job names for the deployment.
+        return resolver.getJobNames();
     }
 
     @Override
@@ -195,6 +211,18 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
         try {
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(classLoader);
             return super.getRunningExecutions(jobName);
+        } finally {
+            WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(current);
+        }
+    }
+
+    @Override
+    public List<Long> getJobExecutionsByJob(final String jobName) {
+        checkState(jobName);
+        final ClassLoader current = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
+        try {
+            WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(classLoader);
+            return super.getJobExecutionsByJob(jobName);
         } finally {
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(current);
         }
@@ -347,27 +375,6 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
         return resolver.getJobNames();
     }
 
-    public InjectedValue<BatchConfiguration> getBatchConfigurationInjector() {
-        return batchConfigurationInjector;
-    }
-
-    /**
-     * Set the batch environment to use for setting up the correct class loader for delegating executions.
-     *
-     * @return the injector used to inject the value in
-     */
-    public Injector<SecurityAwareBatchEnvironment> getBatchEnvironmentInjector() {
-        return batchEnvironmentInjector;
-    }
-
-    public Injector<ExecutorService> getExecutorServiceInjector() {
-        return executorInjector;
-    }
-
-    public InjectedValue<SuspendController> getSuspendControllerInjector() {
-        return suspendControllerInjector;
-    }
-
     private void checkState() {
         checkState(null);
     }
@@ -411,10 +418,17 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
     }
 
 
-    private class BatchJobServerActivity implements ServerActivity {
+    private class BatchJobServerActivity implements ServerActivity, PropertyChangeListener {
         private final AtomicBoolean jobsStopped = new AtomicBoolean(false);
         private final AtomicBoolean jobsRestarted = new AtomicBoolean(false);
         private final Collection<Long> stoppedIds = Collections.synchronizedCollection(new ArrayList<>());
+        private boolean suspended;
+        private boolean running;
+
+        private synchronized void initialize(ControlledProcessState.State processState, SuspendController.State suspendState) {
+            running = processState.isRunning();
+            suspended = suspendState != SuspendController.State.RUNNING;
+        }
 
         @Override
         public void preSuspend(final ServerActivityCallback serverActivityCallback) {
@@ -423,6 +437,9 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
 
         @Override
         public void suspended(final ServerActivityCallback serverActivityCallback) {
+            synchronized (this) {
+                suspended = true;
+            }
             try {
                 stopRunningJobs(isRestartOnResume());
             } finally {
@@ -432,7 +449,27 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
 
         @Override
         public void resume() {
-            restartStoppedJobs();
+            boolean doResume;
+            synchronized (this) {
+                suspended = false;
+                doResume = running;
+            }
+            if (doResume) {
+                restartStoppedJobs();
+            }
+        }
+
+        @Override
+        public void propertyChange(PropertyChangeEvent evt) {
+            boolean doResume;
+            synchronized (this) {
+                ControlledProcessState.State newState = (ControlledProcessState.State) evt.getNewValue();
+                running = newState.isRunning();
+                doResume = running && !suspended;
+            }
+            if (doResume) {
+                restartStoppedJobs();
+            }
         }
 
         private void stopRunningJobs(final boolean queueForRestart) {
@@ -442,23 +479,29 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
                 try {
                     // Use the deployment's class loader to stop jobs
                     WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(classLoader);
-                    final Collection<String> jobNames = getJobNames();
+
+                    // getJobNames() returns both active and inactive job names, so use
+                    // jobRepository.getJobNames() to get all active job names, which will
+                    // be filtered in the loop below for valid job names for the current deployment.
+                    final Collection<String> jobNames = getJobRepository().getJobNames();
                     // Look for running jobs and attempt to stop each one
                     for (String jobName : jobNames) {
-                        // Casting to (Supplier<List<Long>>) is done here on purpose as a workaround for a bug in 1.8.0_45
-                        final List<Long> runningJobs = allowMissingJob((Supplier<List<Long>>) () -> getRunningExecutions(jobName), Collections.emptyList());
-                        for (Long id : runningJobs) {
-                            try {
-                                BatchLogger.LOGGER.stoppingJob(id, jobName, deploymentName);
-                                // We want to skip the permissions check, we need to stop jobs regardless of the
-                                // permissions
-                                stop(id);
-                                // Queue for a restart on resume if required
-                                if (queueForRestart) {
-                                    stoppedIds.add(id);
+                        if (resolver.isValidJobName(jobName)) {
+                            // Casting to (Supplier<List<Long>>) is done here on purpose as a workaround for a bug in 1.8.0_45
+                            final List<Long> runningJobs = allowMissingJob((Supplier<List<Long>>) () -> getRunningExecutions(jobName), Collections.emptyList());
+                            for (Long id : runningJobs) {
+                                try {
+                                    BatchLogger.LOGGER.stoppingJob(id, jobName, deploymentName);
+                                    // We want to skip the permissions check, we need to stop jobs regardless of the
+                                    // permissions
+                                    stop(id);
+                                    // Queue for a restart on resume if required
+                                    if (queueForRestart) {
+                                        stoppedIds.add(id);
+                                    }
+                                } catch (Exception e) {
+                                    BatchLogger.LOGGER.stoppingJobFailed(e, id, jobName, deploymentName);
                                 }
-                            } catch (Exception e) {
-                                BatchLogger.LOGGER.stoppingJobFailed(e, id, jobName, deploymentName);
                             }
                         }
                     }
@@ -532,7 +575,7 @@ public class JobOperatorService extends AbstractJobOperator implements WildFlyJo
 
         private boolean isRestartOnResume() {
             if (restartJobsOnResume == null) {
-                return batchConfigurationInjector.getValue().isRestartOnResume();
+                return batchConfigurationSupplier.get().isRestartOnResume();
             }
             return restartJobsOnResume;
         }

@@ -26,8 +26,8 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 
 import java.util.PropertyPermission;
 
-import javax.ejb.EJBException;
-import javax.inject.Inject;
+import jakarta.ejb.EJBException;
+import jakarta.inject.Inject;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.transaction.xa.XAResource;
@@ -36,7 +36,7 @@ import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.test.integration.transactions.TransactionCheckerSingleton;
-import org.jboss.as.test.integration.transactions.TransactionTestLookupUtil;
+import org.jboss.as.test.integration.transactions.RemoteLookups;
 import org.jboss.as.test.integration.transactions.TxTestUtil;
 import org.jboss.as.test.integration.transactions.spi.TestLastResource;
 import org.jboss.shrinkwrap.api.Archive;
@@ -65,7 +65,7 @@ public class TransactionFirstPhaseErrorTestCase {
     public static Archive<?> createDeployment() {
         final JavaArchive jar = ShrinkWrap.create(JavaArchive.class, "test-txn-one-phase.jar")
         .addPackage(TxTestUtil.class.getPackage())
-        .addPackage(TestLastResource.class.getPackage())
+        .addClass(TestLastResource.class)
         .addClasses(InnerBean.class, OuterBean.class)
         .addAsManifestResource(new StringAsset("Dependencies: org.jboss.jboss-transaction-spi \n"), "MANIFEST.MF")
         // grant necessary permissions for -Dsecurity.manager
@@ -86,13 +86,13 @@ public class TransactionFirstPhaseErrorTestCase {
      */
     @Test
     public void xaOnePhaseCommitFail() throws Exception {
-        OuterBean bean = TransactionTestLookupUtil.lookupModule(initCtx, OuterBean.class);
+        OuterBean bean = RemoteLookups.lookupModule(initCtx, OuterBean.class);
         try {
             bean.outerMethodXA();
             Assert.fail("Expecting the one phase commit failed and exception was propagated to the caller.");
         } catch (EJBException expected) {
             Assert.assertTrue("Expecting on RMFAIL to get unknown state of the transaction outcome - ie. HeuristicMixedException",
-                    expected.getCause() != null && expected.getCause().getClass().equals(javax.transaction.HeuristicMixedException.class));
+                    expected.getCause() != null && expected.getCause().getClass().equals(jakarta.transaction.HeuristicMixedException.class));
         }
     }
 
@@ -104,7 +104,7 @@ public class TransactionFirstPhaseErrorTestCase {
      */
     @Test
     public void xaTwoPhaseCommitFail() throws Exception {
-        OuterBean bean = TransactionTestLookupUtil.lookupModule(initCtx, OuterBean.class);
+        OuterBean bean = RemoteLookups.lookupModule(initCtx, OuterBean.class);
         bean.outerMethod2pcXA();
     }
 
@@ -115,13 +115,13 @@ public class TransactionFirstPhaseErrorTestCase {
      */
     @Test
     public void localOnePhaseCommitFail() throws Exception {
-        OuterBean bean = TransactionTestLookupUtil.lookupModule(initCtx, OuterBean.class);
+        OuterBean bean = RemoteLookups.lookupModule(initCtx, OuterBean.class);
         try {
             bean.outerMethodLocal();
             Assert.fail("Expecting the one phase commit failed and exception was propagated to the caller.");
         } catch (EJBException expected) {
             Assert.assertTrue("Expecting on RMFAIL to get unknown state of the transaction outcome - ie. HeuristicMixedException",
-                    expected.getCause() != null && expected.getCause().getClass().equals(javax.transaction.HeuristicMixedException.class));
+                    expected.getCause() != null && expected.getCause().getClass().equals(jakarta.transaction.HeuristicMixedException.class));
         }
     }
 }

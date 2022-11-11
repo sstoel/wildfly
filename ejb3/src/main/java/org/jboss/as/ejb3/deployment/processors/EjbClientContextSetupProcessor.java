@@ -38,7 +38,7 @@ import org.jboss.as.ejb3.deployment.EjbDeploymentAttachmentKeys;
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.remote.EJBClientContextService;
 import org.jboss.as.ejb3.remote.RemotingProfileService;
-import org.jboss.as.remoting.AbstractOutboundConnectionService;
+import org.jboss.as.network.OutboundConnection;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
@@ -101,10 +101,6 @@ public class EjbClientContextSetupProcessor implements DeploymentUnitProcessor {
         for(final ComponentDescription component : moduleDescription.getComponentDescriptions()) {
             component.addDependency(registrationServiceName);
         }
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit deploymentUnit) {
     }
 
     private ServiceName getEJBClientContextServiceName(final DeploymentPhaseContext phaseContext) {
@@ -180,7 +176,7 @@ public class EjbClientContextSetupProcessor implements DeploymentUnitProcessor {
                             AuthenticationContext transformed = finalAuthenticationContext;
                             // now transform it
                             if (profileService != null) {
-                                for (RemotingProfileService.ConnectionSpec connectionSpec : profileService.getConnectionSpecs()) {
+                                for (RemotingProfileService.RemotingConnectionSpec connectionSpec : profileService.getConnectionSpecs()) {
                                     transformed = transformOne(connectionSpec, transformed);
                                 }
                             }
@@ -219,8 +215,8 @@ public class EjbClientContextSetupProcessor implements DeploymentUnitProcessor {
             return null;
         }
 
-        private static AuthenticationContext transformOne(RemotingProfileService.ConnectionSpec connectionSpec, AuthenticationContext context) {
-            final AbstractOutboundConnectionService connectionService = connectionSpec.getInjector().getValue();
+        private static AuthenticationContext transformOne(RemotingProfileService.RemotingConnectionSpec connectionSpec, AuthenticationContext context) {
+            final OutboundConnection connectionService = connectionSpec.getInjector().getValue();
             AuthenticationConfiguration authenticationConfiguration = connectionService.getAuthenticationConfiguration();
             SSLContext sslContext = connectionService.getSSLContext();
             final URI destinationUri = connectionService.getDestinationUri();

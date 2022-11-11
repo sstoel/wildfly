@@ -129,7 +129,7 @@ public class Configuration {
 
     /**
      * defaults to true, if changed to false (in the persistence.xml),
-     * the JPA container will not start the persistence unit service.
+     * the Jakarta Persistence container will not start the persistence unit service.
      */
     public static final String JPA_CONTAINER_MANAGED = "jboss.as.jpa.managed";
 
@@ -152,6 +152,8 @@ public class Configuration {
      */
     public static final String JPA_ALLOW_TWO_PHASE_BOOTSTRAP = "wildfly.jpa.twophasebootstrap";
 
+    private static final String JPA_ALLOW_APPLICATION_DEFINED_DATASOURCE = "wildfly.jpa.applicationdatasource";
+
     /**
      * set to false to ignore default data source (defaults to true)
      */
@@ -161,6 +163,11 @@ public class Configuration {
      * set to true to defer detaching entities until persistence context is closed (WFLY-3674)
      */
     private static final String JPA_DEFER_DETACH = "jboss.as.jpa.deferdetach";
+
+    /**
+     * set to true to defer detaching query results until persistence context is closed (WFLY-12674)
+     */
+    private static final String JPA_SKIP_QUERY_DETACH = "wildfly.jpa.skipquerydetach";
 
     /**
      * unique name for the persistence unit that is unique across all deployments (
@@ -178,7 +185,7 @@ public class Configuration {
     public static final String SKIPMIXEDSYNCTYPECHECKING = "wildfly.jpa.skipmixedsynctypechecking";
 
     /**
-     * Document properties that allow JPA apps to disable WildFly JTA platform/2lc integration for Hibernate ORM 5.3+ (WFLY-10433)
+     * Document properties that allow Jakarta Persistence apps to disable WildFly Jakarta Transactions platform/2lc integration for Hibernate ORM 5.3+ (WFLY-10433)
      * public static final String CONTROLJTAINTEGRATION = "wildfly.jpa.jtaplatform";
      * public static final String CONTROL2LCINTEGRATION = "wildfly.jpa.regionfactory";
      */
@@ -189,10 +196,49 @@ public class Configuration {
     public static final String HIBERNATE_SEARCH_MODULE = "wildfly.jpa.hibernate.search.module";
 
     /**
-     * name of the Hibernate Search module name
+     * name of the Hibernate Search module providing the ORM mapper
      */
-    public static final String PROVIDER_MODULE_HIBERNATE_SEARCH = "org.hibernate.search.orm";
+    public static final String HIBERNATE_SEARCH_MODULE_MAPPER_ORM = "org.hibernate.search.mapper.orm";
 
+    /**
+     * name of the Hibernate Search module providing the outbox-polling coordination strategy
+     */
+    public static final String HIBERNATE_SEARCH_MODULE_MAPPER_ORM_COORDINATION_OUTBOXPOLLING = "org.hibernate.search.mapper.orm.coordination.outboxpolling";
+
+    /**
+     * name of the Hibernate Search module providing the Lucene backend
+     */
+    public static final String HIBERNATE_SEARCH_MODULE_BACKEND_LUCENE = "org.hibernate.search.backend.lucene";
+
+    /**
+     * name of the Hibernate Search module providing the Elasticsearch backend
+     */
+    public static final String HIBERNATE_SEARCH_MODULE_BACKEND_ELASTICSEARCH = "org.hibernate.search.backend.elasticsearch";
+
+    /**
+     * name of the Hibernate Search configuration property allowing to set the backend type
+     */
+    public static final String HIBERNATE_SEARCH_BACKEND_TYPE = "hibernate.search.backend.type";
+
+    /**
+     * The value of the {@link #HIBERNATE_SEARCH_BACKEND_TYPE} property that identifies the use of a Lucene backend.
+     */
+    public static final String HIBERNATE_SEARCH_BACKEND_TYPE_VALUE_LUCENE = "lucene";
+
+    /**
+     * The value of the {@link #HIBERNATE_SEARCH_BACKEND_TYPE} property that identifies the use of an Elasticsearch backend.
+     */
+    public static final String HIBERNATE_SEARCH_BACKEND_TYPE_VALUE_ELASTICSEARCH = "elasticsearch";
+
+    /**
+     * Name of the Hibernate Search configuration property allowing to set the coordination strategy
+     */
+    public static final String HIBERNATE_SEARCH_COORDINATION_STRATEGY = "hibernate.search.coordination.strategy";
+
+    /**
+     * The value of the {@link #HIBERNATE_SEARCH_COORDINATION_STRATEGY} property that identifies the use of an Elasticsearch backend.
+     */
+    public static final String HIBERNATE_SEARCH_COORDINATION_STRATEGY_VALUE_OUTBOX_POLLING = "outbox-polling";
 
     private static final String EE_DEFAULT_DATASOURCE = "java:comp/DefaultDataSource";
     // key = provider class name, value = module name
@@ -292,6 +338,20 @@ public class Configuration {
     }
 
     /**
+     * Determine if persistence unit can use application defined DataSource (e.g. DataSourceDefinition or resource ref).
+     *
+     * @param pu
+     * @return true if application defined DataSource can be used, false (default) if not.
+     */
+    public static boolean allowApplicationDefinedDatasource(PersistenceUnitMetadata pu) {
+        boolean result = false;
+        if (pu.getProperties().containsKey(Configuration.JPA_ALLOW_APPLICATION_DEFINED_DATASOURCE)) {
+            result = Boolean.parseBoolean(pu.getProperties().getProperty(Configuration.JPA_ALLOW_APPLICATION_DEFINED_DATASOURCE));
+        }
+        return result;
+    }
+
+    /**
      * Determine if the default data-source should be used
      *
      * @param pu
@@ -307,7 +367,7 @@ public class Configuration {
 
     /**
      * Return true if detaching of managed entities should be deferred until the entity manager is closed.
-     * Note:  only applies to transaction scoped entity managers used without an active JTA transaction.
+     * Note:  only applies to transaction scoped entity managers used without an active Jakarta Transactions transaction.
      *
      * @param properties
      * @return
@@ -316,6 +376,20 @@ public class Configuration {
         boolean result = false;
         if ( properties.containsKey(JPA_DEFER_DETACH))
             result = Boolean.parseBoolean((String)properties.get(JPA_DEFER_DETACH));
+        return result;
+    }
+
+    /**
+     * Return true if detaching of query results (entities) should be deferred until the entity manager is closed.
+     * Note:  only applies to transaction scoped entity managers used without an active Jakarta Transactions transaction.
+     *
+     * @param properties
+     * @return
+     */
+    public static boolean skipQueryDetach(final Map<String, Object> properties) {
+        boolean result = false;
+        if ( properties.containsKey(JPA_SKIP_QUERY_DETACH))
+            result = Boolean.parseBoolean((String)properties.get(JPA_SKIP_QUERY_DETACH));
         return result;
     }
 
@@ -368,4 +442,5 @@ public class Configuration {
         }
         return result;
     }
+
 }

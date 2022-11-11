@@ -24,7 +24,7 @@ package org.jboss.as.jaxrs.deployment;
 
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.core.Application;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -46,7 +46,7 @@ public class ResteasyDeploymentData {
     private final Set<String> scannedJndiComponentResources = new LinkedHashSet<String>();
 
     /**
-     * Merges a list of additional JAX-RS deployment data with this lot of deployment data.
+     * Merges a list of additional Jakarta RESTful Web Services deployment data with this lot of deployment data.
      *
      * @param deploymentData
      */

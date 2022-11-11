@@ -30,10 +30,9 @@ import org.jboss.as.server.deployment.module.ModuleDependency;
 import org.jboss.as.server.deployment.module.ModuleSpecification;
 import org.jboss.modules.Module;
 import org.jboss.modules.ModuleLoader;
-import org.wildfly.extension.microprofile.config.smallrye.ServiceNames;
 
 /**
- * Add dependencies required by deployment unit to access the Config API (programmatically or using CDI).
+ * Add dependencies required by deployment unit to access the Config API (programmatically or using Jakarta Contexts and Dependency Injection).
  */
 public class DependencyProcessor implements DeploymentUnitProcessor {
 
@@ -42,12 +41,6 @@ public class DependencyProcessor implements DeploymentUnitProcessor {
         DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
 
         addDependencies(deploymentUnit);
-
-        phaseContext.addDeploymentDependency(ServiceNames.CONFIG_PROVIDER, SubsystemDeploymentProcessor.CONFIG_PROVIDER_RESOLVER);
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
     }
 
     private void addDependencies(DeploymentUnit deploymentUnit) {

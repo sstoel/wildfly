@@ -22,42 +22,45 @@
 package org.jboss.as.test.clustering;
 
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import javax.ejb.Remote;
-import javax.ejb.Stateless;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateless;
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
 
 import org.infinispan.Cache;
+import org.infinispan.commons.util.concurrent.CompletableFutures;
 import org.infinispan.distribution.DistributionManager;
 import org.infinispan.distribution.LocalizedCacheTopology;
+import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.notifications.Listener;
+import org.infinispan.notifications.Listener.Observation;
 import org.infinispan.notifications.cachelistener.annotation.TopologyChanged;
 import org.infinispan.notifications.cachelistener.event.TopologyChangedEvent;
-import org.jboss.as.server.CurrentServiceContainer;
+import org.infinispan.util.concurrent.BlockingManager;
 import org.jboss.logging.Logger;
-import org.jboss.msc.service.ServiceName;
-import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
-import org.wildfly.clustering.service.PassiveServiceSupplier;
 
 /**
- * EJB that establishes a stable topology.
+ * Jakarta Enterprise Beans that establishes a stable topology.
  * @author Paul Ferraro
  */
 @Stateless
 @Remote(TopologyChangeListener.class)
-@Listener(sync = false)
-public class TopologyChangeListenerBean implements TopologyChangeListener {
+@Listener(observation = Observation.POST)
+public class TopologyChangeListenerBean implements TopologyChangeListener, Runnable {
 
     private static final Logger logger = Logger.getLogger(TopologyChangeListenerBean.class);
 
     @Override
     public void establishTopology(String containerName, String cacheName, long timeout, String... nodes) throws InterruptedException {
         Set<String> expectedMembers = Stream.of(nodes).sorted().collect(Collectors.toSet());
-        ServiceName name = ServiceName.parse(InfinispanCacheRequirement.CACHE.resolve(containerName, cacheName));
-        Cache<?, ?> cache = new PassiveServiceSupplier<Cache<?, ?>>(CurrentServiceContainer.getServiceContainer(), name).get();
+        Cache<?, ?> cache = findCache(containerName, cacheName);
         if (cache == null) {
-            throw new IllegalStateException(String.format("Cache %s not found", name));
+            throw new IllegalStateException(String.format("Cache %s.%s not found", containerName, cacheName));
         }
         cache.addListener(this);
         try {
@@ -85,16 +88,36 @@ public class TopologyChangeListenerBean implements TopologyChangeListener {
         }
     }
 
+    private static Cache<?, ?> findCache(String containerName, String cacheName) {
+        try {
+            Context context = new InitialContext();
+            try {
+                EmbeddedCacheManager manager = (EmbeddedCacheManager) context.lookup("java:jboss/infinispan/container/" + containerName);
+                return manager.cacheExists(cacheName) ? manager.getCache(cacheName) : null;
+            } finally {
+                context.close();
+            }
+        } catch (NamingException e) {
+            return null;
+        }
+    }
+
     private static Set<String> getMembers(LocalizedCacheTopology topology) {
         return topology.getMembers().stream().map(Object::toString).sorted().collect(Collectors.toSet());
     }
 
     @TopologyChanged
-    public void topologyChanged(TopologyChangedEvent<?, ?> event) {
-        if (!event.isPre()) {
-            synchronized (this) {
-                this.notify();
-            }
+    public CompletionStage<Void> topologyChanged(TopologyChangedEvent<?, ?> event) {
+        @SuppressWarnings("deprecation")
+        BlockingManager blocking = event.getCache().getCacheManager().getGlobalComponentRegistry().getComponent(BlockingManager.class);
+        blocking.asExecutor(this.getClass().getName()).execute(this);
+        return CompletableFutures.completedNull();
+    }
+
+    @Override
+    public void run() {
+        synchronized (this) {
+            this.notify();
         }
     }
 }

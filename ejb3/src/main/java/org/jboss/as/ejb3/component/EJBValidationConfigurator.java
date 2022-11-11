@@ -22,6 +22,8 @@
 
 package org.jboss.as.ejb3.component;
 
+import static org.jboss.as.ejb3.util.MethodInfoHelper.EMPTY_STRING_ARRAY;
+
 import java.lang.reflect.Constructor;
 
 import org.jboss.as.ee.component.ComponentConfiguration;
@@ -36,7 +38,7 @@ import org.jboss.as.server.deployment.reflect.ClassReflectionIndex;
 
 /**
  *
- * Configurator that validates than an EJB class does not validate the EJB specification
+ * Configurator that validates than an Jakarta Enterprise Beans class does not validate the Jakarta Enterprise Beans specification
  *
  * @author Stuart Douglas
  */
@@ -51,7 +53,7 @@ public class EJBValidationConfigurator implements ComponentConfigurator {
     @Override
     public void configure(final DeploymentPhaseContext context, final ComponentDescription description, final ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
         final ClassReflectionIndex classIndex = context.getDeploymentUnit().getAttachment(Attachments.REFLECTION_INDEX).getClassIndex(configuration.getComponentClass());
-        final Constructor<?> ctor = classIndex.getConstructor(new String[0]);
+        final Constructor<?> ctor = classIndex.getConstructor(EMPTY_STRING_ARRAY);
         boolean noInterface = false;
         for(ViewDescription view : description.getViews()) {
             if(view.getViewClassName().equals(description.getComponentClassName())) {

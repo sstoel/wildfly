@@ -1,20 +1,20 @@
-<subsystem xmlns="urn:jboss:domain:resource-adapters:5.0">
+<subsystem xmlns="urn:jboss:domain:resource-adapters:6.1">
   <!--Optional:-->
   <resource-adapters>
     <!--1 or more repetitions:-->
     <resource-adapter id="myRA">
       <!--Optional:-->
         <archive>archive</archive>
-      <!--Optional:-->
-      <bootstrap-context>${test.expr:bootstrapContext}</bootstrap-context>
       <bean-validation-groups>
         <!--1 or more repetitions:-->
         <bean-validation-group>${test.expr:group}</bean-validation-group>
       </bean-validation-groups>
       <!--Optional:-->
-      <transaction-support>XATransaction</transaction-support>
+      <bootstrap-context>${test.expr:bootstrapContext}</bootstrap-context>
       <!--Zero or more repetitions:-->
-      <config-property name="config1">value</config-property>
+      <config-property name="config1">${test.expr:value}</config-property>
+      <!--Optional:-->
+      <transaction-support>${test.expr:XATransaction}</transaction-support>
       <!--Optional:-->
       <connection-definitions>
         <!--1 or more repetitions:-->
@@ -39,7 +39,7 @@
                 <!--Optional:-->
                 <is-same-rm-override>${test.expr:true}</is-same-rm-override>
                 <!--Optional:-->
-                <interleaving/>
+                <interleaving>${test.expr:false}</interleaving>
                 <!--Optional:-->
                 <no-tx-separate-pools/>
                 <!--Optional:-->
@@ -97,4 +97,5 @@
       </admin-objects>
     </resource-adapter>
   </resource-adapters>
+  <report-directory path="/tmp"/>
 </subsystem>

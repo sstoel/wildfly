@@ -49,7 +49,7 @@ import org.junit.runner.RunWith;
 
 /**
  * Simple test to cover the deployment of a simple web application whithout any internal broker.
- * Checks that without the default JMS factory all is working properly.
+ * Checks that without the default Jakarta Messaging factory all is working properly.
  *
  * @author Emmanuel Hugonnet (c) 2018 Red Hat, inc.
  */
@@ -69,7 +69,7 @@ public class NoBrokerMessagingTestCase {
         public void doSetup(org.jboss.as.arquillian.container.ManagementClient managementClient, String s) throws Exception {
             execute(managementClient, Operations.createUndefineAttributeOperation(PathAddress.parseCLIStyleAddress("/subsystem=ee/service=default-bindings").toModelNode(), "jms-connection-factory"), true);
             execute(managementClient, Operations.createRemoveOperation(PathAddress.parseCLIStyleAddress("/subsystem=messaging-activemq/server=default").toModelNode()), true);
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient());
+            ServerReload.executeReloadAndWaitForCompletion(managementClient);
         }
 
         private ModelNode execute(final org.jboss.as.arquillian.container.ManagementClient managementClient, final ModelNode op, final boolean expectSuccess) throws IOException {

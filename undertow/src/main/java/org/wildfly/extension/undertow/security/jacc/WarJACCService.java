@@ -39,7 +39,7 @@ import javax.security.jacc.WebResourcePermission;
 import javax.security.jacc.WebRoleRefPermission;
 import javax.security.jacc.WebUserDataPermission;
 
-import org.jboss.as.security.service.JaccService;
+import org.jboss.as.ee.security.JaccService;
 import org.jboss.as.web.common.WarMetaData;
 import org.jboss.metadata.javaee.spec.SecurityRoleRefMetaData;
 import org.jboss.metadata.javaee.spec.SecurityRoleRefsMetaData;
@@ -56,7 +56,7 @@ import org.jboss.metadata.web.spec.WebResourceCollectionMetaData;
 import org.jboss.metadata.web.spec.WebResourceCollectionsMetaData;
 
 /**
- * A service that creates JACC permissions for a web deployment
+ * A service that creates Jakarta Authorization permissions for a web deployment
  * @author Scott.Stark@jboss.org
  * @author Anil.Saldhana@jboss.org
  * @author <a href="mailto:mmoyses@redhat.com">Marcus Moyses</a>
@@ -307,12 +307,10 @@ public class WarJACCService extends JaccService<WarMetaData> {
             //there are totally 7 http methods from the jacc spec (See WebResourceCollectionMetaData.ALL_HTTP_METHOD_NAMES)
             final int NUMBER_OF_HTTP_METHODS = 7;
             // JACC 1.1: create !(httpmethods) in unchecked perms
-            if(jbossWebMetaData.getDenyUncoveredHttpMethods() == null) {
-                if (seenMethods.size() != NUMBER_OF_HTTP_METHODS) {
-                    WebResourcePermission wrpUnchecked = new WebResourcePermission(qurl, "!"
-                            + getCommaSeparatedString(seenMethods.toArray(new String[seenMethods.size()])));
-                    pc.addToUncheckedPolicy(wrpUnchecked);
-                }
+            if(jbossWebMetaData.getDenyUncoveredHttpMethods() == null && seenMethods.size() != NUMBER_OF_HTTP_METHODS) {
+                WebResourcePermission wrpUnchecked = seenMethods.isEmpty() ? new WebResourcePermission(qurl, (String) null)
+                        : new WebResourcePermission(qurl, "!" + getCommaSeparatedString(seenMethods.toArray(new String[seenMethods.size()])));
+                pc.addToUncheckedPolicy(wrpUnchecked);
             }
             if (jbossWebMetaData.getDenyUncoveredHttpMethods() == null) {
                 // Create the unchecked permissions
@@ -442,7 +440,7 @@ public class WarJACCService extends JaccService<WarMetaData> {
     }
 
     /**
-     * JACC url pattern Qualified URL Pattern Names.
+     * Jakarta Authorization url pattern Qualified URL Pattern Names.
      *
      * The rules for qualifying a URL pattern are dependent on the rules for determining if one URL pattern matches another as
      * defined in Section 3.1.3.3, Servlet URL-Pattern Matching Rules, and are described as follows: - If the pattern is a path
@@ -662,7 +660,7 @@ public class WarJACCService extends JaccService<WarMetaData> {
          */
         void addExcludedMethods(List<String> httpMethods) {
             Collection<String> methods = httpMethods;
-            if (methods.size() == 0)
+            if (methods.isEmpty())
                 methods = WebResourceCollectionMetaData.ALL_HTTP_METHODS;
             if (excludedMethods == null)
                 excludedMethods = new HashSet<String>();
@@ -692,7 +690,7 @@ public class WarJACCService extends JaccService<WarMetaData> {
          */
         public void addRoles(HashSet<String> mappedRoles, List<String> httpMethods) {
             Collection<String> methods = httpMethods;
-            if (methods.size() == 0)
+            if (methods.isEmpty())
                 methods = WebResourceCollectionMetaData.ALL_HTTP_METHODS;
             allMethods.addAll(methods);
             if (roles == null)
@@ -728,7 +726,7 @@ public class WarJACCService extends JaccService<WarMetaData> {
          */
         void addTransport(String transport, List<String> httpMethods) {
             Collection<String> methods = httpMethods;
-            if (methods.size() == 0)
+            if (methods.isEmpty())
                 methods = WebResourceCollectionMetaData.ALL_HTTP_METHODS;
             if (transports == null)
                 transports = new HashMap<String, Set<String>>();
@@ -760,7 +758,7 @@ public class WarJACCService extends JaccService<WarMetaData> {
          */
         public String[] getMissingMethods() {
             String[] httpMethods = {};
-            if (allMethods.size() == 0) {
+            if (allMethods.isEmpty()) {
                 // There were no excluded or role based security-constraints
                 httpMethods = WebResourceCollectionMetaData.ALL_HTTP_METHOD_NAMES;
             } else {
@@ -807,6 +805,9 @@ public class WarJACCService extends JaccService<WarMetaData> {
         }
 
         public boolean equals(Object obj) {
+            if(!(obj instanceof PatternInfo)) {
+                return false;
+            }
             PatternInfo pi = (PatternInfo) obj;
             return pattern.equals(pi.pattern);
         }
@@ -818,7 +819,11 @@ public class WarJACCService extends JaccService<WarMetaData> {
          * @return true if the other pattern starts with this pattern less the "/*", false otherwise
          */
         public boolean matches(PatternInfo other) {
-            int matchLength = pattern.length() - 2;
+            if ("/*".equals(pattern)) {
+                // all patterns except EXACT ones are matched (and EXACT ones are never checked)
+                return true;
+            }
+            int matchLength = pattern.length() - 1;
             boolean matches = pattern.regionMatches(0, other.pattern, 0, matchLength);
             return matches;
         }
@@ -831,10 +836,9 @@ public class WarJACCService extends JaccService<WarMetaData> {
          */
         public boolean isExtensionFor(PatternInfo other) {
             int offset = other.pattern.lastIndexOf('.');
-            int length = pattern.length() - 1;
             boolean isExtensionFor = false;
             if (offset > 0) {
-                isExtensionFor = pattern.regionMatches(1, other.pattern, offset, length);
+                isExtensionFor = other.pattern.endsWith(pattern.substring(1));
             }
             return isExtensionFor;
         }

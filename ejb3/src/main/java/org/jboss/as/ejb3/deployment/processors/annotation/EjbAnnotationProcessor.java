@@ -26,20 +26,20 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.security.DenyAll;
-import javax.annotation.security.PermitAll;
-import javax.ejb.AfterBegin;
-import javax.ejb.AfterCompletion;
-import javax.ejb.Asynchronous;
-import javax.ejb.BeforeCompletion;
-import javax.ejb.Startup;
+import jakarta.annotation.security.DenyAll;
+import jakarta.annotation.security.PermitAll;
+import jakarta.ejb.AfterBegin;
+import jakarta.ejb.AfterCompletion;
+import jakarta.ejb.Asynchronous;
+import jakarta.ejb.BeforeCompletion;
+import jakarta.ejb.Startup;
 
 import org.jboss.as.ee.component.deployers.BooleanAnnotationInformationFactory;
 import org.jboss.as.ee.metadata.AbstractEEAnnotationProcessor;
 import org.jboss.as.ee.metadata.ClassAnnotationInformationFactory;
 
 /**
- * Processes EJB annotations and attaches them to the {@link org.jboss.as.ee.component.EEModuleClassDescription}
+ * Processes Jakarta Enterprise Beans annotations and attaches them to the {@link org.jboss.as.ee.component.EEModuleClassDescription}
  *
  * @author Stuart Douglas
  */
@@ -78,7 +78,6 @@ public class EjbAnnotationProcessor extends AbstractEEAnnotationProcessor {
         factories.add(new RunAsAnnotationInformationFactory());
         factories.add(new RunAsPrincipalAnnotationInformationFactory());
         factories.add(new SecurityDomainAnnotationInformationFactory());
-        factories.add(new LegacySecurityDomainAnnotationInformationFactory());
         factories.add(new DeclareRolesAnnotationInformationFactory());
         factories.add(new RolesAllowedAnnotationInformationFactory());
         factories.add(new BooleanAnnotationInformationFactory<DenyAll>(DenyAll.class));

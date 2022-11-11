@@ -39,7 +39,7 @@ import org.junit.runner.RunWith;
 import static org.junit.Assert.assertEquals;
 
 /**
- * Tests the JAX-RS async response functionality
+ * Tests the Jakarta RESTful Web Services async response functionality
  *
  * @author Stuart Douglas
  */
@@ -53,7 +53,7 @@ public class JaxrsAsyncTestCase {
         war.addPackage(HttpRequest.class.getPackage());
         war.addPackage(JaxrsAsyncTestCase.class.getPackage());
         war.addAsWebInfResource(WebXml.get("<servlet-mapping>\n" +
-                "        <servlet-name>javax.ws.rs.core.Application</servlet-name>\n" +
+                "        <servlet-name>jakarta.ws.rs.core.Application</servlet-name>\n" +
                 "        <url-pattern>/myjaxrs/*</url-pattern>\n" +
                 "    </servlet-mapping>\n" +
                 "\n"),"web.xml");

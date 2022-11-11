@@ -22,11 +22,7 @@ import java.security.Principal;
 import java.security.PrivateKey;
 import java.security.PrivilegedAction;
 import java.security.PublicKey;
-import java.security.acl.Group;
 import java.security.cert.X509Certificate;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.HashSet;
 import java.util.Set;
 
 import javax.crypto.SecretKey;
@@ -62,23 +58,30 @@ public final class SubjectUtil {
     public static Subject fromSecurityIdentity(final SecurityIdentity securityIdentity) {
         return fromSecurityIdentity(securityIdentity, new Subject());
     }
+
     public static Subject fromSecurityIdentity(final SecurityIdentity securityIdentity, Subject subject) {
+
         if (subject == null) {
             subject = new Subject();
         }
+        // The first principal added must be the security identity principal
+        // as logic in both CXF and JBoss WS look for the first non-Group principal
         subject.getPrincipals().add(securityIdentity.getPrincipal());
 
-        // add the 'Roles' group to the subject containing the identity's mapped roles.
-        Group rolesGroup = new SimpleGroup("Roles");
-        for (String role : securityIdentity.getRoles()) {
-            rolesGroup.addMember(new NamePrincipal(role));
+        Roles identityRoles = securityIdentity.getRoles();
+        // Just add a simple principal for each role instead of aggregating them in a Group.
+        // CXF can use such principals when identifying the subject's roles
+        String principalName = securityIdentity.getPrincipal().getName();
+        Set<Principal> principals = subject.getPrincipals();
+        for (String role : identityRoles) {
+            if (!principalName.equals(role)) {
+                principals.add(new NamePrincipal(role));
+            }
         }
-        subject.getPrincipals().add(rolesGroup);
 
-        // add a 'CallerPrincipal' group containing the identity's principal.
-        Group callerPrincipalGroup = new SimpleGroup("CallerPrincipal");
-        callerPrincipalGroup.addMember(securityIdentity.getPrincipal());
-        subject.getPrincipals().add(callerPrincipalGroup);
+        // Don't bother with the 'CallerPrincipal' group, since if there is no Group class,
+        // legacy security realms that use that Group to find the 'caller principal' cannot
+        // be in use
 
         // process the identity's public and private credentials.
         for (Credential credential : securityIdentity.getPublicCredentials()) {
@@ -131,21 +134,17 @@ public final class SubjectUtil {
 
     public static SecurityIdentity convertToSecurityIdentity(Subject subject, Principal principal, SecurityDomain domain,
             String roleCategory) {
-        SecurityIdentity identity = domain.createAdHocIdentity(principal);
-        // convert subject Group
-        Set<String> roles = new HashSet<>();
-        for (Principal prin : subject.getPrincipals()) {
-            if (prin instanceof Group && "Roles".equalsIgnoreCase(prin.getName())) {
-                Enumeration<? extends Principal> enumeration = ((Group) prin).members();
-                while (enumeration.hasMoreElements()) {
-                    roles.add(enumeration.nextElement().getName());
-                }
+        SecurityIdentity identity = null;
+        for (Object obj : subject.getPrivateCredentials()) {
+            if (obj instanceof SecurityIdentity) {
+                identity = (SecurityIdentity)obj;
+                break;
             }
         }
-        if (!roles.isEmpty()) {
-            // identity.withRoleMapper will create NEW identity instance instead of set this roleMapper to identity
-            identity = identity.withRoleMapper(roleCategory, (rolesToMap) -> Roles.fromSet(roles));
+        if (identity == null) {
+            identity = domain.createAdHocIdentity(principal);
         }
+
         // convert public credentials
         IdentityCredentials publicCredentials = IdentityCredentials.NONE;
         for (Object credential : subject.getPublicCredentials()) {
@@ -158,8 +157,9 @@ public final class SubjectUtil {
                 publicCredentials = publicCredentials.withCredential((Credential) credential);
             }
         }
-        identity = identity.withPublicCredentials(publicCredentials);
-
+        if (!publicCredentials.equals(IdentityCredentials.NONE)) {
+            identity = identity.withPublicCredentials(publicCredentials);
+        }
         // convert private credentials
         IdentityCredentials privateCredentials = IdentityCredentials.NONE;
         for (Object credential : subject.getPrivateCredentials()) {
@@ -176,46 +176,10 @@ public final class SubjectUtil {
                 privateCredentials = privateCredentials.withCredential((Credential) credential);
             }
         }
-        identity = identity.withPrivateCredentials(privateCredentials);
+        if (!privateCredentials.equals(IdentityCredentials.NONE)) {
+            identity = identity.withPrivateCredentials(privateCredentials);
+        }
 
         return identity;
-    }
-
-
-    private static class SimpleGroup implements Group {
-
-        private final String name;
-
-        private final Set<Principal> principals;
-
-        SimpleGroup(final String name) {
-            this.name = name;
-            this.principals = new HashSet<>();
-        }
-
-        @Override
-        public String getName() {
-            return this.name;
-        }
-
-        @Override
-        public boolean addMember(Principal principal) {
-            return this.principals.add(principal);
-        }
-
-        @Override
-        public boolean removeMember(Principal principal) {
-            return this.principals.remove(principal);
-        }
-
-        @Override
-        public Enumeration<? extends Principal> members() {
-            return Collections.enumeration(this.principals);
-        }
-
-        @Override
-        public boolean isMember(Principal principal) {
-            return this.principals.contains(principal);
-        }
     }
 }

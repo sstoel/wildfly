@@ -110,7 +110,7 @@ public class EJB3Subsystem50Parser extends EJB3Subsystem40Parser {
         }
     }
 
-    private void parseApplicationSecurityDomain(final XMLExtendedStreamReader reader, final List<ModelNode> operations) throws XMLStreamException {
+    protected void parseApplicationSecurityDomain(final XMLExtendedStreamReader reader, final List<ModelNode> operations) throws XMLStreamException {
         String applicationSecurityDomain = null;
         ModelNode operation = Util.createAddOperation();
         final int count = reader.getAttributeCount();
@@ -264,7 +264,7 @@ public class EJB3Subsystem50Parser extends EJB3Subsystem40Parser {
         }
     }
 
-    private ModelNode parseStaticEjbDiscoveryType(final XMLExtendedStreamReader reader) throws XMLStreamException {
+    protected ModelNode parseStaticEjbDiscoveryType(final XMLExtendedStreamReader reader) throws XMLStreamException {
         ModelNode staticDiscovery = new ModelNode();
         while (reader.hasNext() && reader.nextTag() != END_ELEMENT) {
             switch (EJB3SubsystemXMLElement.forName(reader.getLocalName())) {

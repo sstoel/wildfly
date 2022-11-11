@@ -22,6 +22,8 @@
 
 package org.jboss.as.connector.services.resourceadapters;
 
+import org.jboss.as.naming.ContextListAndJndiViewManagedReferenceFactory;
+import org.jboss.as.naming.ContextListManagedReferenceFactory;
 import org.jboss.as.naming.ManagedReference;
 import org.jboss.as.naming.ManagedReferenceFactory;
 import org.jboss.as.naming.ValueManagedReference;
@@ -31,14 +33,13 @@ import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
-import org.jboss.msc.value.ImmediateValue;
 import org.jboss.msc.value.InjectedValue;
 
 /**
  * Service responsible for exposing a {@link ManagedReferenceFactory} for an admin object
  * @author @author <a href="mailto:stefano.maestri@redhat.com">Stefano Maestri</a>
  */
-public class AdminObjectReferenceFactoryService implements Service<ManagedReferenceFactory>, ManagedReferenceFactory {
+public class AdminObjectReferenceFactoryService implements Service<ManagedReferenceFactory>, ContextListAndJndiViewManagedReferenceFactory {
     public static final ServiceName SERVICE_NAME_BASE =
         ServiceName.JBOSS.append("connector").append("admin-object").append("reference-factory");
 
@@ -46,7 +47,7 @@ public class AdminObjectReferenceFactoryService implements Service<ManagedRefere
     private ManagedReference reference;
 
     public synchronized void start(StartContext startContext) throws StartException {
-        reference = new ValueManagedReference(new ImmediateValue<Object>(adminObjectValue.getValue()));
+        reference = new ValueManagedReference(adminObjectValue.getValue());
     }
 
     public synchronized void stop(StopContext stopContext) {
@@ -63,5 +64,17 @@ public class AdminObjectReferenceFactoryService implements Service<ManagedRefere
 
     public Injector<Object> getAdminObjectInjector() {
         return adminObjectValue;
+    }
+
+    @Override
+    public String getInstanceClassName() {
+        final Object value = reference != null ? reference.getInstance() : null;
+        return value != null ? value.getClass().getName() : ContextListManagedReferenceFactory.DEFAULT_INSTANCE_CLASS_NAME;
+    }
+
+    @Override
+    public String getJndiViewInstanceValue() {
+        final Object value = reference != null ? reference.getInstance() : null;
+        return String.valueOf(value);
     }
 }

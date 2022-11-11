@@ -21,7 +21,7 @@
  */
 package org.jboss.as.ejb3.deployment.processors.dd;
 
-import javax.interceptor.InvocationContext;
+import jakarta.interceptor.InvocationContext;
 
 import org.jboss.as.ee.component.Attachments;
 import org.jboss.as.ee.component.DeploymentDescriptorEnvironment;
@@ -165,9 +165,5 @@ public class InterceptorClassDeploymentDescriptorProcessor implements Deployment
             }
         }
 
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
     }
 }

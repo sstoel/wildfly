@@ -53,7 +53,7 @@ import org.jboss.wsf.spi.metadata.jms.JMSEndpointMetaData;
 import org.jboss.wsf.spi.metadata.jms.JMSEndpointsMetaData;
 
 /**
- * DUP for detecting JMS WS endpoints
+ * DUP for detecting Jakarta Messaging WS endpoints
  *
  * @author <a href="mailto:alessio.soldano@jboss.com">Alessio Soldano</a>
  */
@@ -124,11 +124,6 @@ public final class WSIntegrationProcessorJAXWS_JMS implements DeploymentUnitProc
 
         }
         unit.putAttachment(JMS_ENDPOINT_METADATA_KEY, new JMSEndpointsMetaData(list));
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
-        // NOOP
     }
 
     private static ResourceRoot getWsdlResourceRoot(final DeploymentUnit unit, final String wsdlPath) {

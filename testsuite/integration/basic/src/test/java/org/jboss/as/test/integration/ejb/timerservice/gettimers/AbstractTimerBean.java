@@ -25,10 +25,10 @@ package org.jboss.as.test.integration.ejb.timerservice.gettimers;
 
 import java.util.Collection;
 
-import javax.annotation.Resource;
-import javax.ejb.Timeout;
-import javax.ejb.Timer;
-import javax.ejb.TimerService;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Timeout;
+import jakarta.ejb.Timer;
+import jakarta.ejb.TimerService;
 
 import org.jboss.logging.Logger;
 
@@ -51,7 +51,7 @@ public abstract class AbstractTimerBean {
         }
         for (int i = 0; i < NUMBER_OF_TIMERS; i++) {
             String name = getClass().getSimpleName() + "#" + i;
-            logger.infof("Starting timer %s", name);
+            logger.debugf("Starting timer %s", name);
             timerService.createTimer(100000, 100000, name); // doesn't really need any timeouts to happen
         }
     }
@@ -61,9 +61,9 @@ public abstract class AbstractTimerBean {
     }
 
     public void stopTimers() {
-        logger.infof("Stopping all timers.");
+        logger.debug("Stopping all timers.");
         for (Timer timer: timerService.getTimers()) {
-            logger.infof("Stopping timer %s.", timer.getInfo().toString());
+            logger.debugf("Stopping timer %s.", timer.getInfo().toString());
             timer.cancel();
         }
     }

@@ -23,8 +23,8 @@ package org.jboss.as.test.integration.ejb.timerservice.suspend;
 
 import java.io.FilePermission;
 import java.io.IOException;
-import javax.ejb.Timer;
-import javax.ejb.TimerConfig;
+import jakarta.ejb.Timer;
+import jakarta.ejb.TimerConfig;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -59,7 +59,7 @@ public class TimerServiceSuspendTestCase {
     public static Archive<?> deploy() {
         final WebArchive war = ShrinkWrap.create(WebArchive.class, "testTimerServiceSimple.war");
         war.addPackage(TimerServiceSuspendTestCase.class.getPackage());
-        war.addAsManifestResource(new StringAsset("Dependencies: org.jboss.dmr, org.jboss.as.controller-client, org.jboss.remoting3\n"), "MANIFEST.MF");
+        war.addAsManifestResource(new StringAsset("Dependencies: org.jboss.dmr, org.jboss.as.controller-client, org.jboss.remoting\n"), "MANIFEST.MF");
         war.addAsManifestResource(createPermissionsXmlAsset(
                 new RemotingPermission("createEndpoint"),
                 new RemotingPermission("connect"),

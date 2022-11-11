@@ -22,31 +22,27 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import java.util.Arrays;
-import java.util.Collection;
-
 import org.jboss.as.clustering.controller.Attribute;
 import org.jboss.as.clustering.controller.ResourceDefinitionProvider;
 import org.jboss.as.clustering.controller.ResourceDescriptor;
+import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
+import org.jboss.as.clustering.controller.ResourceServiceConfiguratorFactory;
 import org.jboss.as.clustering.controller.SimpleResourceRegistration;
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
 import org.jboss.as.clustering.controller.SimpleAttribute;
 import org.jboss.as.clustering.controller.SimpleResourceServiceHandler;
-import org.jboss.as.clustering.controller.transform.UndefinedAttributesDiscardPolicy;
 import org.jboss.as.clustering.controller.validation.IntRangeValidatorBuilder;
 import org.jboss.as.clustering.controller.validation.LongRangeValidatorBuilder;
 import org.jboss.as.clustering.controller.validation.ParameterValidatorBuilder;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.ResourceDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.client.helpers.MeasurementUnit;
+import org.jboss.as.controller.descriptions.ResourceDescriptionResolver;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.transform.description.DynamicDiscardPolicy;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.msc.service.ServiceName;
@@ -58,9 +54,8 @@ import org.jboss.msc.service.ServiceName;
  * for the hardcoded Infinispan default values.
  *
  * @author Radoslav Husar
- * @version Mar 2015
  */
-public enum ScheduledThreadPoolResourceDefinition implements ResourceDefinitionProvider, ScheduledThreadPoolDefinition {
+public enum ScheduledThreadPoolResourceDefinition implements ResourceDefinitionProvider, ScheduledThreadPoolDefinition, ResourceServiceConfiguratorFactory {
 
     EXPIRATION("expiration", 1, 60000), // called eviction prior to Infinispan 8
     ;
@@ -71,39 +66,42 @@ public enum ScheduledThreadPoolResourceDefinition implements ResourceDefinitionP
         return PathElement.pathElement("thread-pool", name);
     }
 
-    private final SimpleResourceDefinition definition;
-    private final Attribute maxThreads;
+    private final PathElement path;
+    private final Attribute minThreads;
     private final Attribute keepAliveTime;
 
-    ScheduledThreadPoolResourceDefinition(String name, int defaultMaxThreads, long defaultKeepaliveTime) {
-        PathElement path = pathElement(name);
-        this.definition = new SimpleResourceDefinition(path, InfinispanExtension.SUBSYSTEM_RESOLVER.createChildResolver(path, pathElement(PathElement.WILDCARD_VALUE)));
-        this.maxThreads = new SimpleAttribute(createBuilder("max-threads", ModelType.INT, new ModelNode(defaultMaxThreads), new IntRangeValidatorBuilder().min(0)).build());
-        this.keepAliveTime = new SimpleAttribute(createBuilder("keepalive-time", ModelType.LONG, new ModelNode(defaultKeepaliveTime), new LongRangeValidatorBuilder().min(0)).build());
+    ScheduledThreadPoolResourceDefinition(String name, int defaultMinThreads, long defaultKeepaliveTime) {
+        this.path = pathElement(name);
+        this.minThreads = new SimpleAttribute(createBuilder("min-threads", ModelType.INT, new ModelNode(defaultMinThreads), new IntRangeValidatorBuilder().min(0), null).build());
+        this.keepAliveTime = new SimpleAttribute(createBuilder("keepalive-time", ModelType.LONG, new ModelNode(defaultKeepaliveTime), new LongRangeValidatorBuilder().min(0), null).build());
     }
 
-    private static SimpleAttributeDefinitionBuilder createBuilder(String name, ModelType type, ModelNode defaultValue, ParameterValidatorBuilder validatorBuilder) {
+    private static SimpleAttributeDefinitionBuilder createBuilder(String name, ModelType type, ModelNode defaultValue, ParameterValidatorBuilder validatorBuilder, InfinispanModel deprecation) {
         SimpleAttributeDefinitionBuilder builder = new SimpleAttributeDefinitionBuilder(name, type)
                 .setAllowExpression(true)
                 .setRequired(false)
                 .setDefaultValue(defaultValue)
-                .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
+                .setFlags((deprecation != null) ? AttributeAccess.Flag.RESTART_RESOURCE_SERVICES : AttributeAccess.Flag.RESTART_NONE)
                 .setMeasurementUnit((type == ModelType.LONG) ? MeasurementUnit.MILLISECONDS : null)
                 ;
         return builder.setValidator(validatorBuilder.configure(builder).build());
     }
 
     @Override
-    public ResourceDefinition getDefinition() {
-        return this.definition;
+    public void register(ManagementResourceRegistration parent) {
+        ResourceDescriptionResolver resolver = InfinispanExtension.SUBSYSTEM_RESOLVER.createChildResolver(this.path, pathElement(PathElement.WILDCARD_VALUE));
+        ResourceDefinition definition = new SimpleResourceDefinition(this.path, resolver);
+        ManagementResourceRegistration registration = parent.registerSubModel(definition);
+        ResourceDescriptor descriptor = new ResourceDescriptor(resolver)
+                .addAttributes(this.minThreads, this.keepAliveTime)
+                ;
+        ResourceServiceHandler handler = new SimpleResourceServiceHandler(this);
+        new SimpleResourceRegistration(descriptor, handler).register(registration);
     }
 
     @Override
-    public void register(ManagementResourceRegistration parent) {
-        ManagementResourceRegistration registration = parent.registerSubModel(this);
-        ResourceDescriptor descriptor = new ResourceDescriptor(this.definition.getResourceDescriptionResolver()).addAttributes(this.getAttributes());
-        ResourceServiceHandler handler = new SimpleResourceServiceHandler(address -> new ScheduledThreadPoolServiceConfigurator(this, address));
-        new SimpleResourceRegistration(descriptor, handler).register(registration);
+    public ResourceServiceConfigurator createServiceConfigurator(PathAddress address) {
+        return new ScheduledThreadPoolServiceConfigurator(this, address);
     }
 
     @Override
@@ -112,8 +110,8 @@ public enum ScheduledThreadPoolResourceDefinition implements ResourceDefinitionP
     }
 
     @Override
-    public Attribute getMaxThreads() {
-        return this.maxThreads;
+    public Attribute getMinThreads() {
+        return this.minThreads;
     }
 
     @Override
@@ -121,15 +119,8 @@ public enum ScheduledThreadPoolResourceDefinition implements ResourceDefinitionP
         return this.keepAliveTime;
     }
 
-    Collection<Attribute> getAttributes() {
-        return Arrays.asList(this.maxThreads, this.keepAliveTime);
-    }
-
-    void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        // Nothing to transform yet
-    }
-
-    DynamicDiscardPolicy getDiscardPolicy() {
-        return new UndefinedAttributesDiscardPolicy(this.getAttributes());
+    @Override
+    public PathElement getPathElement() {
+        return this.path;
     }
 }

@@ -21,7 +21,7 @@
  */
 package org.jboss.as.test.integration.weld.alternative;
 
-import javax.inject.Inject;
+import jakarta.inject.Inject;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -35,7 +35,7 @@ import org.junit.runner.RunWith;
 
 /**
  *
- * A test of the CDI alternatives. This tests that the alternative
+ * A test of the Jakarta Contexts and Dependency Injection alternatives. This tests that the alternative
  * information in the beans.xml file is being parsed correctly.
  *
  * @author Stuart Douglas
@@ -47,7 +47,7 @@ public class WeldAlternativeTestCase {
     public static Archive<?> deploy() {
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class);
         jar.addPackage(WeldAlternativeTestCase.class.getPackage());
-        jar.addAsManifestResource(new StringAsset("<beans><alternatives><class>" + AlternativeBean.class.getName() + "</class></alternatives></beans>"), "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"><alternatives><class>" + AlternativeBean.class.getName() + "</class></alternatives></beans>"), "beans.xml");
         return jar;
     }
 

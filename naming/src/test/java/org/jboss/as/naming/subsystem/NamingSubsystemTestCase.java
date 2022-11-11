@@ -21,22 +21,18 @@
 */
 package org.jboss.as.naming.subsystem;
 
+import static org.junit.Assert.assertEquals;
 import java.io.IOException;
 import java.util.List;
 
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.operations.common.Util;
-import org.jboss.as.controller.transform.OperationTransformer;
-import org.jboss.as.model.test.FailedOperationTransformationConfig;
-import org.jboss.as.model.test.ModelTestControllerVersion;
 import org.jboss.as.model.test.ModelTestUtils;
 import org.jboss.as.subsystem.test.AbstractSubsystemBaseTest;
 import org.jboss.as.subsystem.test.AdditionalInitialization;
 import org.jboss.as.subsystem.test.KernelServices;
-import org.jboss.as.subsystem.test.KernelServicesBuilder;
 import org.jboss.dmr.ModelNode;
 import org.junit.Assert;
 import org.junit.Test;
@@ -60,22 +56,9 @@ public class NamingSubsystemTestCase extends AbstractSubsystemBaseTest {
         return "schema/jboss-as-naming_2_0.xsd";
     }
 
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[]{
-                "/subsystem-templates/naming.xml"
-        };
-    }
-
-    @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
-    }
-
     @Test
     public void testOnlyExternalContextAllowsCache() throws Exception {
-        KernelServices services = createKernelServicesBuilder(AdditionalInitialization.MANAGEMENT)
+        KernelServices services = createKernelServicesBuilder(createAdditionalInitialization())
                 .build();
         Assert.assertTrue(services.isSuccessfulBoot());
 
@@ -142,51 +125,38 @@ public class NamingSubsystemTestCase extends AbstractSubsystemBaseTest {
     }
 
     @Test
-    public void testRejectionsEAP7() throws Exception {
-        testTransformer("subsystem.xml", ModelTestControllerVersion.EAP_7_0_0, ModelVersion.create(2, 0), "wildfly-naming");
+    public void testExpressionInAttributeValue() throws Exception{
+
+        final KernelServices services = createKernelServicesBuilder(createAdditionalInitialization()).setSubsystemXml(readResource("subsystem_expression.xml")).build();
+        final ModelNode addr = Operations.createAddress("subsystem", "naming");
+        final ModelNode op = Operations.createReadResourceOperation(addr, true);
+        op.get(ModelDescriptionConstants.RESOLVE_EXPRESSIONS).set(true);
+        final ModelNode result = services.executeOperation(op).get("result");
+
+        ModelNode attribute = result.get(NamingSubsystemModel.BINDING).get("java:global/a");
+
+        final String value = attribute.get(NamingSubsystemModel.VALUE).asString();
+        assertEquals("100", value);
+
+        final String type = attribute.get(NamingSubsystemModel.TYPE).asString();
+        assertEquals("int", type);
+
+        attribute = result.get(NamingSubsystemModel.BINDING).get("java:global/b");
+
+        final String objclass = attribute.get(NamingSubsystemModel.CLASS).asString();
+        assertEquals("org.jboss.as.naming.ManagedReferenceObjectFactory", objclass);
+
+        final String module = attribute.get(NamingSubsystemModel.MODULE).asString();
+        assertEquals("org.jboss.as.naming", module);
+
+        attribute = result.get(NamingSubsystemModel.BINDING).get("java:global/c");
+
+        final String lookup = attribute.get(NamingSubsystemModel.LOOKUP).asString();
+        assertEquals("java:global/b", lookup);
     }
 
-    @Test
-    public void testRejectionsEAP6() throws Exception {
-        testTransformer("subsystem.xml", ModelTestControllerVersion.EAP_6_4_0, ModelVersion.create(1, 3),"jboss-as-naming");
+    @Override
+    protected AdditionalInitialization createAdditionalInitialization() {
+        return AdditionalInitialization.withCapabilities("org.wildfly.remoting.endpoint");
     }
-
-    /**
-     * we only test reject as there is noting else to test
-     *
-     * @throws Exception
-     */
-    private void testTransformer(String subsystemXml, ModelTestControllerVersion controllerVersion, final ModelVersion targetVersion, String artifactId) throws Exception {
-        //Use the non-runtime version of the extension which will happen on the HC
-        KernelServicesBuilder builder = createKernelServicesBuilder(createAdditionalInitialization());
-        builder.createLegacyKernelServicesBuilder(null, controllerVersion, targetVersion)
-                .configureReverseControllerCheck(createAdditionalInitialization(), null)
-                //.skipReverseControllerCheck()
-                .addMavenResourceURL(String.format("%s:"+artifactId+":%s", controllerVersion.getMavenGroupId(), controllerVersion.getMavenGavVersion()))
-                .dontPersistXml();
-
-        KernelServices mainServices = builder.build();
-        Assert.assertTrue(mainServices.isSuccessfulBoot());
-        KernelServices legacyServices = mainServices.getLegacyServices(targetVersion);
-        Assert.assertTrue(legacyServices.isSuccessfulBoot());
-        Assert.assertNotNull(legacyServices);
-
-        List<ModelNode> ops = builder.parseXmlResource(subsystemXml);
-        PathAddress subsystemAddress = PathAddress.pathAddress(NamingExtension.SUBSYSTEM_PATH);
-
-        //currently there is noting to check against, real check is later
-        ModelTestUtils.checkFailedTransformedBootOperations(mainServices, targetVersion, ops, new FailedOperationTransformationConfig()
-        );
-        //check that we reject /subsystem=naming/binding=*:rebind
-        OperationTransformer.TransformedOperation transOp = mainServices.transformOperation(targetVersion, Util.createOperation("rebind", subsystemAddress.append(NamingSubsystemModel.BINDING_PATH)));
-        Assert.assertTrue(transOp.getFailureDescription(), transOp.rejectOperation(success()));
-    }
-
-    private static ModelNode success() {
-        final ModelNode result = new ModelNode();
-        result.get(ModelDescriptionConstants.OUTCOME).set(ModelDescriptionConstants.SUCCESS);
-        result.get(ModelDescriptionConstants.RESULT);
-        return result;
-    }
-
 }

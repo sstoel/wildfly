@@ -23,6 +23,7 @@
 package org.jboss.as.security;
 
 import static org.jboss.as.security.Constants.MODULE;
+import static org.jboss.as.security.Constants.ORG_PICKETBOX;
 import static org.jboss.as.security.MappingProviderModuleDefinition.PATH_PROVIDER_MODULE;
 import static org.jboss.as.security.SecuritySubsystemRootResourceDefinition.INITIALIZE_JACC;
 
@@ -59,7 +60,7 @@ public class SecurityTransformers implements ExtensionTransformerRegistration {
         builder.rejectChildResource(PathElement.pathElement(Constants.ELYTRON_KEY_MANAGER));
         builder.rejectChildResource(PathElement.pathElement(Constants.ELYTRON_TRUST_MANAGER));
         builder.getAttributeBuilder()
-                .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(INITIALIZE_JACC.getDefaultValue()), INITIALIZE_JACC)
+                .setDiscard(DiscardAttributeChecker.DEFAULT_VALUE, INITIALIZE_JACC)
                 .addRejectCheck(RejectAttributeChecker.DEFINED, INITIALIZE_JACC);
 
 
@@ -68,7 +69,7 @@ public class SecurityTransformers implements ExtensionTransformerRegistration {
                 .addChildResource(SecurityExtension.PATH_AUDIT_CLASSIC)
                 .addChildResource(PATH_PROVIDER_MODULE)
                 .getAttributeBuilder()
-                    .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(new ModelNode(ModuleName.PICKETBOX.getName())), MODULE)
+                    .setDiscard(new DiscardAttributeChecker.DiscardAttributeValueChecker(new ModelNode(ORG_PICKETBOX)), MODULE)
                     .addRejectCheck(RejectAttributeChecker.DEFINED, MODULE).end();
 
         TransformationDescription.Tools.register(builder.build(), subsystemRegistration, ModelVersion.create(1, 3, 0));

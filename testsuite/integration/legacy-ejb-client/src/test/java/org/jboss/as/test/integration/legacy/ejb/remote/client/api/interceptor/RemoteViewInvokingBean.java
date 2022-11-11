@@ -27,10 +27,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
-import javax.annotation.PostConstruct;
-import javax.ejb.EJB;
-import javax.ejb.Remote;
-import javax.ejb.Stateful;
+import jakarta.annotation.PostConstruct;
+import jakarta.ejb.EJB;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateful;
 
 import org.jboss.ejb.client.EJBClientContext;
 import org.jboss.ejb.client.EJBClientInterceptor;
@@ -55,7 +55,7 @@ public class RemoteViewInvokingBean implements RemoteViewInvoker {
         // get hold of the EJBClientContext
         this.ejbClientContext = EJBClientContext.requireCurrent();
 
-        // create some data that the client side interceptor will pass along during the EJB invocation
+        // create some data that the client side interceptor will pass along during the Jakarta Enterprise Beans invocation
         this.interceptorData = new HashMap<String, Object>();
         final String keyOne = "abc";
         final Object valueOne = "def";

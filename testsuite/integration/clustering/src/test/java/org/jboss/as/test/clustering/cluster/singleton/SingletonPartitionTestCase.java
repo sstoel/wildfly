@@ -27,7 +27,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
@@ -44,6 +44,7 @@ import org.jboss.as.test.clustering.ClusterTestUtil;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.cluster.singleton.partition.PartitionServlet;
 import org.jboss.as.test.clustering.cluster.singleton.partition.SingletonServiceActivator;
+import org.jboss.as.test.clustering.cluster.singleton.service.NodeServiceExecutorRegistry;
 import org.jboss.as.test.clustering.cluster.singleton.service.NodeServiceServlet;
 import org.jboss.as.test.clustering.cluster.singleton.service.SingletonElectionListenerService;
 import org.jboss.as.test.http.util.TestHttpClientUtils;
@@ -92,10 +93,10 @@ public class SingletonPartitionTestCase extends AbstractClusteringTestCase {
     private static Archive<?> createDeployment() {
         WebArchive war = ShrinkWrap.create(WebArchive.class, SingletonPartitionTestCase.class.getSimpleName() + ".war");
         war.addPackage(SingletonServiceActivator.class.getPackage());
-        war.addClasses(NodeServiceServlet.class, SingletonElectionListenerService.class);
+        war.addClasses(NodeServiceServlet.class, SingletonElectionListenerService.class, NodeServiceExecutorRegistry.class);
         war.addAsServiceProvider(ServiceActivator.class, SingletonServiceActivator.class);
         ClusterTestUtil.addTopologyListenerDependencies(war);
-        war.setManifest(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.as.clustering.common, org.jboss.as.controller, org.jboss.as.server, org.jgroups, org.infinispan, org.wildfly.clustering.infinispan.spi\n"));
+        war.setManifest(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.as.clustering.common, org.jgroups, org.infinispan\n"));
         return war;
     }
 

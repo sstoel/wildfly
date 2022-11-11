@@ -24,12 +24,13 @@ package org.jboss.as.test.integration.ejb.stateful.persistencecontext;
 
 import java.io.Serializable;
 
-import javax.annotation.Resource;
-import javax.ejb.SessionContext;
-import javax.ejb.Stateful;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceContextType;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Remove;
+import jakarta.ejb.SessionContext;
+import jakarta.ejb.Stateful;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceContextType;
 
 import org.jboss.ejb3.annotation.Cache;
 
@@ -37,7 +38,7 @@ import org.jboss.ejb3.annotation.Cache;
  * @author <a href="mailto:bill@jboss.org">Bill Burke</a>
  */
 @Stateful
-@Cache("passivating")
+@Cache("distributable")
 public class StatefulBean implements Serializable, StatefulRemote {
     private static final long serialVersionUID = 1L;
 
@@ -57,5 +58,10 @@ public class StatefulBean implements Serializable, StatefulRemote {
     public void find(int id) {
         if (manager.find(Customer.class, id) == null)
             throw new RuntimeException("not found");
+    }
+
+    @Remove
+    @Override
+    public void close() {
     }
 }

@@ -22,15 +22,15 @@
 
 package org.jboss.as.test.smoke.jms;
 
-import javax.annotation.Resource;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.Message;
-import javax.jms.MessageConsumer;
-import javax.jms.MessageProducer;
-import javax.jms.Queue;
-import javax.jms.Session;
-import javax.jms.TextMessage;
+import jakarta.annotation.Resource;
+import jakarta.jms.Connection;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Message;
+import jakarta.jms.MessageConsumer;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Queue;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -41,14 +41,13 @@ import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.ArchivePaths;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.EmptyAsset;
-import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Basic JMS test using a customly created JMS queue
+ * Basic Jakarta Messaging test using a customly created Jakarta Messaging queue
  *
  * @author <a href="jmartisk@redhat.com">Jan Martiska</a>
  */
@@ -79,8 +78,7 @@ public class SendToJMSQueueTest {
                 .addClass(CreateQueueSetupTask.class)
                 .addAsManifestResource(
                         EmptyAsset.INSTANCE,
-                        ArchivePaths.create("beans.xml"))
-                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller-client,org.jboss.dmr,org.jboss.as.cli\n"), "MANIFEST.MF");
+                        ArchivePaths.create("beans.xml"));
     }
 
     @Test
@@ -272,7 +270,7 @@ public class SendToJMSQueueTest {
             Assert.fail("Message should have been re-delivered, but subsequent attempt to receive it returned null");
         }
         Assert.assertTrue("received a " + receivedMessage.getClass().getName() + " instead of a TextMessage", receivedMessage instanceof TextMessage);
-        Assert.assertEquals(((TextMessage) receivedMessage).getText(), "Hello world!");
+        Assert.assertEquals("Hello world!", ((TextMessage) receivedMessage).getText());
         Assert.assertTrue("Redelivered header should have been set to true", receivedMessage.getJMSRedelivered());
     }
 

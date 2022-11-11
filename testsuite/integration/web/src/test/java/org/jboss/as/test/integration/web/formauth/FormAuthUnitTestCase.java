@@ -21,6 +21,16 @@
  */
 package org.jboss.as.test.integration.web.formauth;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -38,29 +48,11 @@ import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.container.ManagementClient;
-import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
-import org.jboss.as.test.integration.management.ManagementOperations;
-import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
-import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 /**
  * Tests of form authentication
@@ -280,52 +272,6 @@ public class FormAuthUnitTestCase {
         } else {
             fail("Empty body in response");
         }
-    }
-
-    /**
-     * Test that the war which uses <security-domain
-     * flushOnSessionInvalidation="true"> in the jboss-web.xml does not have any
-     * jaas security domain cache entries after the web session has been
-     * invalidated.
-     */
-    @Test
-    public void testFlushOnSessionInvalidation() throws Exception {
-        AssumeTestGroupUtil.assumeElytronProfileEnabled(); // not supported in Elytron
-
-        log.trace("+++ testFlushOnSessionInvalidation");
-
-        final ModelNode addr = new ModelNode();
-        addr.add(ModelDescriptionConstants.SUBSYSTEM, "security");
-        addr.add("security-domain", "other");
-        addr.protect();
-        final ModelNode listCachedPrincipalsOperation = new ModelNode();
-        listCachedPrincipalsOperation.get(ModelDescriptionConstants.OP_ADDR).set(addr);
-        listCachedPrincipalsOperation.get(ModelDescriptionConstants.OP).set("list-cached-principals");
-
-        // Access a secured servlet to create a session and jaas cache entry
-        doSecureGetWithLogin("restricted/SecuredServlet");
-
-        // Validate that the jaas cache has our principal
-        final ModelNode node = ManagementOperations.executeOperation(managementClient.getControllerClient(), listCachedPrincipalsOperation);
-        assertNotNull(node);
-        final Set<String> cachedPrincipals = createSetOfPrincipals(node);
-        assertTrue(USERNAME + " should be cached now.", cachedPrincipals.contains(USERNAME));
-
-        // Logout to clear the cache
-        doSecureGet("Logout");
-
-        final ModelNode node2 = ManagementOperations.executeOperation(managementClient.getControllerClient(), listCachedPrincipalsOperation);
-        assertNotNull(node2);
-        final Set<String> cachedPrincipals2 = createSetOfPrincipals(node2);
-        assertFalse(USERNAME + " should no longer be cached.", cachedPrincipals2.contains(USERNAME));
-    }
-
-    private Set<String> createSetOfPrincipals(final ModelNode list) {
-        Set<String> set = new HashSet<>();
-        for (ModelNode node : list.asList()) {
-            set.add(node.asString());
-        }
-        return set;
     }
 
     public HttpPost doSecureGetWithLogin(String path) throws Exception {

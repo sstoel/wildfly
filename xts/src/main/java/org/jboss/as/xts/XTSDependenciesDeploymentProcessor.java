@@ -42,9 +42,9 @@ import org.jboss.narayana.compensations.api.TxCompensate;
 import org.jboss.narayana.compensations.api.TxConfirm;
 import org.jboss.narayana.compensations.api.TxLogged;
 
-import javax.ejb.TransactionAttribute;
-import javax.jws.WebService;
-import javax.transaction.Transactional;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.jws.WebService;
+import jakarta.transaction.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,14 +78,9 @@ public class XTSDependenciesDeploymentProcessor implements DeploymentUnitProcess
         }
     }
 
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
-    }
-
     private boolean isCompensationAnnotationPresent(final CompositeIndex compositeIndex) {
         for (Class annotation : COMPENSATABLE_ANNOTATIONS) {
-            if (compositeIndex.getAnnotations(DotName.createSimple(annotation.getName())).size() > 0) {
+            if (!compositeIndex.getAnnotations(DotName.createSimple(annotation.getName())).isEmpty()) {
                 return true;
             }
         }
@@ -104,7 +99,7 @@ public class XTSDependenciesDeploymentProcessor implements DeploymentUnitProcess
             if (target instanceof ClassInfo) {
                 final ClassInfo classInfo = (ClassInfo) target;
 
-                if (classInfo.annotations().get(DotName.createSimple(WebService.class.getName())) != null) {
+                if (classInfo.annotationsMap().get(DotName.createSimple(WebService.class.getName())) != null) {
                     return true;
                 }
             }

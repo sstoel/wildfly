@@ -44,6 +44,7 @@ import org.jboss.logging.annotations.Cause;
 import org.jboss.logging.annotations.LogMessage;
 import org.jboss.logging.annotations.Message;
 import org.jboss.logging.annotations.MessageLogger;
+import org.jboss.modules.ModuleLoadException;
 import org.jboss.msc.service.StartException;
 import org.jboss.vfs.VirtualFile;
 
@@ -104,14 +105,14 @@ public interface ConnectorLogger extends BasicLogger {
     void boundDataSource(String jndiName);
 
     /**
-     * Logs an informational message indicating the JCA bound the object represented by the {@code description}
+     * Logs an informational message indicating the Jakarta Connectors bound the object represented by the {@code description}
      * parameter.
      *
      * @param description the description of what was bound.
      * @param jndiName    the JNDI name.
      */
     @LogMessage(level = INFO)
-    @Message(id = 2, value = "Bound JCA %s [%s]")
+    @Message(id = 2, value = "Bound Jakarta Connectors %s [%s]")
     void boundJca(String description, String jndiName);
 
     /**
@@ -195,14 +196,14 @@ public interface ConnectorLogger extends BasicLogger {
     void unboundDataSource(String jndiName);
 
     /**
-     * Logs an informational message indicating the JCA inbound the object represented by the {@code description}
+     * Logs an informational message indicating the Jakarta Connectors inbound the object represented by the {@code description}
      * parameter.
      *
      * @param description the description of what was unbound.
      * @param jndiName    the JNDI name.
      */
     @LogMessage(level = INFO)
-    @Message(id = 11, value = "Unbound JCA %s [%s]")
+    @Message(id = 11, value = "Unbound Jakarta Connectors %s [%s]")
     void unboundJca(String description, String jndiName);
 
     @LogMessage(level = WARN)
@@ -295,14 +296,14 @@ public interface ConnectorLogger extends BasicLogger {
     @Message(id = 31, value = "unable to validate and deploy ds or xads")
     DeployException cannotDeployAndValidate(@Cause Throwable cause);
 
-    /**
-     * Creates an exception indicating the data source was unable to start because it create more than one connection
-     * factory.
-     *
-     * @return a {@link StartException} for the error.
-     */
-    @Message(id = 32, value = "Unable to start the ds because it generated more than one cf")
-    StartException cannotStartDs();
+//    /**
+//     * Creates an exception indicating the data source was unable to start because it create more than one connection
+//     * factory.
+//     *
+//     * @return a {@link StartException} for the error.
+//     */
+//    @Message(id = 32, value = "Unable to start the ds because it generated more than one cf")
+//    StartException cannotStartDs();
 
     /**
      * Creates an exception indicating an error occurred during deployment.
@@ -453,7 +454,7 @@ public interface ConnectorLogger extends BasicLogger {
      * @return an {@link IllegalStateException} for the error.
      */
     @Message(id = 47, value = "Connection is not valid")
-    IllegalStateException invalidConnection();
+    IllegalStateException invalidConnection(@Cause Exception e);
 
 //    /**
 //     * A message indicating the parameter name is invalid.
@@ -647,22 +648,22 @@ public interface ConnectorLogger extends BasicLogger {
     @Message(id = 69, value = "At least one xa-datasource-property is required for an xa-datasource")
     OperationFailedException xaDataSourcePropertiesNotPresent();
 
-    /**
-     * A message indicating that jndi-name is missing and it's a required attribute
-     *
-     * @return the message.
-     */
-    @Message(id = 70, value = "Jndi name is required")
-    OperationFailedException jndiNameRequired();
+//    /**
+//     * A message indicating that jndi-name is missing and it's a required attribute
+//     *
+//     * @return the message.
+//     */
+//    @Message(id = 70, value = "Jndi name is required")
+//    OperationFailedException jndiNameRequired();
 
 
-    /**
-     * A message indicating that jndi-name has an invalid format
-     *
-     * @return the message.
-     */
-    @Message(id = 71, value = "Jndi name have to start with java:/ or java:jboss/")
-    OperationFailedException jndiNameInvalidFormat();
+//    /**
+//     * A message indicating that jndi-name has an invalid format
+//     *
+//     * @return the message.
+//     */
+//    @Message(id = 71, value = "Jndi name have to start with java:/ or java:jboss/")
+//    OperationFailedException jndiNameInvalidFormat();
 
     /**
      * Creates an exception indicating the deployment failed.
@@ -928,4 +929,52 @@ public interface ConnectorLogger extends BasicLogger {
     @LogMessage(level = INFO)
     @Message(id = 119, value = "Unbinding connection factory named %s to alias %s")
     void unbindingAlias(String jndiName, String alias);
+
+    /**
+     * Creates an exception indicating the data source was unable to start because it create more than one connection
+     * factory.
+     * @param dataSourceJNDIName
+     *
+     * @return a {@link StartException} for the error.
+     */
+    @Message(id = 120, value = "Unable to start the data source '%s' because there are no connection factories, either not defined or failed, please check log.")
+    StartException cannotStartDSNoConnectionFactory(String dataSourceJNDIName);
+
+    /**
+     * Creates an exception indicating the data source was unable to start because it create more than one connection
+     * factory.
+     * @param dataSourceJNDIName
+     * @param factoriesCount
+     *
+     * @return a {@link StartException} for the error.
+     */
+    @Message(id = 121, value = "Unable to start the data source '%s' because there is more than one(%s) connection factory defined.")
+    StartException cannotStartDSTooManyConnectionFactories(String dataSourceJNDIName, int factoriesCount);
+
+    @Message(id = 122, value = "Thread pool name %s(type: %s) must match the workmanager name %s.")
+    OperationFailedException threadPoolNameMustMatchWorkManagerName(String threadPoolName, String threadPoolType, String workManagerName);
+
+    @Message(id = 123, value = "Connection definition %s from resource adapter %s is configured to require the legacy security subsystem, which is not present")
+    OperationFailedException legacySecurityNotAvailable(String connectionDef, String ra);
+
+    @Message(id = 124, value = "Datasource %s is configured to require the legacy security subsystem, which is not present")
+    OperationFailedException legacySecurityNotAvailable(String datasourceName);
+
+    @Message(id = 125, value = "Datasource %s is configured to require the legacy security subsystem, which is not present")
+    DeploymentUnitProcessingException legacySecurityNotAvailableForDsXml(String datasourceName);
+
+    @Message(id = 126, value = "Connection definition for %s is configured to require the legacy security subsystem, which is not present")
+    DeploymentUnitProcessingException legacySecurityNotAvailableForRa(String deploymentName);
+
+    @Message(id = 127, value = "Connection factory  %s is configured to require the legacy security subsystem, which is not present")
+    IllegalStateException legacySecurityNotAvailableForConnectionFactory(String jndiName);
+
+    @Message(id = 128, value = "Legacy security is not available")
+    IllegalStateException legacySecurityNotAvailable();
+
+    @Message(id = 129, value = "Wrong module name %s")
+    OperationFailedException wrongModuleName(@Cause ModuleLoadException exception, String moduleName);
+
+    @Message(id = 130, value = "Report directory %s does not exist")
+    OperationFailedException reportDirectoryDoesNotExist(String reportDirectory);
 }

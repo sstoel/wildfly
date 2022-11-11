@@ -30,7 +30,9 @@ import static org.wildfly.extension.clustering.singleton.SingletonPolicyResource
 import java.util.function.Consumer;
 
 import org.jboss.as.clustering.controller.CapabilityServiceNameProvider;
+import org.jboss.as.clustering.controller.ServiceValueCaptorServiceConfigurator;
 import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
+import org.jboss.as.clustering.controller.ServiceValueRegistry;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
@@ -49,27 +51,30 @@ import org.wildfly.clustering.service.CompositeDependency;
 import org.wildfly.clustering.service.ServiceConfigurator;
 import org.wildfly.clustering.service.ServiceSupplierDependency;
 import org.wildfly.clustering.service.SupplierDependency;
+import org.wildfly.clustering.singleton.Singleton;
 import org.wildfly.clustering.singleton.SingletonElectionPolicy;
 import org.wildfly.clustering.singleton.SingletonPolicy;
 import org.wildfly.clustering.singleton.SingletonServiceBuilderFactory;
-import org.wildfly.clustering.spi.ClusteringCacheRequirement;
+import org.wildfly.clustering.singleton.service.SingletonCacheRequirement;
 
 /**
  * Builds a service that provides a {@link SingletonPolicy}.
  * @author Paul Ferraro
  */
-@SuppressWarnings("deprecation")
+@SuppressWarnings({ "removal", "deprecation" })
 public class SingletonPolicyServiceConfigurator extends CapabilityServiceNameProvider implements ResourceServiceConfigurator, SingletonPolicy {
 
+    private final ServiceValueRegistry<Singleton> registry;
     private final SupplierDependency<SingletonElectionPolicy> policy;
 
     private volatile Registrar<ServiceName> registrar;
     private volatile SupplierDependency<SingletonServiceBuilderFactory> factory;
     private volatile int quorum;
 
-    public SingletonPolicyServiceConfigurator(PathAddress address) {
+    public SingletonPolicyServiceConfigurator(PathAddress address, ServiceValueRegistry<Singleton> registry) {
         super(POLICY, address);
         this.policy = new ServiceSupplierDependency<>(ElectionPolicyResourceDefinition.Capability.ELECTION_POLICY.getServiceName(address.append(ElectionPolicyResourceDefinition.WILDCARD_PATH)));
+        this.registry = registry;
     }
 
     @Override
@@ -84,7 +89,7 @@ public class SingletonPolicyServiceConfigurator extends CapabilityServiceNamePro
     public ServiceConfigurator configure(OperationContext context, ModelNode model) throws OperationFailedException {
         String containerName = CACHE_CONTAINER.resolveModelAttribute(context, model).asString();
         String cacheName = CACHE.resolveModelAttribute(context, model).asStringOrNull();
-        this.factory = new ServiceSupplierDependency<>(ClusteringCacheRequirement.SINGLETON_SERVICE_BUILDER_FACTORY.getServiceName(context, containerName, cacheName));
+        this.factory = new ServiceSupplierDependency<>(SingletonCacheRequirement.SINGLETON_SERVICE_BUILDER_FACTORY.getServiceName(context, containerName, cacheName));
         this.quorum = QUORUM.resolveModelAttribute(context, model).asInt();
         this.registrar = (SingletonPolicyResource) context.readResource(PathAddress.EMPTY_ADDRESS);
         return this;
@@ -96,7 +101,7 @@ public class SingletonPolicyServiceConfigurator extends CapabilityServiceNamePro
                 .electionPolicy(this.policy.get())
                 .requireQuorum(this.quorum)
                 ;
-        return new SingletonServiceConfigurator(configurator, new SingletonServiceLifecycleListener(name, this.registrar));
+        return new SingletonServiceConfigurator(configurator, new SingletonServiceLifecycleListener(name, this.registrar), this.registry);
     }
 
     @Override
@@ -122,14 +127,16 @@ public class SingletonPolicyServiceConfigurator extends CapabilityServiceNamePro
         return this.getServiceName().getSimpleName();
     }
 
-    private class SingletonServiceConfigurator implements ServiceConfigurator {
+    private class SingletonServiceConfigurator implements ServiceConfigurator, LifecycleListener {
 
         private final ServiceConfigurator configurator;
         private final LifecycleListener listener;
+        private final ServiceValueRegistry<Singleton> registry;
 
-        SingletonServiceConfigurator(ServiceConfigurator configurator, LifecycleListener listener) {
+        SingletonServiceConfigurator(ServiceConfigurator configurator, LifecycleListener listener, ServiceValueRegistry<Singleton> registry) {
             this.configurator = configurator;
             this.listener = listener;
+            this.registry = registry;
         }
 
         @Override
@@ -139,7 +146,15 @@ public class SingletonPolicyServiceConfigurator extends CapabilityServiceNamePro
 
         @Override
         public ServiceBuilder<?> build(ServiceTarget target) {
-            return this.configurator.build(target).addListener(this.listener);
+            new ServiceValueCaptorServiceConfigurator<>(this.registry.add(this.getServiceName().append("singleton"))).build(target).install();
+            return this.configurator.build(target).addListener(this.listener).addListener(this);
+        }
+
+        @Override
+        public void handleEvent(ServiceController<?> controller, LifecycleEvent event) {
+            if (event == LifecycleEvent.REMOVED) {
+                this.registry.remove(controller.getName());
+            }
         }
     }
 

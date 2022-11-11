@@ -29,8 +29,9 @@ import io.undertow.servlet.handlers.ServletHandler;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import javax.servlet.Servlet;
+import jakarta.servlet.Servlet;
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.ObjectTypeAttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -46,7 +47,7 @@ import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.msc.service.ServiceController;
-import org.jboss.resteasy.core.ResourceInvoker;
+import org.jboss.resteasy.spi.ResourceInvoker;
 import org.jboss.resteasy.core.ResourceMethodInvoker;
 import org.jboss.resteasy.core.ResourceMethodRegistry;
 import org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher;
@@ -75,7 +76,7 @@ public class JaxrsDeploymentDefinition extends SimpleResourceDefinition {
             = new ObjectTypeAttributeDefinition.Builder("jaxrs-resource", CLASSNAME, PATH, METHODS).setStorageRuntime().build();
 
     private JaxrsDeploymentDefinition() {
-          super(new Parameters(JaxrsExtension.SUBSYSTEM_PATH, JaxrsExtension.getResolver()).setFeature(false));
+          super(new Parameters(JaxrsExtension.SUBSYSTEM_PATH, JaxrsExtension.getResolver()).setFeature(false).setRuntime(true));
     }
 
     @Override
@@ -90,7 +91,7 @@ public class JaxrsDeploymentDefinition extends SimpleResourceDefinition {
                 .setReadOnly()
                 .setRuntimeOnly()
                 .setReplyType(ModelType.LIST)
-                .setDeprecated(JaxrsExtension.MODEL_VERSION_2_0_0)
+                .setDeprecated(ModelVersion.create(2, 0, 0))
                 .setReplyParameters(JAXRS_RESOURCE).build();
 
 
@@ -121,7 +122,7 @@ public class JaxrsDeploymentDefinition extends SimpleResourceDefinition {
             }
             builder.append(contextRootPath).append('/').append(servletPath).append(path);
             builder.append(" - ").append(resource.getResourceClass().getCanonicalName()).append('.').append(resource.getMethod().getName()).append('(');
-            if (resource.getMethod().getParameterTypes().length > 0) {
+            if (resource.getMethod().getParameterCount() > 0) {
                 builder.append("...");
             }
             builder.append(')');

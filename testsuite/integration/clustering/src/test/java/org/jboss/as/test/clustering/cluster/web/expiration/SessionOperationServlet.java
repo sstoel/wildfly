@@ -30,14 +30,14 @@ import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import javax.servlet.http.HttpSession;
-import javax.servlet.http.HttpSessionBindingEvent;
-import javax.servlet.http.HttpSessionBindingListener;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSessionBindingEvent;
+import jakarta.servlet.http.HttpSessionBindingListener;
 
 @WebServlet(urlPatterns = SessionOperationServlet.SERVLET_PATH)
 public class SessionOperationServlet extends HttpServlet {
@@ -54,6 +54,7 @@ public class SessionOperationServlet extends HttpServlet {
     private static final String VALUE = "value";
     public static final String RESULT = "result";
     public static final String SESSION_ID = "jsessionid";
+    public static final String TARGET_SESSION_ID = "target-session-id";
     public static final String CREATED_SESSIONS = "created";
     public static final String DESTROYED_SESSIONS = "destroyed";
     public static final String ADDED_ATTRIBUTES = "added";
@@ -66,7 +67,18 @@ public class SessionOperationServlet extends HttpServlet {
         return createGetURI(baseURL, name, null);
     }
 
-    public static URI createGetURI(URL baseURL, String name, String value) throws URISyntaxException {
+    /**
+     * @param targetSessionId session for which to query added/replaced/removed attributes though response headers
+     */
+    public static URI createGetURI(URL baseURL, String name, String targetSessionId) throws URISyntaxException {
+        StringBuilder builder = appendParameter(buildURI(GET), NAME, name);
+        if (targetSessionId != null) {
+            appendParameter(builder, TARGET_SESSION_ID, targetSessionId);
+        }
+        return baseURL.toURI().resolve(builder.toString());
+    }
+
+    public static URI createGetAndSetURI(URL baseURL, String name, String value) throws URISyntaxException {
         StringBuilder builder = appendParameter(buildURI(GET), NAME, name);
         if (value != null) {
             appendParameter(builder, VALUE, value);
@@ -107,46 +119,65 @@ public class SessionOperationServlet extends HttpServlet {
         String operation = getRequiredParameter(req, OPERATION);
         HttpSession session = req.getSession(true);
         resp.addHeader(SESSION_ID, session.getId());
-        //System.out.println(String.format("%s?%s;jsessionid=%s", req.getRequestURL(), req.getQueryString(), session.getId()));
-        if (operation.equals(SET)) {
-            String name = getRequiredParameter(req, NAME);
-            String[] values = req.getParameterValues(VALUE);
-            if (values != null) {
-                SessionAttributeValue value = new SessionAttributeValue(values[0]);
-                session.setAttribute(name, value);
-                for (int i = 1; i < values.length; ++i) {
-                    value.setValue(values[i]);
+
+        req.getServletContext().log(String.format("%s?%s;jsessionid=%s", req.getRequestURL(), req.getQueryString(), session.getId()));
+
+        switch (operation) {
+            case SET: {
+                String name = getRequiredParameter(req, NAME);
+                String[] values = req.getParameterValues(VALUE);
+                if (values != null) {
+                    SessionAttributeValue value = new SessionAttributeValue(values[0]);
+                    session.setAttribute(name, value);
+                    for (int i = 1; i < values.length; ++i) {
+                        value.setValue(values[i]);
+                    }
+                } else {
+                    session.setAttribute(name, null);
                 }
-            } else {
-                session.setAttribute(name, null);
+                break;
             }
-        } else if (operation.equals(REMOVE)) {
-            String name = getRequiredParameter(req, NAME);
-            session.removeAttribute(name);
-        } else if (operation.equals(INVALIDATE)) {
-            session.invalidate();
-        } else if (operation.equals(GET)) {
-            String name = getRequiredParameter(req, NAME);
-            SessionAttributeValue value = (SessionAttributeValue) session.getAttribute(name);
-            if (value != null) {
-                resp.setHeader(RESULT, value.getValue());
-                String newValue = req.getParameter(VALUE);
-                if (newValue != null) {
-                    value.setValue(newValue);
+            case REMOVE: {
+                String name = getRequiredParameter(req, NAME);
+                session.removeAttribute(name);
+                break;
+            }
+            case INVALIDATE:
+                session.invalidate();
+                break;
+            case GET: {
+                String name = getRequiredParameter(req, NAME);
+                SessionAttributeValue value = (SessionAttributeValue) session.getAttribute(name);
+                if (value != null) {
+                    resp.setHeader(RESULT, value.getValue());
+                    String newValue = req.getParameter(VALUE);
+                    if (newValue != null) {
+                        value.setValue(newValue);
+                    }
                 }
+                break;
             }
-        } else if (operation.equals(TIMEOUT)) {
-            String timeout = getRequiredParameter(req, TIMEOUT);
-            session.setMaxInactiveInterval(Integer.parseInt(timeout));
-        } else {
-            throw new ServletException("Unrecognized operation: " + operation);
+            case TIMEOUT:
+                String timeout = getRequiredParameter(req, TIMEOUT);
+                session.setMaxInactiveInterval(Integer.parseInt(timeout));
+                break;
+            default:
+                throw new ServletException("Unrecognized operation: " + operation);
+        }
+
+        String targetSessionId = req.getParameter(TARGET_SESSION_ID);
+        if (targetSessionId == null) {
+            targetSessionId = req.getRequestedSessionId();
+        }
+        if (targetSessionId == null) {
+            targetSessionId = session.getId();
         }
 
         setHeader(resp, CREATED_SESSIONS, RecordingWebListener.createdSessions);
         setHeader(resp, DESTROYED_SESSIONS, RecordingWebListener.destroyedSessions);
-        setHeader(resp, ADDED_ATTRIBUTES, RecordingWebListener.addedAttributes.get(session.getId()));
-        setHeader(resp, REPLACED_ATTRIBUTES, RecordingWebListener.replacedAttributes.get(session.getId()));
-        setHeader(resp, REMOVED_ATTRIBUTES, RecordingWebListener.removedAttributes.get(session.getId()));
+        setHeader(resp, ADDED_ATTRIBUTES, RecordingWebListener.addedAttributes.get(targetSessionId));
+        setHeader(resp, REPLACED_ATTRIBUTES, RecordingWebListener.replacedAttributes.get(targetSessionId));
+        setHeader(resp, REMOVED_ATTRIBUTES, RecordingWebListener.removedAttributes.get(targetSessionId));
         setHeader(resp, BOUND_ATTRIBUTES, SessionAttributeValue.boundAttributes);
         setHeader(resp, UNBOUND_ATTRIBUTES, SessionAttributeValue.unboundAttributes);
     }

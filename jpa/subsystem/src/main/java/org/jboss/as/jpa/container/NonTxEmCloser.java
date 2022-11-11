@@ -29,6 +29,8 @@ import java.util.Map;
 
 import javax.persistence.EntityManager;
 
+import org.wildfly.common.function.ThreadLocalStack;
+
 /**
  * Close the non tx invocations on transaction scoped entity manager
  *
@@ -44,7 +46,7 @@ public class NonTxEmCloser {
 
     /**
      * entered new session bean invocation, start new collection for tracking transactional entity managers created
-     * without a JTA transaction.
+     * without a Jakarta Transactions transaction.
      */
     public static void pushCall() {
         nonTxStack.push(null);          // to conserve memory/cpu cycles, push a null placeholder that will only get replaced
@@ -52,7 +54,7 @@ public class NonTxEmCloser {
     }
 
     /**
-     * current session bean invocation is ending, close any transactional entity managers created without a JTA
+     * current session bean invocation is ending, close any transactional entity managers created without a Jakarta Transactions
      * transaction.
      */
     public static void popCall() {

@@ -24,10 +24,10 @@ package org.jboss.as.test.integration.weld.context.application.lifecycle;
 
 import org.jboss.logging.Logger;
 
-import javax.enterprise.context.control.RequestContextController;
-import javax.jms.JMSContext;
-import javax.jms.JMSProducer;
-import javax.jms.Queue;
+import jakarta.enterprise.context.control.RequestContextController;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSProducer;
+import jakarta.jms.Queue;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
@@ -56,7 +56,7 @@ public interface Utils {
         logger.info("java:comp/DefaultManagedThreadFactory: "+initialContext.lookup("java:comp/DefaultManagedThreadFactory"));
         // lookup default datasource
         logger.info("java:comp/DefaultDataSource: "+initialContext.lookup("java:comp/DefaultDataSource"));
-        // lookup default jms connection factory
+        // lookup default Jakarta Messaging connection factory
         logger.info("java:comp/DefaultJMSConnectionFactory: "+initialContext.lookup("java:comp/DefaultJMSConnectionFactory"));
         // lookup tx resources
         logger.info("java:comp/TransactionSynchronizationRegistry: "+initialContext.lookup("java:comp/TransactionSynchronizationRegistry"));

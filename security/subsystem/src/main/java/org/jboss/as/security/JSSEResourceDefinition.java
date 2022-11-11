@@ -24,21 +24,23 @@ package org.jboss.as.security;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.AttributeMarshaller;
 import org.jboss.as.controller.AttributeParser;
+import org.jboss.as.controller.ModelOnlyAddStepHandler;
+import org.jboss.as.controller.ModelOnlyRemoveStepHandler;
+import org.jboss.as.controller.ModelOnlyWriteAttributeHandler;
 import org.jboss.as.controller.ObjectTypeAttributeDefinition;
-import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.OperationStepHandler;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
 /**
  * @author Jason T. Greene
  * @author Tomaz Cerar
  */
-public class JSSEResourceDefinition extends SimpleResourceDefinition {
+class JSSEResourceDefinition extends SimpleResourceDefinition {
 
     static final ObjectTypeAttributeDefinition KEYSTORE = new ObjectTypeAttributeDefinition.Builder(Constants.KEYSTORE, ComplexAttributes.KEY_STORE_FIELDS)
             .setValidator(new ComplexAttributes.KeyStoreAttributeValidator(Constants.KEYSTORE)).setAttributeMarshaller(new ComplexAttributes.KeyStoreAttributeMarshaller()).build();
@@ -85,27 +87,16 @@ public class JSSEResourceDefinition extends SimpleResourceDefinition {
     private JSSEResourceDefinition() {
         super(SecurityExtension.JSSE_PATH,
                 SecurityExtension.getResourceDescriptionResolver(Constants.JSSE),
-                JSSEResourceDefinitionAdd.INSTANCE,
-                new SecurityDomainReloadRemoveHandler());
+                new ModelOnlyAddStepHandler(ATTRIBUTES),
+                ModelOnlyRemoveStepHandler.INSTANCE);
         setDeprecated(SecurityExtension.DEPRECATED_SINCE);
     }
 
+    @Override
     public void registerAttributes(final ManagementResourceRegistration resourceRegistration) {
-        SecurityDomainReloadWriteHandler writeHandler = new SecurityDomainReloadWriteHandler(ATTRIBUTES);
+        OperationStepHandler writeHandler = new ModelOnlyWriteAttributeHandler(ATTRIBUTES);
         for (AttributeDefinition attr : ATTRIBUTES) {
             resourceRegistration.registerReadWriteAttribute(attr, null, writeHandler);
-        }
-    }
-
-    static class JSSEResourceDefinitionAdd extends SecurityDomainReloadAddHandler {
-
-        static final JSSEResourceDefinitionAdd INSTANCE = new JSSEResourceDefinitionAdd();
-
-        @Override
-        protected void populateModel(ModelNode operation, ModelNode model) throws OperationFailedException {
-            for (AttributeDefinition attr : ATTRIBUTES) {
-                attr.validateAndSet(operation, model);
-            }
         }
     }
 

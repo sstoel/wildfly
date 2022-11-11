@@ -19,23 +19,20 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-
 package org.jboss.as.test.manualmode.messaging.ha;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.FAILED;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.FAILURE_DESCRIPTION;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.INCLUDE_RUNTIME;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OUTCOME;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_RESOURCE_OPERATION;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RECURSIVE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.RESULT;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUCCESS;
 import static org.jboss.as.test.shared.ServerReload.executeReloadAndWaitForCompletion;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -43,13 +40,16 @@ import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Properties;
 import java.util.UUID;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.Destination;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -59,11 +59,13 @@ import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.controller.client.ModelControllerClient;
+import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.common.jms.JMSOperations;
 import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.dmr.ModelNode;
+import org.jboss.logging.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
@@ -78,9 +80,11 @@ public abstract class AbstractMessagingHATestCase {
 
     public static final String SERVER1 = "jbossas-messaging-ha-server1";
     public static final String SERVER2 = "jbossas-messaging-ha-server2";
+    private static final Logger log = Logger.getLogger(AbstractMessagingHATestCase.class);
+    private static final int OFFSET = 100;
 
     // maximum time for HornetQ activation to detect node failover/failback
-    protected static int ACTIVATION_TIMEOUT = 30000;
+    protected static int ACTIVATION_TIMEOUT = TimeoutUtil.adjust(30000);
 
     private String snapshotForServer1;
     private String snapshotForServer2;
@@ -93,8 +97,8 @@ public abstract class AbstractMessagingHATestCase {
     }
 
     protected static ModelControllerClient createClient2() throws UnknownHostException {
-        return ModelControllerClient.Factory.create(InetAddress.getByName(TestSuiteEnvironment.getServerAddress()),
-                TestSuiteEnvironment.getServerPort() + 100,
+        return ModelControllerClient.Factory.create(InetAddress.getByName(TestSuiteEnvironment.getServerAddressNode1()),
+                TestSuiteEnvironment.getServerPort() + OFFSET,
                 Authentication.getCallbackHandler());
     }
 
@@ -102,23 +106,16 @@ public abstract class AbstractMessagingHATestCase {
         ModelNode operation = new ModelNode();
         operation.get(OP).set("take-snapshot");
         ModelNode result = execute(client, operation);
-        String snapshot = result.asString();
-        return snapshot;
+        return result.asString();
     }
 
     protected static void waitForHornetQServerActivation(JMSOperations operations, boolean expectedActive) throws IOException {
         long start = System.currentTimeMillis();
         long now;
         do {
-            ModelNode operation = new ModelNode();
-            operation.get(OP_ADDR).set(operations.getServerAddress());
-            operation.get(OP).set(READ_RESOURCE_OPERATION);
-            operation.get(INCLUDE_RUNTIME).set(true);
-            operation.get(RECURSIVE).set(true);
             try {
-                ModelNode result = execute(operations.getControllerClient(), operation);
-                boolean started = result.get("started").asBoolean();
-                boolean active = result.get("active").asBoolean();
+                boolean started = isHornetQServerStarted(operations);
+                boolean active = isHornetQServerActive(operations);
                 if (started && expectedActive == active) {
                     // leave some time to the hornetq children resources to be installed after the server is activated
                     Thread.sleep(TimeoutUtil.adjust(500));
@@ -137,64 +134,88 @@ public abstract class AbstractMessagingHATestCase {
         fail("Server did not become active in the imparted time.");
     }
 
+    protected static boolean isHornetQServerStarted(JMSOperations operations) throws Exception {
+        ModelNode operation = Operations.createReadAttributeOperation(operations.getServerAddress(), "started");
+        return execute(operations.getControllerClient(), operation).asBoolean();
+    }
+
+    protected static boolean isHornetQServerActive(JMSOperations operations) throws Exception {
+        ModelNode operation = Operations.createReadAttributeOperation(operations.getServerAddress(), "active");
+        return execute(operations.getControllerClient(), operation).asBoolean();
+    }
+
     protected static void checkHornetQServerStartedAndActiveAttributes(JMSOperations operations, boolean expectedStarted, boolean expectedActive) throws Exception {
-        ModelNode operation = new ModelNode();
-        ModelNode address = operations.getServerAddress();
-        operation.get(OP_ADDR).set(address);
-        operation.get(OP).set(READ_RESOURCE_OPERATION);
-        operation.get(INCLUDE_RUNTIME).set(true);
-        ModelNode result = execute(operations.getControllerClient(), operation);
-        assertEquals(expectedStarted, result.get("started").asBoolean());
-        assertEquals(expectedActive, result.get("active").asBoolean());
+        assertEquals(expectedStarted, isHornetQServerStarted(operations));
+        assertEquals(expectedActive, isHornetQServerActive(operations));
     }
 
     protected static InitialContext createJNDIContextFromServer1() throws NamingException {
         final Properties env = new Properties();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "org.jboss.naming.remote.client.InitialContextFactory");
-        env.put(Context.PROVIDER_URL, System.getProperty(Context.PROVIDER_URL, "remote+http://127.0.0.1:8080"));
+        String ipAdddress = TestSuiteEnvironment.getServerAddress("node0");
+        env.put(Context.PROVIDER_URL, System.getProperty(Context.PROVIDER_URL, "remote+http://" + ipAdddress + ":" + TestSuiteEnvironment.getHttpPort()));
         env.put(Context.SECURITY_PRINCIPAL, "guest");
         env.put(Context.SECURITY_CREDENTIALS, "guest");
         return new InitialContext(env);
     }
 
-    protected static  InitialContext createJNDIContextFromServer2() throws NamingException {
+    protected static InitialContext createJNDIContextFromServer2() throws NamingException {
         final Properties env = new Properties();
         env.put(Context.INITIAL_CONTEXT_FACTORY, "org.jboss.naming.remote.client.InitialContextFactory");
-        env.put(Context.PROVIDER_URL, System.getProperty(Context.PROVIDER_URL, "remote+http://127.0.0.1:8180"));
+        String ipAdddress = TestSuiteEnvironment.getServerAddressNode1();
+        env.put(Context.PROVIDER_URL, System.getProperty(Context.PROVIDER_URL, "remote+http://" + ipAdddress + ":" + (TestSuiteEnvironment.getHttpPort() + OFFSET)));
         env.put(Context.SECURITY_PRINCIPAL, "guest");
         env.put(Context.SECURITY_CREDENTIALS, "guest");
         return new InitialContext(env);
     }
 
-    protected static  void sendMessage(Context ctx, String destinationLookup, String text) throws NamingException {
+    protected static void sendMessage(Context ctx, String destinationLookup, String text) throws NamingException {
+        log.trace("Looking up for the RemoteConnectionFactory with " + ctx);
         ConnectionFactory cf = (ConnectionFactory) ctx.lookup("jms/RemoteConnectionFactory");
         assertNotNull(cf);
+        log.trace("Looking up for the destination with " + ctx);
         Destination destination = (Destination) ctx.lookup(destinationLookup);
         assertNotNull(destination);
 
-        try (JMSContext context = cf.createContext("guest", "guest")) {
+        try ( JMSContext context = cf.createContext("guest", "guest")) {
             context.createProducer().send(destination, text);
         }
     }
 
-    protected static  void receiveMessage(Context ctx, String destinationLookup, String expectedText) throws NamingException {
+    protected static void receiveMessage(Context ctx, String destinationLookup, String expectedText) throws NamingException {
+        log.trace("Looking up for the RemoteConnectionFactory with " + ctx);
         ConnectionFactory cf = (ConnectionFactory) ctx.lookup("jms/RemoteConnectionFactory");
         assertNotNull(cf);
+        log.trace("Looking up for the destination with " + ctx);
         Destination destination = (Destination) ctx.lookup(destinationLookup);
         assertNotNull(destination);
 
-        try (JMSContext context = cf.createContext("guest", "guest")) {
-            JMSConsumer consumer = context.createConsumer(destination);
-            String text = consumer.receiveBody(String.class, 5000);
+        try ( JMSContext context = cf.createContext("guest", "guest");
+              JMSConsumer consumer = context.createConsumer(destination)) {
+            String text = consumer.receiveBody(String.class, TimeoutUtil.adjust(5000));
             assertNotNull(text);
             assertEquals(expectedText, text);
         }
     }
 
-    protected static  void sendAndReceiveMessage(Context ctx, String destinationLookup) throws NamingException {
+    protected static void sendAndReceiveMessage(Context ctx, String destinationLookup) throws NamingException {
         String text = UUID.randomUUID().toString();
         sendMessage(ctx, destinationLookup, text);
         receiveMessage(ctx, destinationLookup, text);
+    }
+
+    protected static void receiveNoMessage(Context ctx, String destinationLookup) throws NamingException {
+        ConnectionFactory cf = (ConnectionFactory) ctx.lookup("jms/RemoteConnectionFactory");
+        assertNotNull(cf);
+        Destination destination = (Destination) ctx.lookup(destinationLookup);
+        assertNotNull(destination);
+
+        try ( JMSContext context = cf.createContext("guest", "guest");
+              JMSConsumer consumer = context.createConsumer(destination)) {
+            String text = consumer.receiveBody(String.class, TimeoutUtil.adjust(5000));
+            assertNull(text);
+        }
+
     }
 
     protected static void checkJMSQueue(JMSOperations operations, String jmsQueueName, boolean active) throws Exception {
@@ -206,10 +227,6 @@ public abstract class AbstractMessagingHATestCase {
         ModelNode operation = new ModelNode();
         operation.get(OP_ADDR).set(address);
         operation.get(OP).set(READ_RESOURCE_OPERATION);
-        operation.get(INCLUDE_RUNTIME).set(true);
-       // ModelNode result = execute(client, operation);
-       // System.out.println(runtimeAttributeName + " = " + result.get(runtimeAttributeName));
-        //assertEquals(result.toJSONString(true), active, result.get(runtimeAttributeName).isDefined());
 
         // runtime operation
         operation.get(OP).set("list-messages");
@@ -220,20 +237,19 @@ public abstract class AbstractMessagingHATestCase {
         }
     }
 
-    private void restoreSnapshot(String snapshot) {
-        File snapshotFile = new File(snapshot);
-        File configurationDir = snapshotFile.getParentFile().getParentFile().getParentFile();
-        File standaloneConfiguration = new File(configurationDir, "standalone-full-ha.xml");
-        snapshotFile.renameTo(standaloneConfiguration);
+    private void restoreSnapshot(String snapshot) throws IOException {
+        Path snapshotFile = new File(snapshot).toPath();
+        Path standaloneConfiguration = snapshotFile.getParent().getParent().getParent().resolve("standalone-full-ha.xml");
+        Files.move(snapshotFile, standaloneConfiguration, StandardCopyOption.REPLACE_EXISTING);
     }
 
     protected static ModelNode execute(ModelControllerClient client, ModelNode operation) throws Exception {
         ModelNode response = client.execute(operation);
-        boolean success = SUCCESS.equals(response.get(OUTCOME).asString());
+        boolean success = Operations.isSuccessfulOutcome(response);
         if (success) {
             return response.get(RESULT);
         }
-        throw new Exception("Operation failed");
+        throw new Exception("Operation failed " + Operations.getFailureDescription(response));
     }
 
     protected static void executeWithFailure(ModelControllerClient client, ModelNode operation) throws IOException {
@@ -245,7 +261,7 @@ public abstract class AbstractMessagingHATestCase {
 
     @Before
     public void setUp() throws Exception {
-
+        clearArtemisFiles();
         // start server1 and reload it in admin-only
         container.start(SERVER1);
         ModelControllerClient client1 = createClient1();
@@ -285,6 +301,7 @@ public abstract class AbstractMessagingHATestCase {
     }
 
     protected abstract void setUpServer1(ModelControllerClient client) throws Exception;
+
     protected abstract void setUpServer2(ModelControllerClient client) throws Exception;
 
     @After
@@ -297,16 +314,41 @@ public abstract class AbstractMessagingHATestCase {
             container.stop(SERVER2);
         }
         restoreSnapshot(snapshotForServer2);
+        clearArtemisFiles();
     }
 
     private void executeReloadAndWaitForCompletionOfServer1(ModelControllerClient initialClient, boolean adminOnly) throws Exception {
-        executeReloadAndWaitForCompletion(initialClient, adminOnly);
+        executeReloadAndWaitForCompletion(initialClient, ServerReload.TIMEOUT,
+                adminOnly,
+                TestSuiteEnvironment.getServerAddress(),
+                TestSuiteEnvironment.getServerPort());
     }
 
     private void executeReloadAndWaitForCompletionOfServer2(ModelControllerClient initialClient, boolean adminOnly) throws Exception {
         executeReloadAndWaitForCompletion(initialClient, ServerReload.TIMEOUT,
                 adminOnly,
-                TestSuiteEnvironment.getServerAddress(),
-                TestSuiteEnvironment.getServerPort() + 100);
+                TestSuiteEnvironment.getServerAddressNode1(),
+                TestSuiteEnvironment.getServerPort() + OFFSET);
+    }
+
+    protected static void clearArtemisFiles() {
+        File server1 = new File(SERVER1).toPath().resolve("standalone").resolve("data").resolve("activemq").toFile();
+        deleteRecursive(server1);
+        File server2 = new File(SERVER2).toPath().resolve("standalone").resolve("data").resolve("activemq").toFile();
+        deleteRecursive(server2);
+    }
+
+    protected static void deleteRecursive(File file) {
+        File[] files = file.listFiles();
+        if(files != null) {
+            File[] var2 = files;
+            int var3 = files.length;
+
+            for(int var4 = 0; var4 < var3; ++var4) {
+                File f = var2[var4];
+                deleteRecursive(f);
+            }
+        }
+        file.delete();
     }
 }

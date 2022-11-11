@@ -21,32 +21,26 @@
  */
 package org.wildfly.clustering.web.infinispan.session;
 
-import javax.servlet.ServletContext;
-
-import org.infinispan.Cache;
 import org.wildfly.clustering.Registrar;
-import org.wildfly.clustering.ee.Batcher;
-import org.wildfly.clustering.ee.Recordable;
-import org.wildfly.clustering.ee.cache.CacheProperties;
+import org.wildfly.clustering.ee.Scheduler;
+import org.wildfly.clustering.ee.cache.IdentifierFactory;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
-import org.wildfly.clustering.infinispan.spi.distribution.Key;
-import org.wildfly.clustering.web.IdentifierFactory;
-import org.wildfly.clustering.web.cache.session.Scheduler;
-import org.wildfly.clustering.web.session.ImmutableSession;
+import org.wildfly.clustering.ee.infinispan.InfinispanConfiguration;
 import org.wildfly.clustering.web.session.SessionExpirationListener;
+import org.wildfly.clustering.web.session.SessionExpirationMetaData;
+import org.wildfly.clustering.web.session.SessionManager;
 
 /**
  * Configuration for an {@link InfinispanSessionManager}.
+ * @param <SC> the ServletContext specification type
+ * @param <LC> the local context type
  * @author Paul Ferraro
  */
-public interface InfinispanSessionManagerConfiguration {
-    ServletContext getServletContext();
-    SessionExpirationListener getExpirationListener();
-    Cache<Key<String>, ?> getCache();
-    CacheProperties getProperties();
+public interface InfinispanSessionManagerConfiguration<SC, LC> extends InfinispanConfiguration {
+    SC getServletContext();
+    Scheduler<String, SessionExpirationMetaData> getExpirationScheduler();
     IdentifierFactory<String> getIdentifierFactory();
-    Batcher<TransactionBatch> getBatcher();
-    Scheduler getExpirationScheduler();
-    Recordable<ImmutableSession> getInactiveSessionRecorder();
-    Registrar<SessionExpirationListener> getExpirationRegistar();
+    SessionExpirationListener getExpirationListener();
+    Runnable getStartTask();
+    Registrar<SessionManager<LC, TransactionBatch>> getRegistrar();
 }

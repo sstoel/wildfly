@@ -22,12 +22,12 @@
 
 package org.jboss.as.test.integration.messaging.jms.context.auxiliary;
 
-import javax.ejb.Stateless;
-import javax.inject.Inject;
-import javax.jms.Destination;
-import javax.jms.JMSConnectionFactory;
-import javax.jms.JMSContext;
-import javax.jms.JMSPasswordCredential;
+import jakarta.ejb.Stateless;
+import jakarta.inject.Inject;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConnectionFactory;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSPasswordCredential;
 
 /**
  * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2013 Red Hat inc.
@@ -39,7 +39,7 @@ public class VaultedMessageProducer {
 
     @Inject
     @JMSConnectionFactory("java:jboss/exported/jms/RemoteConnectionFactory")
-    @JMSPasswordCredential(userName = "${VAULT::messaging::userName::1}", password = "${VAULT::messaging::password::1}")
+    @JMSPasswordCredential(userName = "${test.userName}", password = "${test.password}")
     private JMSContext context;
 
     public void sendToDestination(Destination destination, String text) {

@@ -1,13 +1,13 @@
 package org.jboss.as.test.integration.web.security.runas;
 
 import java.io.IOException;
-import javax.annotation.security.RunAs;
-import javax.ejb.EJB;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.annotation.security.RunAs;
+import jakarta.ejb.EJB;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * @author Stuart Douglas
@@ -16,7 +16,7 @@ import javax.servlet.http.HttpServletResponse;
 @RunAs("anil")
 public class RunAsInitServlet extends HttpServlet {
 
-    private String initName;
+    private volatile String initName;
 
     @EJB
     private CurrentUserEjb currentUserEjb;

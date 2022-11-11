@@ -22,10 +22,10 @@
 
 package org.jboss.as.test.clustering.cluster.ejb.forwarding.bean.common;
 
-import javax.annotation.PostConstruct;
-import javax.ejb.Remove;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
+import jakarta.annotation.PostConstruct;
+import jakarta.ejb.Remove;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
 
 import org.jboss.logging.Logger;
 
@@ -38,12 +38,12 @@ public class CommonStatefulSBImpl implements CommonStatefulSB {
     @PostConstruct
     private void init() {
         serial = 0;
-        log.infof("New SFSB created: %s.", this);
+        log.debugf("New SFSB created: %s.", this);
     }
 
     @Override
     public int getSerialAndIncrement() {
-        log.infof("getSerialAndIncrement() called on non-forwarding node %s", getCurrentNode());
+        log.debugf("getSerialAndIncrement() called on non-forwarding node %s", getCurrentNode());
         return serial++;
     }
 

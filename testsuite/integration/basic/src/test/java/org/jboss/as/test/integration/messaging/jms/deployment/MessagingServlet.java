@@ -22,23 +22,25 @@
 
 package org.jboss.as.test.integration.messaging.jms.deployment;
 
+import org.jboss.as.test.shared.TimeoutUtil;
+
 import static org.jboss.as.test.integration.messaging.jms.deployment.DependentMessagingDeploymentTestCase.QUEUE_LOOKUP;
 import static org.jboss.as.test.integration.messaging.jms.deployment.DependentMessagingDeploymentTestCase.TOPIC_LOOKUP;
 
 import java.io.IOException;
 
-import javax.annotation.Resource;
-import javax.inject.Inject;
-import javax.jms.Destination;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.Queue;
-import javax.jms.Topic;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.annotation.Resource;
+import jakarta.inject.Inject;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.Queue;
+import jakarta.jms.Topic;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 
 /**
@@ -58,7 +60,7 @@ public class MessagingServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        boolean useTopic = req.getParameterMap().keySet().contains("topic");
+        boolean useTopic = req.getParameterMap().containsKey("topic");
         final Destination destination = useTopic ? topic : queue;
         final String text = req.getParameter("text");
 
@@ -76,6 +78,6 @@ public class MessagingServlet extends HttpServlet {
                     .setJMSReplyTo(replyTo)
                     .send(destination, text);
 
-            return consumer.receiveBody(String.class, 5000);
+            return consumer.receiveBody(String.class, TimeoutUtil.adjust(5000));
     }
 }

@@ -22,15 +22,15 @@
 
 package org.jboss.as.test.integration.transaction.inflow;
 
-import javax.jms.MessageListener;
-import javax.resource.spi.UnavailableException;
-import javax.resource.spi.endpoint.MessageEndpoint;
-import javax.resource.spi.endpoint.MessageEndpointFactory;
-import javax.resource.spi.work.Work;
+import jakarta.jms.MessageListener;
+import jakarta.resource.spi.UnavailableException;
+import jakarta.resource.spi.endpoint.MessageEndpoint;
+import jakarta.resource.spi.endpoint.MessageEndpointFactory;
+import jakarta.resource.spi.work.Work;
 import org.jboss.logging.Logger;
 
 /**
- * JCA work executing onMessage method with text message payload.
+ * Jakarta Connectors work executing onMessage method with text message payload.
  *
  * @author Ondrej Chaloupka <ochaloup@redhat.com>
  */

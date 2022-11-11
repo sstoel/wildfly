@@ -26,8 +26,6 @@ import static org.jboss.logging.Logger.Level.ERROR;
 import static org.jboss.logging.Logger.Level.INFO;
 import static org.jboss.logging.Logger.Level.WARN;
 
-import java.lang.instrument.IllegalClassFormatException;
-
 import javax.ejb.EJBException;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
@@ -305,14 +303,14 @@ public interface JpaLogger extends BasicLogger {
     //RuntimeException cannotLoadEntityClass(@Cause Throwable cause, String className);
 
     /**
-     * Creates an exception indicating the {@code injectionTypeName} could not be loaded from the JPA modules class
+     * Creates an exception indicating the {@code injectionTypeName} could not be loaded from the Jakarta Persistence modules class
      * loader.
      *
      * @param cause             the cause of the error.
      * @param injectionTypeName the name of the type.
      * @return a {@link RuntimeException} for the error.
      */
-    @Message(id = 25, value = "Couldn't load %s from JPA modules classloader")
+    @Message(id = 25, value = "Couldn't load %s from Jakarta Persistence modules classloader")
     RuntimeException cannotLoadFromJpa(@Cause Throwable cause, String injectionTypeName);
 
 //    /**
@@ -699,7 +697,7 @@ public interface JpaLogger extends BasicLogger {
      * @return an {@link IllegalStateException} for the error.
      */
     @Message(id = 64, value =
-            "JTA transaction already has a 'SynchronizationType.UNSYNCHRONIZED' persistence context (EntityManager) joined to it " +
+            "Jakarta Transactions transaction already has a 'SynchronizationType.UNSYNCHRONIZED' persistence context (EntityManager) joined to it " +
             "but a component with a 'SynchronizationType.SYNCHRONIZED' is now being used.  " +
             "Change the calling component code to join the persistence context (EntityManager) to the transaction or "+
             "change the called component code to also use 'SynchronizationType.UNSYNCHRONIZED'.  "+
@@ -756,10 +754,7 @@ public interface JpaLogger extends BasicLogger {
     // id = 72, value = "Could not obtain TransactionListenerRegistry from transaction manager")
 
     @Message(id = 73, value = "Transformation of class %s failed")
-    IllegalStateException invalidClassFormat(@Cause IllegalClassFormatException cause, String className);
+    IllegalStateException invalidClassFormat(@Cause Exception cause, String className);
 
-    @LogMessage(level = INFO)
-    @Message(id = 74, value = "Deprecated Hibernate51CompatibilityTransformer is enabled for all application deployments.")
-    void hibernate51CompatibilityTransformerEnabled();
-
+    // @Message(id = 74, value = "Deprecated Hibernate51CompatibilityTransformer is enabled for all application deployments.")
 }

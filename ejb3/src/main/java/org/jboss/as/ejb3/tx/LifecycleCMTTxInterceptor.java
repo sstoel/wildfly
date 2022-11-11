@@ -21,19 +21,19 @@
  */
 package org.jboss.as.ejb3.tx;
 
-import javax.ejb.TransactionAttributeType;
-import javax.transaction.Status;
-import javax.transaction.Transaction;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.transaction.Status;
+import jakarta.transaction.Transaction;
 
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentInterceptorFactory;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponent;
-import org.jboss.as.ejb3.component.MethodIntf;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorContext;
 import org.jboss.invocation.InterceptorFactoryContext;
 import org.jboss.invocation.proxy.MethodIdentifier;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.wildfly.transaction.client.ContextTransactionManager;
 
 /**
@@ -119,28 +119,27 @@ public class LifecycleCMTTxInterceptor extends CMTTxInterceptor {
                     txAttr = TransactionAttributeType.NOT_SUPPORTED;
                 }
             } else {
-                txAttr = ejb.getTransactionAttributeType(MethodIntf.BEAN, methodIdentifier, treatRequiredAsRequiresNew ? TransactionAttributeType.REQUIRES_NEW : TransactionAttributeType.NOT_SUPPORTED);
+                txAttr = ejb.getTransactionAttributeType(MethodInterfaceType.Bean, methodIdentifier, treatRequiredAsRequiresNew ? TransactionAttributeType.REQUIRES_NEW : TransactionAttributeType.NOT_SUPPORTED);
             }
             final int txTimeout;
             if(methodIdentifier == null) {
                 txTimeout = -1;
             } else {
-                txTimeout = ejb.getTransactionTimeout(MethodIntf.BEAN, methodIdentifier);
+                txTimeout = ejb.getTransactionTimeout(MethodInterfaceType.Bean, methodIdentifier);
             }
             if (treatRequiredAsRequiresNew && txAttr == TransactionAttributeType.REQUIRED) {
                 txAttr = TransactionAttributeType.REQUIRES_NEW;
             }
-            if(!treatRequiredAsRequiresNew ) {
-                if(txAttr != TransactionAttributeType.NOT_SUPPORTED &&
-                        txAttr != TransactionAttributeType.REQUIRES_NEW) {
-                    if(ejb.isTransactionAttributeTypeExplicit(MethodIntf.BEAN, methodIdentifier)) {
-                        EjbLogger.ROOT_LOGGER.invalidTransactionTypeForSfsbLifecycleMethod(txAttr, methodIdentifier, ejb.getComponentClass());
-                    }
-                    txAttr = TransactionAttributeType.NOT_SUPPORTED;
+            if (!treatRequiredAsRequiresNew
+                    && txAttr != TransactionAttributeType.NOT_SUPPORTED
+                    && txAttr != TransactionAttributeType.REQUIRES_NEW) {
+                if (ejb.isTransactionAttributeTypeExplicit(MethodInterfaceType.Bean, methodIdentifier)) {
+                    EjbLogger.ROOT_LOGGER.invalidTransactionTypeForSfsbLifecycleMethod(txAttr, methodIdentifier,
+                            ejb.getComponentClass());
                 }
+                txAttr = TransactionAttributeType.NOT_SUPPORTED;
             }
-            final LifecycleCMTTxInterceptor interceptor = new LifecycleCMTTxInterceptor(txAttr, txTimeout);
-            return interceptor;
+            return new LifecycleCMTTxInterceptor(txAttr, txTimeout);
         }
     }
 

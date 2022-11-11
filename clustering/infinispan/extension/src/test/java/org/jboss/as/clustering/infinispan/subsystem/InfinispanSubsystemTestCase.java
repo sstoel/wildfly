@@ -37,7 +37,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import org.wildfly.clustering.jgroups.spi.JGroupsDefaultRequirement;
-import org.wildfly.clustering.jgroups.spi.JGroupsRequirement;
 
 /**
  * Tests parsing / booting / marshalling of Infinispan configurations.
@@ -58,7 +57,7 @@ public class InfinispanSubsystemTestCase extends ClusteringSubsystemTest<Infinis
     private final InfinispanSchema schema;
 
     public InfinispanSubsystemTestCase(InfinispanSchema schema) {
-        super(InfinispanExtension.SUBSYSTEM_NAME, new InfinispanExtension(), schema, InfinispanSchema.CURRENT, "subsystem-infinispan-%d_%d.xml", "schema/jboss-as-infinispan_%d_%d.xsd");
+        super(InfinispanExtension.SUBSYSTEM_NAME, new InfinispanExtension(), schema, "subsystem-infinispan-%d_%d.xml", "schema/jboss-as-infinispan_%d_%d.xsd");
         this.schema = schema;
     }
 
@@ -68,8 +67,6 @@ public class InfinispanSubsystemTestCase extends ClusteringSubsystemTest<Infinis
                 .require(CommonUnaryRequirement.OUTBOUND_SOCKET_BINDING, "hotrod-server-1", "hotrod-server-2")
                 .require(CommonUnaryRequirement.DATA_SOURCE, "ExampleDS")
                 .require(CommonUnaryRequirement.PATH, "jboss.server.temp.dir")
-                .require(JGroupsRequirement.CHANNEL, "maximal-channel")
-                .require(JGroupsRequirement.CHANNEL_FACTORY, "ee-maximal", "maximal-channel", "maximal-cluster")
                 .require(JGroupsDefaultRequirement.CHANNEL_FACTORY)
                 .require(CommonRequirement.LOCAL_TRANSACTION_PROVIDER)
                 .require(TransactionResourceDefinition.TransactionRequirement.XA_RESOURCE_RECOVERY_REGISTRY)

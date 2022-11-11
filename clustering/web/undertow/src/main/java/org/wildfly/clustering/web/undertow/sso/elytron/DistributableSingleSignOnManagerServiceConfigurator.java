@@ -47,16 +47,17 @@ import org.wildfly.clustering.service.ServiceSupplierDependency;
 import org.wildfly.clustering.service.SimpleServiceNameProvider;
 import org.wildfly.clustering.service.SimpleSupplierDependency;
 import org.wildfly.clustering.service.SupplierDependency;
-import org.wildfly.clustering.web.WebDefaultProviderRequirement;
-import org.wildfly.clustering.web.WebProviderRequirement;
 import org.wildfly.clustering.web.container.SecurityDomainSingleSignOnManagementConfiguration;
-import org.wildfly.clustering.web.sso.DistributableSSOManagementProvider;
-import org.wildfly.clustering.web.sso.LegacySSOManagementProviderFactory;
+import org.wildfly.clustering.web.service.WebDefaultProviderRequirement;
+import org.wildfly.clustering.web.service.WebProviderRequirement;
+import org.wildfly.clustering.web.service.sso.DistributableSSOManagementProvider;
+import org.wildfly.clustering.web.service.sso.LegacySSOManagementProviderFactory;
 import org.wildfly.clustering.web.sso.SSOManager;
 import org.wildfly.clustering.web.sso.SSOManagerFactory;
 import org.wildfly.clustering.web.undertow.logging.UndertowClusteringLogger;
 import org.wildfly.clustering.web.undertow.sso.SSOManagerServiceConfigurator;
 import org.wildfly.extension.undertow.Capabilities;
+import org.wildfly.security.cache.CachedIdentity;
 import org.wildfly.security.http.util.sso.SingleSignOnManager;
 
 import io.undertow.server.session.SessionIdGenerator;
@@ -64,13 +65,13 @@ import io.undertow.server.session.SessionIdGenerator;
 /**
  * @author Paul Ferraro
  */
-public class DistributableSingleSignOnManagerServiceConfigurator extends SimpleServiceNameProvider implements CapabilityServiceConfigurator, Function<SSOManager<ElytronAuthentication, String, Map.Entry<String, URI>, LocalSSOContext, Batch>, SingleSignOnManager> {
+public class DistributableSingleSignOnManagerServiceConfigurator extends SimpleServiceNameProvider implements CapabilityServiceConfigurator, Function<SSOManager<CachedIdentity, String, Map.Entry<String, URI>, LocalSSOContext, Batch>, SingleSignOnManager> {
 
     private final SecurityDomainSingleSignOnManagementConfiguration configuration;
     private final LegacySSOManagementProviderFactory legacyProviderFactory;
 
     private volatile SupplierDependency<DistributableSSOManagementProvider> provider;
-    private volatile SupplierDependency<SSOManager<ElytronAuthentication, String, Map.Entry<String, URI>, LocalSSOContext, Batch>> manager;
+    private volatile SupplierDependency<SSOManager<CachedIdentity, String, Map.Entry<String, URI>, LocalSSOContext, Batch>> manager;
     private volatile Consumer<ServiceTarget> installer;
 
     public DistributableSingleSignOnManagerServiceConfigurator(ServiceName name, SecurityDomainSingleSignOnManagementConfiguration configuration, LegacySSOManagementProviderFactory legacyProviderFactory) {
@@ -80,7 +81,7 @@ public class DistributableSingleSignOnManagerServiceConfigurator extends SimpleS
     }
 
     @Override
-    public SingleSignOnManager apply(SSOManager<ElytronAuthentication, String, Entry<String, URI>, LocalSSOContext, Batch> manager) {
+    public SingleSignOnManager apply(SSOManager<CachedIdentity, String, Entry<String, URI>, LocalSSOContext, Batch> manager) {
         return new DistributableSingleSignOnManager(manager);
     }
 
@@ -93,13 +94,13 @@ public class DistributableSingleSignOnManagerServiceConfigurator extends SimpleS
         ServiceName managerServiceName = this.getServiceName().append("manager");
         this.manager = new ServiceSupplierDependency<>(managerServiceName);
         this.provider = provider;
-        this.installer = new Consumer<ServiceTarget>() {
+        this.installer = new Consumer<>() {
             @Override
             public void accept(ServiceTarget target) {
                 ServiceConfigurator factoryConfigurator = provider.get().getServiceConfigurator(securityDomainName).configure(support);
                 factoryConfigurator.build(target).install();
 
-                SupplierDependency<SSOManagerFactory<ElytronAuthentication, String, Map.Entry<String, URI>, Batch>> factoryDependency = new ServiceSupplierDependency<>(factoryConfigurator);
+                SupplierDependency<SSOManagerFactory<CachedIdentity, String, Map.Entry<String, URI>, Batch>> factoryDependency = new ServiceSupplierDependency<>(factoryConfigurator);
                 SupplierDependency<SessionIdGenerator> generatorDependency = new SimpleSupplierDependency<>(new SessionIdGeneratorAdapter(generator));
                 new SSOManagerServiceConfigurator<>(managerServiceName, factoryDependency, generatorDependency, new LocalSSOContextFactory()).configure(support).build(target).install();
             }

@@ -22,16 +22,16 @@
 
 package org.jboss.as.test.clustering.cluster.ejb.xpc.bean;
 
-import javax.ejb.Remove;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.persistence.EntityManager;
-import javax.persistence.LockModeType;
-import javax.persistence.PersistenceContext;
-import javax.persistence.PersistenceContextType;
+import jakarta.ejb.Remove;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.PersistenceContextType;
 
 import org.hibernate.Session;
-import org.hibernate.stat.SecondLevelCacheStatistics;
+import org.hibernate.stat.CacheRegionStatistics;
 import org.jboss.logging.Logger;
 
 import java.util.HashMap;
@@ -41,7 +41,7 @@ import java.util.Map;
  * @author Paul Ferraro
  * @author Scott Marlow
  */
-@javax.ejb.Stateful(name = "StatefulBean")
+@jakarta.ejb.Stateful(name = "StatefulBean")
 public class StatefulBean implements Stateful {
 
     private static final Logger log = Logger.getLogger(StatefulBean.class);
@@ -150,9 +150,11 @@ public class StatefulBean implements Stateful {
     public long getEmployeesInMemory() {
         Session session = em.unwrap(Session.class);
         String[] entityRegionNames = session.getSessionFactory().getStatistics().getSecondLevelCacheRegionNames();
-        for (String name : entityRegionNames) {
-            if (name.contains(Employee.class.getName())) {
-                SecondLevelCacheStatistics stats = session.getSessionFactory().getStatistics().getSecondLevelCacheStatistics(name);
+        String legacyPrefix = session.getSessionFactory().getSessionFactoryOptions().getCacheRegionPrefix() + ".";
+        for (String qualifiedName : entityRegionNames) {
+            if (qualifiedName.contains(Employee.class.getName())) {
+                String name = qualifiedName.startsWith(legacyPrefix) ? qualifiedName.substring(legacyPrefix.length()) : qualifiedName;
+                CacheRegionStatistics stats = session.getSessionFactory().getStatistics().getDomainDataRegionStatistics(name);
                 return stats.getElementCountInMemory();
             }
         }
@@ -166,9 +168,12 @@ public class StatefulBean implements Stateful {
         session.getSessionFactory().getStatistics().setStatisticsEnabled(true);
         session.getSessionFactory().getStatistics().logSummary();
         String[] entityRegionNames = session.getSessionFactory().getStatistics().getSecondLevelCacheRegionNames();
-        for (String name : entityRegionNames) {
+        String legacyPrefix = session.getSessionFactory().getSessionFactoryOptions().getCacheRegionPrefix() + ".";
+        for (String qualifiedName : entityRegionNames) {
+            log.trace("qualified cache entity region name = " + qualifiedName);
+            String name = qualifiedName.startsWith(legacyPrefix) ? qualifiedName.substring(legacyPrefix.length()) : qualifiedName;
             log.trace("cache entity region name = " + name);
-            SecondLevelCacheStatistics stats = session.getSessionFactory().getStatistics().getSecondLevelCacheStatistics(name);
+            CacheRegionStatistics stats = session.getSessionFactory().getStatistics().getCacheRegionStatistics(name);
             log.trace("2lc for " + name + ": " + stats.toString());
 
         }

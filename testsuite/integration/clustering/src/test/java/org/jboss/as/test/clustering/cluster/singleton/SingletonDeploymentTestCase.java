@@ -26,15 +26,14 @@ import static org.jboss.as.test.clustering.ClusterTestUtil.execute;
 
 import java.net.URI;
 import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.stream.Collectors;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
-import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
@@ -46,7 +45,7 @@ import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.cluster.singleton.servlet.TraceServlet;
 import org.jboss.as.test.http.util.TestHttpClientUtils;
-import org.jboss.as.test.shared.CLIServerSetupTask;
+import org.jboss.as.test.shared.ManagementServerSetupTask;
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.Archive;
@@ -62,6 +61,9 @@ import org.junit.runner.RunWith;
 @RunWith(Arquillian.class)
 @ServerSetup(SingletonDeploymentTestCase.ServerSetupTask.class)
 public abstract class SingletonDeploymentTestCase extends AbstractClusteringTestCase {
+
+    static final String SINGLETON_DEPLOYMENT_1 = "singleton-deployment-1";
+    static final String SINGLETON_DEPLOYMENT_2 = "singleton-deployment-2";
 
     private static final String MODULE_NAME = SingletonDeploymentTestCase.class.getSimpleName();
     private static final String DEPLOYMENT_NAME = MODULE_NAME + ".war";
@@ -102,9 +104,9 @@ public abstract class SingletonDeploymentTestCase extends AbstractClusteringTest
             @ArquillianResource(TraceServlet.class) @OperateOnDeployment(DEPLOYMENT_2) URL baseURL2)
             throws Exception {
 
-        this.deploy(DEPLOYMENT_HELPER_1);
+        this.deploy(SINGLETON_DEPLOYMENT_1);
         Thread.sleep(DELAY);
-        this.deploy(DEPLOYMENT_HELPER_2);
+        this.deploy(SINGLETON_DEPLOYMENT_2);
         Thread.sleep(DELAY);
 
         String primaryProviderRequest = String.format("/subsystem=singleton/singleton-policy=default/deployment=%s:read-attribute(name=primary-provider)", this.deploymentName);
@@ -113,30 +115,24 @@ public abstract class SingletonDeploymentTestCase extends AbstractClusteringTest
 
         Assert.assertEquals(NODE_1, execute(client1, primaryProviderRequest).asStringOrNull());
         Assert.assertTrue(execute(client1, isPrimaryRequest).asBoolean(false));
-        Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+        Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
         Assert.assertEquals(NODE_1, execute(client2, primaryProviderRequest).asStringOrNull());
         Assert.assertFalse(execute(client2, isPrimaryRequest).asBoolean(true));
-        Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+        Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
 
         URI uri1 = TraceServlet.createURI(new URL(baseURL1.getProtocol(), baseURL1.getHost(), baseURL1.getPort(), "/" + this.moduleName + "/"));
         URI uri2 = TraceServlet.createURI(new URL(baseURL2.getProtocol(), baseURL2.getHost(), baseURL2.getPort(), "/" + this.moduleName + "/"));
 
         try (CloseableHttpClient client = TestHttpClientUtils.promiscuousCookieHttpClient()) {
-            HttpResponse response = client.execute(new HttpGet(uri1));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            response = client.execute(new HttpGet(uri2));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            this.undeploy(DEPLOYMENT_HELPER_1);
+            this.undeploy(SINGLETON_DEPLOYMENT_1);
 
             Thread.sleep(DELAY);
 
@@ -144,46 +140,34 @@ public abstract class SingletonDeploymentTestCase extends AbstractClusteringTest
             Assert.assertTrue(execute(client2, isPrimaryRequest).asBoolean(false));
             Assert.assertEquals(Collections.singletonList(NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).collect(Collectors.toList()));
 
-            response = client.execute(new HttpGet(uri1));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            response = client.execute(new HttpGet(uri2));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            this.deploy(DEPLOYMENT_HELPER_1);
+            this.deploy(SINGLETON_DEPLOYMENT_1);
 
             Thread.sleep(DELAY);
 
             Assert.assertEquals(NODE_1, execute(client1, primaryProviderRequest).asStringOrNull());
             Assert.assertTrue(execute(client1, isPrimaryRequest).asBoolean(false));
-            Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+            Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
             Assert.assertEquals(NODE_1, execute(client2, primaryProviderRequest).asStringOrNull());
             Assert.assertFalse(execute(client2, isPrimaryRequest).asBoolean(true));
-            Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+            Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
 
-            response = client.execute(new HttpGet(uri1));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            response = client.execute(new HttpGet(uri2));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            this.undeploy(DEPLOYMENT_HELPER_2);
+            this.undeploy(SINGLETON_DEPLOYMENT_2);
 
             Thread.sleep(DELAY);
 
@@ -191,55 +175,50 @@ public abstract class SingletonDeploymentTestCase extends AbstractClusteringTest
             Assert.assertTrue(execute(client1, isPrimaryRequest).asBoolean(false));
             Assert.assertEquals(Collections.singletonList(NODE_1), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).collect(Collectors.toList()));
 
-            response = client.execute(new HttpGet(uri1));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            response = client.execute(new HttpGet(uri2));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            this.deploy(DEPLOYMENT_HELPER_2);
+            this.deploy(SINGLETON_DEPLOYMENT_2);
 
             Thread.sleep(DELAY);
 
             Assert.assertEquals(NODE_1, execute(client1, primaryProviderRequest).asStringOrNull());
             Assert.assertTrue(execute(client1, isPrimaryRequest).asBoolean(false));
-            Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+            Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client1, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
             Assert.assertEquals(NODE_1, execute(client2, primaryProviderRequest).asStringOrNull());
             Assert.assertFalse(execute(client2, isPrimaryRequest).asBoolean(true));
-            Assert.assertEquals(Arrays.asList(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
+            Assert.assertEquals(List.of(NODE_1, NODE_2), execute(client2, getProvidersRequest).asList().stream().map(ModelNode::asString).sorted().collect(Collectors.toList()));
 
-            response = client.execute(new HttpGet(uri1));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
 
-            response = client.execute(new HttpGet(uri2));
-            try {
+            try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_NOT_FOUND, response.getStatusLine().getStatusCode());
-            } finally {
-                HttpClientUtils.closeQuietly(response);
             }
         } finally {
-            this.undeploy(DEPLOYMENT_HELPER_1, DEPLOYMENT_HELPER_2);
+            this.undeploy(SINGLETON_DEPLOYMENT_1);
+            Thread.sleep(DELAY);
+            this.undeploy(SINGLETON_DEPLOYMENT_2);
+            Thread.sleep(DELAY);
         }
     }
 
-    public static class ServerSetupTask extends CLIServerSetupTask {
+    public static class ServerSetupTask extends ManagementServerSetupTask {
         ServerSetupTask() {
-            this.builder.node(TWO_NODES)
-                    .setup("/subsystem=singleton/singleton-policy=default/election-policy=simple:write-attribute(name=name-preferences,value=%s)", Arrays.toString(TWO_NODES))
-                    .teardown("/subsystem=singleton/singleton-policy=default/election-policy=simple:undefine-attribute(name=name-preferences)")
-                    ;
+            super(NODE_1_2, createContainerConfigurationBuilder()
+                    .setupScript(createScriptBuilder()
+                        .add("/subsystem=singleton/singleton-policy=default/election-policy=simple:write-attribute(name=name-preferences,value=%s)", List.of(NODE_1, NODE_2))
+                        .build())
+                    .tearDownScript(createScriptBuilder()
+                        .add("/subsystem=singleton/singleton-policy=default/election-policy=simple:undefine-attribute(name=name-preferences)")
+                        .build())
+                    .build());
         }
     }
 }

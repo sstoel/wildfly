@@ -26,9 +26,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.net.URL;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
-import org.junit.Assert;
 
 import org.jboss.as.test.integration.common.HttpRequest;
 import org.jboss.as.test.integration.domain.management.util.DomainTestSupport;
@@ -40,6 +39,7 @@ import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.jboss.shrinkwrap.impl.base.exporter.zip.ZipExporterImpl;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
@@ -49,7 +49,6 @@ import org.junit.Test;
  */
 public class DeployAllServerGroupsTestCase extends AbstractCliTestBase {
 
-    private static WebArchive war;
     private static File warFile;
 
     @BeforeClass
@@ -57,14 +56,15 @@ public class DeployAllServerGroupsTestCase extends AbstractCliTestBase {
 
         CLITestSuite.createSupport(DeployAllServerGroupsTestCase.class.getSimpleName());
 
-        war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
+        WebArchive war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
         war.addClass(SimpleServlet.class);
         war.addAsWebResource(new StringAsset("Version1"), "page.html");
         String tempDir = System.getProperty("java.io.tmpdir");
         warFile = new File(tempDir, "SimpleServlet.war");
+
         new ZipExporterImpl(war).exportTo(warFile, true);
 
-        AbstractCliTestBase.initCLI(DomainTestSupport.masterAddress);
+        AbstractCliTestBase.initCLI(DomainTestSupport.primaryAddress);
     }
 
     @AfterClass
@@ -97,7 +97,7 @@ public class DeployAllServerGroupsTestCase extends AbstractCliTestBase {
         checkURL("/SimpleServlet/page.html", "Version1");
 
         // update the deployment - replace page.html
-        war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
+        WebArchive war = ShrinkWrap.create(WebArchive.class, "SimpleServlet.war");
         war.addClass(SimpleServlet.class);
         war.addAsWebResource(new StringAsset("Version2"), "page.html");
         new ZipExporterImpl(war).exportTo(warFile, true);
@@ -126,9 +126,9 @@ public class DeployAllServerGroupsTestCase extends AbstractCliTestBase {
         checkURL(path, content, false);
     }
     private void checkURL(String path, String content, boolean shouldFail) throws Exception {
-        for (String host : CLITestSuite.hostAddresses.keySet()) {
-            String address = CLITestSuite.hostAddresses.get(host);
-            for (String server : CLITestSuite.hostServers.get(host)) {
+        for (Map.Entry<String, String> entry : CLITestSuite.hostAddresses.entrySet()) {
+            String address = entry.getValue();
+            for (String server : CLITestSuite.hostServers.get(entry.getKey())) {
                 if (! CLITestSuite.serverStatus.get(server)) continue;
                 Integer portOffset = CLITestSuite.portOffsets.get(server);
 

@@ -22,6 +22,8 @@
 
 package org.jboss.as.clustering.infinispan.subsystem.remote;
 
+import java.util.EnumSet;
+import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
 
 import org.infinispan.client.hotrod.ProtocolVersion;
@@ -29,26 +31,34 @@ import org.jboss.as.clustering.controller.CapabilityProvider;
 import org.jboss.as.clustering.controller.CapabilityReference;
 import org.jboss.as.clustering.controller.ChildResourceDefinition;
 import org.jboss.as.clustering.controller.ManagementResourceRegistration;
+import org.jboss.as.clustering.controller.MetricHandler;
+import org.jboss.as.clustering.controller.PropertiesAttributeDefinition;
 import org.jboss.as.clustering.controller.ResourceDescriptor;
+import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
 import org.jboss.as.clustering.controller.ResourceServiceConfiguratorFactory;
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
+import org.jboss.as.clustering.controller.ServiceValueExecutorRegistry;
 import org.jboss.as.clustering.controller.SimpleResourceRegistration;
 import org.jboss.as.clustering.controller.UnaryRequirementCapability;
 import org.jboss.as.clustering.controller.validation.EnumValidator;
 import org.jboss.as.clustering.controller.validation.ModuleIdentifierValidatorBuilder;
+import org.jboss.as.clustering.infinispan.logging.InfinispanLogger;
 import org.jboss.as.clustering.infinispan.subsystem.InfinispanExtension;
 import org.jboss.as.clustering.infinispan.subsystem.InfinispanModel;
 import org.jboss.as.clustering.infinispan.subsystem.ThreadPoolResourceDefinition;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
+import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.StringListAttributeDefinition;
+import org.jboss.as.controller.client.helpers.MeasurementUnit;
+import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.transform.description.AttributeConverter.DefaultValueAttributeConverter;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
-import org.wildfly.clustering.infinispan.client.InfinispanClientRequirement;
+import org.wildfly.clustering.infinispan.client.RemoteCacheContainer;
+import org.wildfly.clustering.infinispan.client.service.InfinispanClientRequirement;
 import org.wildfly.clustering.service.UnaryRequirement;
 
 /**
@@ -56,7 +66,7 @@ import org.wildfly.clustering.service.UnaryRequirement;
  *
  * @author Radoslav Husar
  */
-public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinition<ManagementResourceRegistration> {
+public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinition<ManagementResourceRegistration> implements ResourceServiceConfiguratorFactory {
 
     public static final PathElement WILDCARD_PATH = pathElement(PathElement.WILDCARD_VALUE);
 
@@ -89,27 +99,48 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
                 return builder.setAllowExpression(false).setCapabilityReference(new CapabilityReference(Capability.CONFIGURATION, RemoteClusterResourceDefinition.Requirement.REMOTE_CLUSTER, WILDCARD_PATH));
             }
         },
-        KEY_SIZE_ESTIMATE("key-size-estimate", ModelType.INT, new ModelNode(64)),
-        MAX_RETRIES("max-retries", ModelType.INT, new ModelNode(10)),
-        MODULE("module", ModelType.STRING, new ModelNode("org.jboss.as.clustering.infinispan")) {
+        MARSHALLER("marshaller", ModelType.STRING, new ModelNode(HotRodMarshallerFactory.LEGACY.name())) {
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
-                return builder.setValidator(new ModuleIdentifierValidatorBuilder().configure(builder).build());
+                return builder.setValidator(new EnumValidator<>(HotRodMarshallerFactory.class) {
+                    @Override
+                    public void validateParameter(String parameterName, ModelNode value) throws OperationFailedException {
+                        super.validateParameter(parameterName, value);
+                        if (!value.isDefined() || value.equals(MARSHALLER.getDefinition().getDefaultValue())) {
+                            InfinispanLogger.ROOT_LOGGER.marshallerEnumValueDeprecated(parameterName, HotRodMarshallerFactory.LEGACY, EnumSet.complementOf(EnumSet.of(HotRodMarshallerFactory.LEGACY)));
+                        }
+                    }
+                });
             }
         },
-        PROTOCOL_VERSION("protocol-version", ModelType.STRING, new ModelNode(ProtocolVersion.PROTOCOL_VERSION_29.toString())) {
+        MAX_RETRIES("max-retries", ModelType.INT, new ModelNode(10)),
+        PROPERTIES("properties"),
+        PROTOCOL_VERSION("protocol-version", ModelType.STRING, new ModelNode(ProtocolVersion.PROTOCOL_VERSION_40.toString())) {
             @Override
             public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
-                return builder.setValidator(new EnumValidator<>(ProtocolVersion.class));
+                return builder.setValidator(new org.jboss.as.controller.operations.validation.EnumValidator<>(ProtocolVersion.class, EnumSet.complementOf(EnumSet.of(ProtocolVersion.PROTOCOL_VERSION_AUTO))));
             }
         },
         SOCKET_TIMEOUT("socket-timeout", ModelType.INT, new ModelNode(60000)),
+        STATISTICS_ENABLED(ModelDescriptionConstants.STATISTICS_ENABLED, ModelType.BOOLEAN, ModelNode.FALSE),
         TCP_NO_DELAY("tcp-no-delay", ModelType.BOOLEAN, ModelNode.TRUE),
         TCP_KEEP_ALIVE("tcp-keep-alive", ModelType.BOOLEAN, ModelNode.FALSE),
-        VALUE_SIZE_ESTIMATE("value-size-estimate", ModelType.INT, new ModelNode(512)),
+        TRANSACTION_TIMEOUT("transaction-timeout", ModelType.LONG, new ModelNode(TimeUnit.MINUTES.toMillis(1))) {
+            @Override
+            public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
+                return builder.setMeasurementUnit(MeasurementUnit.MILLISECONDS);
+            }
+        },
         ;
 
         private final AttributeDefinition definition;
+
+        Attribute(String name) {
+            this.definition = new PropertiesAttributeDefinition.Builder(name)
+                    .setAllowExpression(true)
+                    .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
+                    .build();
+        }
 
         Attribute(String name, ModelType type, ModelNode defaultValue) {
             this.definition = this.apply(new SimpleAttributeDefinitionBuilder(name, type)
@@ -131,24 +162,68 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
         }
     }
 
-    public static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        if (InfinispanModel.VERSION_7_0_0.requiresTransformation(version)) {
-            parent.rejectChildResource(RemoteCacheContainerResourceDefinition.WILDCARD_PATH);
-        } else {
-            ResourceTransformationDescriptionBuilder builder = parent.addChildResource(RemoteCacheContainerResourceDefinition.WILDCARD_PATH);
-
-            if (InfinispanModel.VERSION_9_0_0.requiresTransformation(version)) {
-                builder.getAttributeBuilder().setValueConverter(new DefaultValueAttributeConverter(Attribute.PROTOCOL_VERSION.getDefinition()), Attribute.PROTOCOL_VERSION.getDefinition());
+    public enum ListAttribute implements org.jboss.as.clustering.controller.Attribute, UnaryOperator<StringListAttributeDefinition.Builder> {
+        MODULES("modules") {
+            @Override
+            public StringListAttributeDefinition.Builder apply(StringListAttributeDefinition.Builder builder) {
+                return builder.setElementValidator(new ModuleIdentifierValidatorBuilder().configure(builder).build());
             }
+        },
+        ;
+        private final AttributeDefinition definition;
 
-            ConnectionPoolResourceDefinition.buildTransformation(version, builder);
-            SecurityResourceDefinition.buildTransformation(version, builder);
-            RemoteTransactionResourceDefinition.buildTransformation(version, builder);
-            NoNearCacheResourceDefinition.buildTransformation(version, builder);
-            InvalidationNearCacheResourceDefinition.buildTransformation(version, builder);
-            RemoteClusterResourceDefinition.buildTransformation(version, builder);
+        ListAttribute(String name) {
+            this.definition = this.apply(new StringListAttributeDefinition.Builder(name)
+                    .setAllowExpression(true)
+                    .setRequired(false)
+                    .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
+                    ).build();
+        }
 
-            ThreadPoolResourceDefinition.CLIENT.buildTransformation(version, builder);
+        @Override
+        public AttributeDefinition getDefinition() {
+            return this.definition;
+        }
+
+        @Override
+        public StringListAttributeDefinition.Builder apply(StringListAttributeDefinition.Builder builder) {
+            return builder;
+        }
+    }
+
+    public enum DeprecatedAttribute implements org.jboss.as.clustering.controller.Attribute, UnaryOperator<SimpleAttributeDefinitionBuilder> {
+        KEY_SIZE_ESTIMATE("key-size-estimate", ModelType.INT, InfinispanModel.VERSION_15_0_0) {
+            @Override
+            public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
+                return builder.setDefaultValue(new ModelNode(64));
+            }
+        },
+        VALUE_SIZE_ESTIMATE("value-size-estimate", ModelType.INT, InfinispanModel.VERSION_15_0_0) {
+            @Override
+            public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
+                return builder.setDefaultValue(new ModelNode(512));
+            }
+        }
+        ;
+        private final AttributeDefinition definition;
+
+        DeprecatedAttribute(String name, ModelType type, InfinispanModel deprecation) {
+            this.definition = this.apply(new SimpleAttributeDefinitionBuilder(name, type)
+                    .setAllowExpression(true)
+                    .setRequired(false)
+                    .setDeprecated(deprecation.getVersion())
+                    .setFlags(AttributeAccess.Flag.RESTART_NONE)
+            ).build();
+        }
+
+        @Override
+        public AttributeDefinition getDefinition() {
+            return this.definition;
+        }
+
+        @Override
+        public SimpleAttributeDefinitionBuilder apply(SimpleAttributeDefinitionBuilder builder) {
+            return builder;
         }
     }
 
@@ -162,24 +237,33 @@ public class RemoteCacheContainerResourceDefinition extends ChildResourceDefinit
 
         ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver())
                 .addAttributes(Attribute.class)
+                .addAttributes(ListAttribute.class)
+                .addAttributes(DeprecatedAttribute.class)
                 .addCapabilities(Capability.class)
-                .addRequiredChildren(ConnectionPoolResourceDefinition.PATH, ThreadPoolResourceDefinition.CLIENT.getPathElement(), SecurityResourceDefinition.PATH, RemoteTransactionResourceDefinition.PATH)
-                .addRequiredSingletonChildren(NoNearCacheResourceDefinition.PATH)
+                .addRequiredChildren(ConnectionPoolResourceDefinition.PATH, ThreadPoolResourceDefinition.CLIENT.getPathElement(), SecurityResourceDefinition.PATH)
+                .setResourceTransformation(RemoteCacheContainerResource::new)
                 ;
-        ResourceServiceConfiguratorFactory serviceConfiguratorFactory = RemoteCacheContainerConfigurationServiceConfigurator::new;
-        ResourceServiceHandler handler = new RemoteCacheContainerServiceHandler(serviceConfiguratorFactory);
+        ServiceValueExecutorRegistry<RemoteCacheContainer> executors = new ServiceValueExecutorRegistry<>();
+        ResourceServiceHandler handler = new RemoteCacheContainerServiceHandler(this, executors);
         new SimpleResourceRegistration(descriptor, handler).register(registration);
 
         new ConnectionPoolResourceDefinition().register(registration);
-        new RemoteClusterResourceDefinition(serviceConfiguratorFactory).register(registration);
+        new RemoteClusterResourceDefinition(this, executors).register(registration);
         new SecurityResourceDefinition().register(registration);
-        new RemoteTransactionResourceDefinition().register(registration);
-
-        new InvalidationNearCacheResourceDefinition().register(registration);
-        new NoNearCacheResourceDefinition().register(registration);
 
         ThreadPoolResourceDefinition.CLIENT.register(registration);
 
+        if (registration.isRuntimeOnlyRegistrationValid()) {
+            new MetricHandler<>(new RemoteCacheContainerMetricExecutor(executors), RemoteCacheContainerMetric.class).register(registration);
+
+            new RemoteCacheResourceDefinition(executors).register(registration);
+        }
+
         return registration;
+    }
+
+    @Override
+    public ResourceServiceConfigurator createServiceConfigurator(PathAddress address) {
+        return new RemoteCacheContainerConfigurationServiceConfigurator(address);
     }
 }

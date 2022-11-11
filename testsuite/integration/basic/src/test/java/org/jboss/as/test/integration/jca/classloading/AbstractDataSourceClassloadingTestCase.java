@@ -13,7 +13,7 @@ import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
 import org.junit.Test;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import javax.sql.DataSource;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -70,7 +70,7 @@ public abstract class AbstractDataSourceClassloadingTestCase {
             setupModule();
             setupDriver(managementClient, classNamePropertyName, driverClass);
             setupDs(managementClient, "TestDS", false);
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), 50000);
+            ServerReload.executeReloadAndWaitForCompletion(managementClient, 50000);
         }
 
         @Override
@@ -80,7 +80,7 @@ public abstract class AbstractDataSourceClassloadingTestCase {
             if (testModuleRoot.exists()) {
                 deleteRecursively(testModuleRoot);
             }
-            ServerReload.executeReloadAndWaitForCompletion(managementClient.getControllerClient(), 50000);
+            ServerReload.executeReloadAndWaitForCompletion(managementClient, 50000);
         }
 
         private void setupModule() throws IOException {

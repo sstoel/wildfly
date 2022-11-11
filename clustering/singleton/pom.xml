@@ -33,16 +33,21 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>18.0.0.Beta1-SNAPSHOT</version>
+        <version>28.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-clustering-singleton</artifactId>
     <packaging>pom</packaging>
 
     <name>WildFly: Singleton modules</name>
+    <description>
+        Parent module for modules relating to singleton deployments and MSC services.
+    </description>
 
     <modules>
         <module>api</module>
         <module>extension</module>
+        <module>server</module>
+        <module>service</module>
     </modules>
 </project>

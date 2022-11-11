@@ -26,12 +26,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import java.util.Set;
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorFactory;
-import javax.validation.ConstraintViolation;
-import javax.validation.Validation;
-import javax.validation.Validator;
-import javax.validation.ValidatorFactory;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 
 import org.hibernate.validator.HibernateValidator;
 import org.hibernate.validator.HibernateValidatorConfiguration;
@@ -97,28 +97,6 @@ public class BootStrapValidationTestCase {
         constraintViolations = validator.validate(emp);
         assertEquals("Wrong number of constraints", constraintViolations.size(), 1);
         assertEquals("Created by custom factory", constraintViolations.iterator().next().getMessage());
-    }
-
-    /**
-     * Ensure that including a cross-site script attack triggers the @SafeHtml validation rule
-     */
-    @Test
-    public void testSafeHTML() {
-        HibernateValidatorConfiguration configuration = Validation.byProvider(HibernateValidator.class).configure();
-        assertNotNull(configuration);
-
-        ValidatorFactory factory = configuration.buildValidatorFactory();
-        Validator validator = factory.getValidator();
-
-        Employee emp = new Employee();
-        // create employee
-        emp.setFirstName("Joe");
-        emp.setLastName("Cocker");
-        emp.setEmail("none@jboss.org");
-        emp.setWebsite("<script> Cross-site scripting http://en.wikipedia.org/wiki/Joe_Cocker <script/>.");
-
-        Set<ConstraintViolation<Employee>> constraintViolations = validator.validate(emp);
-        assertEquals("Wrong number of constraints", constraintViolations.size(), 1);
     }
 
     /**

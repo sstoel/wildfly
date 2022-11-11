@@ -22,6 +22,13 @@
 
 package org.jboss.as.jsf.deployment;
 
+import java.lang.annotation.Annotation;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import org.jboss.as.jsf.logging.JSFLogger;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -32,27 +39,13 @@ import org.jboss.as.server.deployment.annotation.CompositeIndex;
 import org.jboss.as.web.common.ServletContextAttribute;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationTarget;
+import org.jboss.jandex.AnnotationValue;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.modules.Module;
 
-import javax.faces.bean.ManagedBean;
-import javax.faces.component.FacesComponent;
-import javax.faces.component.behavior.FacesBehavior;
-import javax.faces.convert.FacesConverter;
-import javax.faces.event.NamedEvent;
-import javax.faces.render.FacesBehaviorRenderer;
-import javax.faces.render.FacesRenderer;
-import javax.faces.validator.FacesValidator;
-import java.lang.annotation.Annotation;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 /**
- * {@link DeploymentUnitProcessor} implementation responsible for extracting JSF annotations from a deployment and attaching them
+ * {@link DeploymentUnitProcessor} implementation responsible for extracting Jakarta Server Faces annotations from a deployment and attaching them
  * to the deployment unit to eventually be added to the {@link javax.servlet.ServletContext}.
  *
  * @author John Bailey
@@ -60,25 +53,7 @@ import java.util.Set;
 public class JSFAnnotationProcessor implements DeploymentUnitProcessor {
 
     public static final String FACES_ANNOTATIONS_SC_ATTR =  "org.jboss.as.jsf.FACES_ANNOTATIONS";
-
-    private enum FacesAnnotation {
-        FACES_COMPONENT(FacesComponent.class),
-        FACES_CONVERTER(FacesConverter.class),
-        FACES_VALIDATOR(FacesValidator.class),
-        FACES_RENDERER(FacesRenderer.class),
-        MANAGED_BEAN(ManagedBean.class),
-        NAMED_EVENT(NamedEvent.class),
-        FACES_BEHAVIOR(FacesBehavior.class),
-        FACES_BEHAVIOR_RENDERER(FacesBehaviorRenderer.class);
-
-        private final Class<? extends Annotation> annotationClass;
-        private final DotName indexName;
-
-        private FacesAnnotation(Class<? extends Annotation> annotationClass) {
-            this.annotationClass = annotationClass;
-            this.indexName = DotName.createSimple(annotationClass.getName());
-        }
-    }
+    private static final String MANAGED_ANNOTATION_PARAMETER = "managed";
 
 
     public void deploy(final DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -119,14 +94,18 @@ public class JSFAnnotationProcessor implements DeploymentUnitProcessor {
                     }
                     discoveredClasses.add(annotatedClass);
                 } else {
+                    if (annotation == FacesAnnotation.FACES_VALIDATOR || annotation == FacesAnnotation.FACES_CONVERTER || annotation == FacesAnnotation.FACES_BEHAVIOR) {
+                        // Support for Injection into Jakarta Server Faces Managed Objects allows to inject FacesValidator, FacesConverter and FacesBehavior if managed = true
+                        // Jakarta Server Faces 2.3 spec chapter 5.9.1 - Jakarta Server Faces Objects Valid for @Inject Injection
+                        AnnotationValue value = annotationInstance.value(MANAGED_ANNOTATION_PARAMETER);
+                        if (value != null && value.asBoolean()) {
+                            continue;
+                        }
+                    }
                     throw new DeploymentUnitProcessingException(JSFLogger.ROOT_LOGGER.invalidAnnotationLocation(annotation, target));
                 }
             }
         }
         deploymentUnit.addToAttachmentList(ServletContextAttribute.ATTACHMENT_KEY, new ServletContextAttribute(FACES_ANNOTATIONS_SC_ATTR, instances));
-    }
-
-    public void undeploy(DeploymentUnit context) {
-
     }
 }

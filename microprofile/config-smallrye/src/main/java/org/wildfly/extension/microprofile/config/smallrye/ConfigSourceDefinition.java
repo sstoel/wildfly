@@ -30,12 +30,11 @@ import static org.wildfly.extension.microprofile.config.smallrye._private.MicroP
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Map;
 
 import io.smallrye.config.PropertiesConfigSource;
 import org.eclipse.microprofile.config.spi.ConfigSource;
+import org.eclipse.microprofile.config.spi.ConfigSourceProvider;
 import org.jboss.as.controller.AbstractAddStepHandler;
-import org.jboss.as.controller.AbstractRemoveStepHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.AttributeMarshaller;
 import org.jboss.as.controller.AttributeMarshallers;
@@ -45,13 +44,14 @@ import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
+import org.jboss.as.controller.ReloadRequiredRemoveStepHandler;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.modules.Module;
 import org.jboss.modules.ModuleIdentifier;
-import org.wildfly.extension.microprofile.config.smallrye._private.MicroProfileConfigLogger;
 
 /**
  * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2017 Red Hat inc.
@@ -60,6 +60,7 @@ class ConfigSourceDefinition extends PersistentResourceDefinition {
 
     static AttributeDefinition ORDINAL = SimpleAttributeDefinitionBuilder.create("ordinal", ModelType.INT)
             .setDefaultValue(new ModelNode(100))
+            .setAllowExpression(true)
             .setRequired(false)
             .setRestartAllServices()
             .build();
@@ -94,60 +95,35 @@ class ConfigSourceDefinition extends PersistentResourceDefinition {
             .setAllowExpression(false)
             .build();
 
-    static ObjectTypeAttributeDefinition DIR = ObjectTypeAttributeDefinition.Builder.of("dir", PATH, RELATIVE_TO)
+    static AttributeDefinition ROOT = create("root", ModelType.STRING, true)
+            .setAllowExpression(true)
+            .setDefaultValue(ModelNode.FALSE)
+            .build();
+
+    // For the 1.0 parser, in 2.0 we introduce the ROOT nested attribute
+    static ObjectTypeAttributeDefinition DIR_1_0 = ObjectTypeAttributeDefinition.Builder.of("dir", PATH, RELATIVE_TO)
             .setAlternatives("properties", "class")
-            .setAllowNull(true)
+            .setRequired(false)
             .setAttributeMarshaller(AttributeMarshaller.ATTRIBUTE_OBJECT)
             .setRestartAllServices()
             .setCapabilityReference("org.wildfly.management.path-manager")
             .build();
 
-    static AttributeDefinition[] ATTRIBUTES = { ORDINAL, PROPERTIES, CLASS, DIR };
+    static ObjectTypeAttributeDefinition DIR = ObjectTypeAttributeDefinition.Builder.of("dir", PATH, RELATIVE_TO, ROOT)
+            .setAlternatives("properties", "class")
+            .setRequired(false)
+            .setAttributeMarshaller(AttributeMarshaller.ATTRIBUTE_OBJECT)
+            .setRestartAllServices()
+            .setCapabilityReference("org.wildfly.management.path-manager")
+            .build();
 
-    protected ConfigSourceDefinition() {
-        super(MicroProfileConfigExtension.CONFIG_SOURCE_PATH,
-                MicroProfileConfigExtension.getResourceDescriptionResolver(MicroProfileConfigExtension.CONFIG_SOURCE_PATH.getKey()),
-                new AbstractAddStepHandler(ATTRIBUTES) {
-                    @Override
-                    protected boolean requiresRuntime(OperationContext context) {
-                        return true;
-                    }
+    static AttributeDefinition[] ATTRIBUTES = {ORDINAL, PROPERTIES, CLASS, DIR};
 
-                    @Override
-                    protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
-                        super.performRuntime(context, operation, model);
-                        String name = context.getCurrentAddressValue();
-                        int ordinal = ORDINAL.resolveModelAttribute(context, model).asInt();
-                        ModelNode props = PROPERTIES.resolveModelAttribute(context, model);
-                        ModelNode classModel = CLASS.resolveModelAttribute(context, model);
-                        ModelNode dirModel = DIR.resolveModelAttribute(context, model);
-                        final ConfigSource configSource;
-                        if (classModel.isDefined()) {
-                            Class configSourceClass = unwrapClass(classModel);
-                            try {
-                                configSource = ConfigSource.class.cast(configSourceClass.newInstance());
-                                MicroProfileConfigLogger.ROOT_LOGGER.loadConfigSourceFromClass(configSourceClass);
-                                ConfigSourceService.install(context, name, configSource);
-                            } catch (Exception e) {
-                                throw new OperationFailedException(e);
-                            }
-                        } else if (dirModel.isDefined()) {
-                            String path = PATH.resolveModelAttribute(context, dirModel).asString();
-                            String relativeTo = RELATIVE_TO.resolveModelAttribute(context, dirModel).asStringOrNull();
-                            DirConfigSourceService.install(context, name, path, relativeTo, ordinal);
-                        } else {
-                            Map<String, String> properties = PropertiesAttributeDefinition.unwrapModel(context, props);
-                            configSource = new PropertiesConfigSource(properties, name, ordinal);
-                            ConfigSourceService.install(context, name, configSource);
-                        }
-                    }
-                }, new AbstractRemoveStepHandler() {
-                    @Override
-                    protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
-                        String name = context.getCurrentAddressValue();
-                        context.removeService(ServiceNames.CONFIG_SOURCE.append(name));
-                    }
-                });
+    protected ConfigSourceDefinition(Registry<ConfigSourceProvider> providers, Registry<ConfigSource> sources) {
+        super(new SimpleResourceDefinition.Parameters(MicroProfileConfigExtension.CONFIG_SOURCE_PATH,
+                MicroProfileConfigExtension.getResourceDescriptionResolver(MicroProfileConfigExtension.CONFIG_SOURCE_PATH.getKey()))
+                .setAddHandler(new ConfigSourceDefinitionAddHandler(providers, sources))
+                .setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE));
     }
 
     @Override
@@ -165,6 +141,55 @@ class ConfigSourceDefinition extends PersistentResourceDefinition {
             return clazz;
         } catch (Exception e) {
             throw ROOT_LOGGER.unableToLoadClassFromModule(className, moduleName);
+        }
+    }
+
+    private static class ConfigSourceDefinitionAddHandler extends AbstractAddStepHandler {
+        private Registry<ConfigSourceProvider> providers;
+        private final Registry<ConfigSource> sources;
+
+        ConfigSourceDefinitionAddHandler(Registry<ConfigSourceProvider> providers, Registry<ConfigSource> sources) {
+            super(ATTRIBUTES);
+            this.providers = providers;
+            this.sources = sources;
+        }
+
+        @Override
+        protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
+            super.performRuntime(context, operation, model);
+            String name = context.getCurrentAddressValue();
+            int ordinal = ORDINAL.resolveModelAttribute(context, model).asInt();
+            ModelNode classModel = CLASS.resolveModelAttribute(context, model);
+            ModelNode dirModel = DIR.resolveModelAttribute(context, model);
+
+            if (classModel.isDefined()) {
+                try {
+                    ClassConfigSourceRegistrationService.install(context,
+                            name,
+                            ConfigSource.class.cast(unwrapClass(classModel).getDeclaredConstructor().newInstance()),
+                            sources);
+                } catch (Exception e) {
+                    throw new OperationFailedException(e);
+                }
+            } else if (dirModel.isDefined()) {
+                String path = PATH.resolveModelAttribute(context, dirModel).asString();
+                String relativeTo = RELATIVE_TO.resolveModelAttribute(context, dirModel).asStringOrNull();
+                boolean root = ROOT.resolveModelAttribute(context, dirModel).asBoolean();
+                if (root) {
+                    ConfigSourceRootRegistrationService.install(context, name, path, relativeTo, ordinal, providers);
+                } else {
+                    DirConfigSourceRegistrationService.install(context, name, path, relativeTo, ordinal, sources);
+                }
+            } else {
+                PropertiesConfigSourceRegistrationService.install(context,
+                        name,
+                        new PropertiesConfigSource(
+                                PropertiesAttributeDefinition.unwrapModel(context,
+                                        PROPERTIES.resolveModelAttribute(context, model)),
+                                name,
+                                ordinal),
+                        sources);
+            }
         }
     }
 }

@@ -44,6 +44,7 @@ import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.security.CredentialReference;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
+import org.jboss.dmr.ValueExpression;
 import org.jboss.jca.common.api.metadata.Defaults;
 import org.jboss.jca.common.api.metadata.common.Recovery;
 import org.jboss.jca.common.api.metadata.common.TransactionSupportEnum;
@@ -83,15 +84,11 @@ public class Constants {
 
     static final String POOL_NAME_NAME = "pool-name";
 
-    private static final String USE_JAVA_CONTEXT_NAME = "use-java-context";
-
     private static final String ENABLED_NAME = "enabled";
 
     private static final String CONNECTABLE_NAME = "connectable";
 
     private static final String TRACKING_NAME = "tracking";
-
-    private static final String JNDINAME_NAME = "jndi-name";
 
     private static final String ALLOCATION_RETRY_NAME = "allocation-retry";
 
@@ -188,9 +185,9 @@ public class Constants {
 
     private static final String RECOVERY_AUTHENTICATION_CONTEXT_NAME = "recovery-authentication-context";
 
-    private static final String RECOVERLUGIN_CLASSNAME_NAME = "recovery-plugin-class-name";
+    private static final String RECOVER_PLUGIN_CLASSNAME_NAME = "recovery-plugin-class-name";
 
-    private static final String RECOVERLUGIN_PROPERTIES_NAME = "recovery-plugin-properties";
+    private static final String RECOVER_PLUGIN_PROPERTIES_NAME = "recovery-plugin-properties";
 
     private static final String NO_RECOVERY_NAME = "no-recovery";
 
@@ -208,15 +205,11 @@ public class Constants {
 
     public static final String CLEAR_STATISTICS = "clear-statistics";
 
+    public static final String REPORT_DIRECTORY_NAME = "report-directory";
+
 
     static final SimpleAttributeDefinition CLASS_NAME = new SimpleAttributeDefinitionBuilder(CLASS_NAME_NAME, ModelType.STRING, false)
             .setXmlName(ConnectionDefinition.Attribute.CLASS_NAME.getLocalName())
-            .setAllowExpression(true)
-            .setRestartAllServices()
-            .build();
-
-    static SimpleAttributeDefinition JNDINAME = new SimpleAttributeDefinitionBuilder(JNDINAME_NAME, ModelType.STRING, true)
-            .setXmlName(ConnectionDefinition.Attribute.JNDI_NAME.getLocalName())
             .setAllowExpression(true)
             .setRestartAllServices()
             .build();
@@ -292,7 +285,7 @@ public class Constants {
     static final SimpleAttributeDefinition TRANSACTION_SUPPORT = new SimpleAttributeDefinitionBuilder(TRANSACTIONSUPPORT_NAME, ModelType.STRING, true)
             .setXmlName(Activation.Tag.TRANSACTION_SUPPORT.getLocalName())
             .setAllowExpression(true)
-            .setValidator(new EnumValidator<TransactionSupportEnum>(TransactionSupportEnum.class, true, true))
+            .setValidator(EnumValidator.create(TransactionSupportEnum.class))
             .setRestartAllServices()
             .build();
 
@@ -392,13 +385,6 @@ public class Constants {
             .setAllowExpression(true)
             .build();
 
-    static SimpleAttributeDefinition USE_JAVA_CONTEXT = new SimpleAttributeDefinitionBuilder(USE_JAVA_CONTEXT_NAME, ModelType.BOOLEAN, true)
-            .setXmlName(DataSource.Attribute.USE_JAVA_CONTEXT.getLocalName())
-            .setAllowExpression(true)
-            .setDefaultValue(new ModelNode(Defaults.USE_JAVA_CONTEXT))
-            .setRestartAllServices()
-            .build();
-
     static SimpleAttributeDefinition ENABLED = new SimpleAttributeDefinitionBuilder(ENABLED_NAME, ModelType.BOOLEAN, true)
             .setXmlName(DataSource.Attribute.ENABLED.getLocalName())
             .setDefaultValue(new ModelNode(Defaults.ENABLED))
@@ -491,11 +477,6 @@ public class Constants {
             .setXmlName(TimeOut.Tag.ALLOCATION_RETRY_WAIT_MILLIS.getLocalName())
             .setAllowExpression(true)
             .setRestartAllServices()
-            .build();
-
-    static SimpleAttributeDefinition USETRYLOCK = new SimpleAttributeDefinitionBuilder(USETRYLOCK_NAME, ModelType.LONG, true)
-            .setXmlName(TimeOut.Tag.USE_TRY_LOCK.getLocalName())
-            .setAllowExpression(true)
             .build();
 
     static SimpleAttributeDefinition USE_CCM = new SimpleAttributeDefinitionBuilder(USE_CCM_NAME, ModelType.BOOLEAN, true)
@@ -647,15 +628,24 @@ public class Constants {
             .setRestartAllServices()
             .build();
 
-    static SimpleAttributeDefinition RECOVERLUGIN_CLASSNAME = new SimpleAttributeDefinitionBuilder(RECOVERLUGIN_CLASSNAME_NAME, ModelType.STRING, true)
+    static SimpleAttributeDefinition RECOVER_PLUGIN_CLASSNAME = new SimpleAttributeDefinitionBuilder(RECOVER_PLUGIN_CLASSNAME_NAME, ModelType.STRING, true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Attribute.CLASS_NAME.getLocalName())
             .setAllowExpression(true)
             .setRestartAllServices()
             .build();
 
-    static PropertiesAttributeDefinition RECOVERLUGIN_PROPERTIES = new PropertiesAttributeDefinition.Builder(RECOVERLUGIN_PROPERTIES_NAME, true)
+    static PropertiesAttributeDefinition RECOVER_PLUGIN_PROPERTIES = new PropertiesAttributeDefinition.Builder(RECOVER_PLUGIN_PROPERTIES_NAME, true)
             .setAllowExpression(true)
             .setXmlName(org.jboss.jca.common.api.metadata.common.Extension.Tag.CONFIG_PROPERTY.getLocalName())
+            .setRestartAllServices()
+            .build();
+
+    static SimpleAttributeDefinition REPORT_DIRECTORY = new SimpleAttributeDefinitionBuilder(REPORT_DIRECTORY_NAME, ModelType.STRING)
+            .setXmlName("path")
+            .setDefaultValue(new ModelNode(new ValueExpression("${jboss.server.log.dir}")))
+            .addArbitraryDescriptor(ModelDescriptionConstants.FILESYSTEM_PATH, ModelNode.TRUE)
+            .setRequired(false)
+            .setAllowExpression(true)
             .setRestartAllServices()
             .build();
 
@@ -725,45 +715,45 @@ public class Constants {
             .build();
 
 
-    public static SimpleAttributeDefinition[] WORKMANAGER_METRICS = new SimpleAttributeDefinition[]{WORK_ACTIVE, WORK_SUCCESSFUL, WORK_FAILED, DO_WORK_ACCEPTED,
+    public static final SimpleAttributeDefinition[] WORKMANAGER_METRICS = new SimpleAttributeDefinition[]{WORK_ACTIVE, WORK_SUCCESSFUL, WORK_FAILED, DO_WORK_ACCEPTED,
             DO_WORK_REJECTED, SCHEDULED_WORK_ACCEPTED, SCHEDULED_WORK_REJECTED, START_WORK_ACCEPTED, START_WORK_REJECTED};
 
     public static final String WORKMANAGER_STATISTICS_ENABLED_NAME = "workmanager-statistics-enabled";
-    public static SimpleAttributeDefinition WORKMANAGER_STATISTICS_ENABLED = new SimpleAttributeDefinitionBuilder(ModelDescriptionConstants.STATISTICS_ENABLED, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition WORKMANAGER_STATISTICS_ENABLED = new SimpleAttributeDefinitionBuilder(ModelDescriptionConstants.STATISTICS_ENABLED, ModelType.BOOLEAN)
             .setStorageRuntime()
             .build();
-    public static SimpleAttributeDefinition WORKMANAGER_STATISTICS_ENABLED_DEPRECATED = new SimpleAttributeDefinitionBuilder(WORKMANAGER_STATISTICS_ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition WORKMANAGER_STATISTICS_ENABLED_DEPRECATED = new SimpleAttributeDefinitionBuilder(WORKMANAGER_STATISTICS_ENABLED_NAME, ModelType.BOOLEAN)
             .setStorageRuntime()
             .setDeprecated(ModelVersion.create(2))
             .build();
 
     public static final String DISTRIBUTED_STATISTICS_ENABLED_NAME = "distributed-workmanager-statistics-enabled";
-    public static SimpleAttributeDefinition DISTRIBUTED_STATISTICS_ENABLED = new SimpleAttributeDefinitionBuilder(ModelDescriptionConstants.STATISTICS_ENABLED, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition DISTRIBUTED_STATISTICS_ENABLED = new SimpleAttributeDefinitionBuilder(ModelDescriptionConstants.STATISTICS_ENABLED, ModelType.BOOLEAN)
             .setStorageRuntime()
             .build();
-    public static SimpleAttributeDefinition DISTRIBUTED_STATISTICS_ENABLED_DEPRECATED = new SimpleAttributeDefinitionBuilder(DISTRIBUTED_STATISTICS_ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition DISTRIBUTED_STATISTICS_ENABLED_DEPRECATED = new SimpleAttributeDefinitionBuilder(DISTRIBUTED_STATISTICS_ENABLED_NAME, ModelType.BOOLEAN)
             .setStorageRuntime()
             .setDeprecated(ModelVersion.create(2))
             .build();
 
     public static final String DOWORK_DISTRIBUTION_ENABLED_NAME = "dowork-distribution-enabled";
-    public static SimpleAttributeDefinition DOWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(DOWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition DOWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(DOWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
             .setStorageRuntime()
             .build();
     public static final String SCHEDULEWORK_DISTRIBUTION_ENABLED_NAME = "schedulework-distribution-enabled";
-    public static SimpleAttributeDefinition SCHEDULEWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(SCHEDULEWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition SCHEDULEWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(SCHEDULEWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
             .setStorageRuntime()
             .build();
     public static final String STARTWORK_DISTRIBUTION_ENABLED_NAME = "startwork-distribution-enabled";
-    public static SimpleAttributeDefinition STARTWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(STARTWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
+    public static final SimpleAttributeDefinition STARTWORK_DISTRIBUTION_ENABLED = new SimpleAttributeDefinitionBuilder(STARTWORK_DISTRIBUTION_ENABLED_NAME, ModelType.BOOLEAN)
             .setStorageRuntime()
             .build();
-    public static SimpleAttributeDefinition[] WORKMANAGER_RW_ATTRIBUTES = new SimpleAttributeDefinition[]{
+    public static final SimpleAttributeDefinition[] WORKMANAGER_RW_ATTRIBUTES = new SimpleAttributeDefinition[]{
             WORKMANAGER_STATISTICS_ENABLED,
             WORKMANAGER_STATISTICS_ENABLED_DEPRECATED
     };
 
-    public static SimpleAttributeDefinition[] DISTRIBUTED_WORKMANAGER_RW_ATTRIBUTES = new SimpleAttributeDefinition[]{
+    public static final SimpleAttributeDefinition[] DISTRIBUTED_WORKMANAGER_RW_ATTRIBUTES = new SimpleAttributeDefinition[]{
             DISTRIBUTED_STATISTICS_ENABLED,
             DISTRIBUTED_STATISTICS_ENABLED_DEPRECATED,
             DOWORK_DISTRIBUTION_ENABLED,

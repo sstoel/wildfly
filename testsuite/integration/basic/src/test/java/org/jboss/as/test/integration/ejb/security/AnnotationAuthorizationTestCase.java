@@ -43,8 +43,8 @@ import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
 
-import javax.ejb.EJB;
-import javax.ejb.EJBAccessException;
+import jakarta.ejb.EJB;
+import jakarta.ejb.EJBAccessException;
 import java.lang.reflect.Method;
 import java.util.Date;
 import java.util.concurrent.Callable;
@@ -78,8 +78,6 @@ public class AnnotationAuthorizationTestCase {
                 .addClasses(AttendanceRegistry.class, TimeProvider.class, AttendanceRegistrySLSB.class)
                 .addClasses(AnnotationAuthorizationTestCase.class)
                 .addClasses(AbstractSecurityDomainSetup.class, EjbSecurityDomainSetup.class)
-                .addAsResource(currentPackage, "users.properties", "users.properties")
-                .addAsResource(currentPackage, "roles.properties", "roles.properties")
                 .addAsWebInfResource(currentPackage, "jboss-web.xml", "jboss-web.xml")
                 .addAsManifestResource(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.as.controller-client,org.jboss.dmr\n"), "MANIFEST.MF")
                 .addAsManifestResource(currentPackage, "permissions.xml", "permissions.xml");

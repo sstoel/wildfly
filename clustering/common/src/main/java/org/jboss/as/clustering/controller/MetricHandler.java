@@ -31,6 +31,7 @@ import java.util.Map;
 import org.jboss.as.controller.AbstractRuntimeOnlyHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelNode;
 
@@ -63,13 +64,13 @@ public class MetricHandler<C> extends AbstractRuntimeOnlyHandler implements Regi
     @Override
     public void register(ManagementResourceRegistration registration) {
         for (Metric<C> metric : this.metrics) {
-            registration.registerReadOnlyAttribute(metric.getDefinition(), this);
+            registration.registerMetric(metric.getDefinition(), this);
         }
     }
 
     @Override
     protected void executeRuntimeStep(OperationContext context, ModelNode operation) {
-        String name = Operations.getAttributeName(operation);
+        String name = operation.get(ModelDescriptionConstants.NAME).asString();
         Metric<C> executable = this.executables.get(name);
         try {
             ModelNode result = this.executor.execute(context, executable);

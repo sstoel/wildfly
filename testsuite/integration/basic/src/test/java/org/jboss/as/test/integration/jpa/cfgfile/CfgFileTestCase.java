@@ -22,9 +22,6 @@
 
 package org.jboss.as.test.integration.jpa.cfgfile;
 
-import static org.junit.Assert.assertEquals;
-
-import java.util.Map;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 
@@ -53,8 +50,8 @@ public class CfgFileTestCase {
                     "<!DOCTYPE hibernate-configuration>\n" +
                     "<hibernate-configuration>\n" +
                     "<session-factory>\n" +
-                    "    <property name=\"connection.driver_class\">org.hsqldb.jdbcDriver</property>\n" +
-                    "    <property name=\"hibernate.connection.datasource\">java:jboss/datasources/ExampleDS</property>\n" +
+                    "    <property name=\"show_sql\">true</property>\n" +
+                    "    <property name=\"hibernate.default_batch_fetch_size\">5</property>\n" +
                     "    <property name=\"dialect\">org.hibernate.dialect.HSQLDialect</property>\n" +
                     "    <property name=\"hibernate.hbm2ddl.auto\">create-drop</property>\n" +
                     "  </session-factory>\n" +
@@ -92,15 +89,4 @@ public class CfgFileTestCase {
         SFSB1 sfsb1 = lookup("SFSB1", SFSB1.class);
         sfsb1.getEmployeeNoTX(1);
     }
-
-    @Test
-    public void testProperties() throws Exception {
-        SFSB1 sfsb1 = lookup("SFSB1", SFSB1.class);
-        Map<String, Object> props = sfsb1.getEMFProperties();
-
-        assertEquals("Value for org.hsqldb.jdbcDriver", "org.hsqldb.jdbcDriver", props.get("hibernate.connection.driver_class").toString());
-        assertEquals("Value for hibernate.connection.datasource", "java:jboss/datasources/ExampleDS", props.get("hibernate.connection.datasource").toString());
-        assertEquals("Value for dialect", "org.hibernate.dialect.HSQLDialect", props.get("hibernate.dialect").toString());
-    }
-
 }

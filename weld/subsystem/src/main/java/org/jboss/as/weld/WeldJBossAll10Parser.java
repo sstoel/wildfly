@@ -50,7 +50,8 @@ class WeldJBossAll10Parser extends AbstractWeldJBossAllParser implements JBossAl
     public WeldJBossAllConfiguration parse(XMLExtendedStreamReader reader, DeploymentUnit deploymentUnit) throws XMLStreamException {
         Boolean requireBeanDescriptor = getAttributeAsBoolean(reader, REQUIRE_BEAN_DESCRIPTOR_ATTRIBUTE_NAME);
         Boolean nonPortableMode = getAttributeAsBoolean(reader, NON_PORTABLE_MODE_ATTRIBUTE_NAME);
-        return new WeldJBossAllConfiguration(requireBeanDescriptor, nonPortableMode, false);
+        super.parseWeldElement(reader);
+        return new WeldJBossAllConfiguration(requireBeanDescriptor, nonPortableMode, false, false);
     }
 
 }

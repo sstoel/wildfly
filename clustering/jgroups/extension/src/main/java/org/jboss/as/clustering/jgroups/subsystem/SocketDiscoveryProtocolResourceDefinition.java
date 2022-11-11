@@ -32,13 +32,10 @@ import org.jboss.as.clustering.controller.ResourceDescriptor;
 import org.jboss.as.clustering.controller.ResourceServiceConfigurator;
 import org.jboss.as.clustering.controller.ResourceServiceConfiguratorFactory;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.StringListAttributeDefinition;
 import org.jboss.as.controller.access.management.SensitiveTargetAccessConstraintDefinition;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
-import org.jboss.dmr.ModelType;
 
 /**
  * @author Paul Ferraro
@@ -46,7 +43,7 @@ import org.jboss.dmr.ModelType;
 public class SocketDiscoveryProtocolResourceDefinition<A> extends ProtocolResourceDefinition {
 
     enum Attribute implements org.jboss.as.clustering.controller.Attribute, UnaryOperator<StringListAttributeDefinition.Builder> {
-        OUTBOUND_SOCKET_BINDINGS("socket-bindings", ModelType.LIST) {
+        OUTBOUND_SOCKET_BINDINGS("socket-bindings") {
             @Override
             public StringListAttributeDefinition.Builder apply(StringListAttributeDefinition.Builder builder) {
                 return builder.setAccessConstraints(SensitiveTargetAccessConstraintDefinition.SOCKET_BINDING_REF)
@@ -57,7 +54,7 @@ public class SocketDiscoveryProtocolResourceDefinition<A> extends ProtocolResour
         ;
         private final AttributeDefinition definition;
 
-        Attribute(String name, ModelType type) {
+        Attribute(String name) {
             this.definition = this.apply(new StringListAttributeDefinition.Builder(name)
                     .setRequired(true)
                     .setMinSize(1)
@@ -69,11 +66,6 @@ public class SocketDiscoveryProtocolResourceDefinition<A> extends ProtocolResour
         public AttributeDefinition getDefinition() {
             return this.definition;
         }
-    }
-
-    static void addTransformations(ModelVersion version, ResourceTransformationDescriptionBuilder builder) {
-
-        ProtocolResourceDefinition.addTransformations(version, builder);
     }
 
     private static class ResourceDescriptorConfigurator implements UnaryOperator<ResourceDescriptor> {

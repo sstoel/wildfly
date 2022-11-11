@@ -418,4 +418,14 @@ public interface IIOPLogger extends BasicLogger {
     @LogMessage(level = WARN)
     @Message(id = 117, value = "CLEARTEXT in IIOP subsystem won't be used because server-requires-ssl parameter have been set to true")
     void wontUseCleartextSocket();
+
+    @Message(id = 118, value = "Legacy security is no longer supported.")
+    IllegalStateException legacySecurityUnsupported();
+
+    @Message(id = 119, value = "The use of security realms at runtime is unsupported.")
+    OperationFailedException runtimeSecurityRealmUnsupported();
+
+    @Message(id = 120, value = "The use of security domains at runtime is unsupported.")
+    OperationFailedException runtimeSecurityDomainUnsupported();
+
 }

@@ -46,16 +46,8 @@ public class JPA11SubsystemTestCase extends AbstractSubsystemBaseTest {
         return "schema/jboss-as-jpa_1_1.xsd";
     }
 
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[]{
-                "/subsystem-templates/jpa.xml"
-        };
-    }
-
     @Test
-    @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+    public void testEmptySubsystem() throws Exception {
+        standardSubsystemTest("subsystem-1.1-empty.xml");
     }
 }

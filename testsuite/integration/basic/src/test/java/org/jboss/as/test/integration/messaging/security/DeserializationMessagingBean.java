@@ -31,18 +31,18 @@ import static org.junit.Assert.fail;
 
 import java.io.Serializable;
 
-import javax.annotation.Resource;
-import javax.ejb.Stateless;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSConnectionFactoryDefinition;
-import javax.jms.JMSConnectionFactoryDefinitions;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.JMSDestinationDefinition;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.ObjectMessage;
-import javax.jms.Queue;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Stateless;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSConnectionFactoryDefinition;
+import jakarta.jms.JMSConnectionFactoryDefinitions;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSDestinationDefinition;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.ObjectMessage;
+import jakarta.jms.Queue;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
@@ -52,22 +52,22 @@ import javax.naming.NamingException;
  */
 @JMSDestinationDefinition(
         name="java:comp/env/myQueue",
-        interfaceName="javax.jms.Queue"
+        interfaceName="jakarta.jms.Queue"
 )
 @JMSConnectionFactoryDefinitions(
         value = {
                 @JMSConnectionFactoryDefinition(
-                        name = "java:comp/env/myBlackListCF",
-                        interfaceName = "javax.jms.QueueConnectionFactory",
+                        name = "java:comp/env/myBlockListCF",
+                        interfaceName = "jakarta.jms.QueueConnectionFactory",
                         properties = {
-                                "connectors=in-vm",
+                                "connectors=${org.jboss.messaging.default-connector:in-vm}",
                                 "deserialization-black-list=java.util.UUID"
                         }),
                 @JMSConnectionFactoryDefinition(
-                        name = "java:comp/env/myWhiteListCF",
-                        interfaceName = "javax.jms.QueueConnectionFactory",
+                        name = "java:comp/env/myAllowListCF",
+                        interfaceName = "jakarta.jms.QueueConnectionFactory",
                         properties = {
-                                "connectors=in-vm",
+                                "connectors=${org.jboss.messaging.default-connector:in-vm}",
                                 "deserialization-white-list=java.util.UUID"
                         }
                 )
@@ -76,9 +76,9 @@ import javax.naming.NamingException;
 @Stateless
 public class DeserializationMessagingBean {
 
-    public static final String BLACK_LIST_CF_LOOKUP = "java:comp/env/myBlackListCF";
-    public static final String WHITE_LIST_CF_LOOKUP = "java:comp/env/myWhiteListCF";
-    public static final String BLACK_LIST_REGULAR_CF_LOOKUP = "java:/jms/myBlackListCF";
+    public static final String BLACK_LIST_CF_LOOKUP = "java:comp/env/myBlockListCF";
+    public static final String WHITE_LIST_CF_LOOKUP = "java:comp/env/myAllowListCF";
+    public static final String BLACK_LIST_REGULAR_CF_LOOKUP = "java:/jms/myBlockListCF";
     static final Logger log = Logger.getLogger(DeserializationMessagingBean.class);
 
     @Resource(lookup = "java:comp/env/myQueue")

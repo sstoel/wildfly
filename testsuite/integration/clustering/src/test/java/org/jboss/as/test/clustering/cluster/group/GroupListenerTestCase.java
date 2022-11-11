@@ -34,9 +34,10 @@ import org.jboss.as.test.clustering.cluster.group.bean.ClusterTopologyRetrieverB
 import org.jboss.as.test.clustering.ejb.EJBDirectory;
 import org.jboss.as.test.clustering.ejb.RemoteEJBDirectory;
 import org.jboss.as.test.shared.TimeoutUtil;
+import org.jboss.as.test.shared.integration.ejb.security.PermissionUtils;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -62,9 +63,11 @@ public class GroupListenerTestCase extends AbstractClusteringTestCase {
     }
 
     private static Archive<?> createDeployment() {
-        final JavaArchive ejbJar = ShrinkWrap.create(JavaArchive.class, MODULE_NAME + ".jar");
-        ejbJar.addPackage(ClusterTopologyRetriever.class.getPackage());
-        return ejbJar;
+        WebArchive war = ShrinkWrap.create(WebArchive.class, MODULE_NAME + ".war");
+        war.addPackage(ClusterTopologyRetriever.class.getPackage());
+        war.setWebXML(GroupListenerTestCase.class.getPackage(), "web.xml");
+        war.addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(new RuntimePermission("getClassLoader")), "permissions.xml");
+        return war;
     }
 
     @Test
@@ -76,7 +79,6 @@ public class GroupListenerTestCase extends AbstractClusteringTestCase {
             assertEquals(topology.getCurrentMembers().toString(), 2, topology.getCurrentMembers().size());
             assertTrue(topology.getCurrentMembers().toString(), topology.getCurrentMembers().contains(NODE_1));
             assertTrue(topology.getCurrentMembers().toString(), topology.getCurrentMembers().contains(NODE_2));
-            assertEquals(topology.getPreviousMembers().toString(), 0, topology.getPreviousMembers().size());
 
             stop(NODE_2);
 

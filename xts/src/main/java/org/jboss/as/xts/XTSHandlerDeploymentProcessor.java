@@ -59,8 +59,8 @@ import java.util.Set;
  */
 public class XTSHandlerDeploymentProcessor implements DeploymentUnitProcessor {
 
-    private static final String TX_BRIDGE_HANDLER = OptionalJaxWSTxInboundBridgeHandler.class.getName();
     private static final String TX_BRIDGE_WFTC_INTEGRATION_HANDLER = WildflyTransactionClientTxBridgeIntegrationHandler.class.getName();
+    private static final String TX_BRIDGE_HANDLER = OptionalJaxWSTxInboundBridgeHandler.class.getName();
     private static final String TX_CONTEXT_HANDLER = JaxWSHeaderContextProcessor.class.getName();
 
     public void deploy(final DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
@@ -213,10 +213,4 @@ public class XTSHandlerDeploymentProcessor implements DeploymentUnitProcessor {
 
         return false;
     }
-
-    public void undeploy(final DeploymentUnit unit) {
-
-        // does nothing
-    }
-
 }

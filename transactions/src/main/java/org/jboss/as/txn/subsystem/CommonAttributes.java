@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2010, Red Hat, Inc., and individual contributors
+ * Copyright 2020, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -75,6 +75,7 @@ interface CommonAttributes {
     /** The process-id/uuid element */
     String UUID = "uuid";
     // TxStats
+    String STATISTICS = "statistics";
     String NUMBER_OF_TRANSACTIONS = "number-of-transactions";
     String NUMBER_OF_NESTED_TRANSACTIONS = "number-of-nested-transactions";
     String NUMBER_OF_HEURISTICS = "number-of-heuristics";
@@ -105,4 +106,7 @@ interface CommonAttributes {
     Integer CM_BATCH_SIZE_DEF_VAL = 100;
     Boolean CM_IMMEDIATE_CLEANUP_DEF_VAL = true;
     String CM_LOCATION_NAME_DEF_VAL = "xids";
+
+    String CLIENT = "client";
+    String STALE_TRANSACTION_TIME = "stale-transaction-time";
 }

@@ -12,12 +12,13 @@ import org.jboss.as.server.deployment.annotation.CompositeIndex;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
+import org.jboss.jandex.Index;
 import org.jboss.jandex.Indexer;
 import org.jboss.modules.Module;
 
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.ext.ParamConverter;
-import javax.ws.rs.ext.ParamConverterProvider;
+import jakarta.ws.rs.DefaultValue;
+import jakarta.ws.rs.ext.ParamConverter;
+import jakarta.ws.rs.ext.ParamConverterProvider;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,17 +41,17 @@ import static org.jboss.as.jaxrs.logging.JaxrsLogger.JAXRS_LOGGER;
  * This class addresses the spec requirement of pre-processing resource
  * method parameters with DefaultValue annotations at application deployment
  * time.
- * (section 3.2 of the jax-rs 2.1 specification)
+ * (section 3.2 of the Jakarta RESTful Web Services 2.1 specification)
  */
 public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
     private final DotName PARAM_CONVERTER_PROVIDER_DOTNAME =
-            DotName.createSimple("javax.ws.rs.ext.ParamConverterProvider");
+            DotName.createSimple("jakarta.ws.rs.ext.ParamConverterProvider");
     private final DotName PARAM_CONVERTER_DOTNAME =
-            DotName.createSimple("javax.ws.rs.ext.ParamConverter");
+            DotName.createSimple("jakarta.ws.rs.ext.ParamConverter");
     private final DotName PARAM_CONVERTER_LAZY_DOTNAME =
-            DotName.createSimple("javax.ws.rs.ext.ParamConverter$Lazy");
+            DotName.createSimple("jakarta.ws.rs.ext.ParamConverter$Lazy");
     private final DotName DEFAULT_VALUE_DOTNAME =
-            DotName.createSimple("javax.ws.rs.DefaultValue");
+            DotName.createSimple("jakarta.ws.rs.DefaultValue");
     @Override
     public void deploy(DeploymentPhaseContext phaseContext)
             throws DeploymentUnitProcessingException {
@@ -162,7 +163,7 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                     if (Modifier.isPublic(fromValue.getModifiers())) {
                         for (Annotation ann : baseType.getAnnotations()) {
                             if (ann.annotationType().getName()
-                                    .equals("javax.xml.bind.annotation.XmlEnum")) {
+                                    .equals("jakarta.xml.bind.annotation.XmlEnum")) {
                                 valueOf = fromValue;
                             }
                         }
@@ -232,10 +233,11 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                 }
             }
 
+            Index tmpIndex = indexer.complete();
             List<ClassInfo> paramConverterList =
-                    indexer.complete().getKnownDirectImplementors(PARAM_CONVERTER_DOTNAME);
+                    tmpIndex.getKnownDirectImplementors(PARAM_CONVERTER_DOTNAME);
             List<ClassInfo> paramConverterProviderList =
-                    indexer.complete().getKnownDirectImplementors(PARAM_CONVERTER_PROVIDER_DOTNAME);
+                    tmpIndex.getKnownDirectImplementors(PARAM_CONVERTER_PROVIDER_DOTNAME);
             paramConverterSet.addAll(paramConverterList);
             paramConverterSet.addAll(paramConverterProviderList);
 
@@ -271,7 +273,7 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                 Object object = ctor.newInstance();
 
                 List<AnnotationInstance> lazyLoadAnnotations =classInfo
-                        .annotations().get(PARAM_CONVERTER_LAZY_DOTNAME);
+                        .annotationsMap().get(PARAM_CONVERTER_LAZY_DOTNAME);
 
                 if (object instanceof ParamConverterProvider) {
                     ParamConverterProvider pcpObj = (ParamConverterProvider) object;
@@ -341,15 +343,14 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
         ArrayList<String> classNameArr = new ArrayList<>();
 
         if (isFromUnitTest) {
-            Indexer indexer = new Indexer();
             for (String className : knownResourceClasses) {
                 try {
                     String pathName = className.replace(".", File.separator);
                     InputStream stream = classLoader.getResourceAsStream(pathName + ".class");
-                    ClassInfo classInfo = indexer.index(stream);
+                    ClassInfo classInfo = Index.singleClass(stream);
 
                     List<AnnotationInstance> defaultValuesList =
-                            classInfo.annotations().get(DEFAULT_VALUE_DOTNAME);
+                            classInfo.annotationsMap().get(DEFAULT_VALUE_DOTNAME);
 
                     if (!defaultValuesList.isEmpty()) {
                         classNameArr.add((classInfo).name().toString());
@@ -369,7 +370,7 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                 ClassInfo classInfo = index.getClassByName(DotName.createSimple(clazzName));
                 if (classInfo != null) {
                     Map<DotName, List<AnnotationInstance>> annotationsMap =
-                            classInfo.annotations();
+                            classInfo.annotationsMap();
 
                     if (annotationsMap != null && !annotationsMap.isEmpty()) {
                         List<AnnotationInstance> xInstance = annotationsMap.get(
@@ -528,12 +529,11 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                     detail.parameter.getComponentType(),
                     detail.annotations);
 
-            if (obj != null) {
-                if (obj instanceof ParamConverter) {
-                    this.pc = (ParamConverter) obj;
-                    return pc.fromString(detail.defaultValue.value());
-                }
+            if (obj instanceof ParamConverter) {
+                this.pc = (ParamConverter) obj;
+                return pc.fromString(detail.defaultValue.value());
             }
+
             return obj;
         }
 
@@ -607,10 +607,5 @@ public class JaxrsMethodParameterProcessor implements DeploymentUnitProcessor {
                               final ResteasyDeploymentData resteasyDeploymentData)
             throws DeploymentUnitProcessingException {
         processData(null, classLoader, resteasyDeploymentData, true);
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
     }
 }

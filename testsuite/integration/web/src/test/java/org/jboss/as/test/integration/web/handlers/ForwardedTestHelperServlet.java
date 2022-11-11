@@ -24,12 +24,13 @@ package org.jboss.as.test.integration.web.handlers;
 import java.io.IOException;
 import java.io.PrintWriter;
 
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.ServletConfig;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import org.jboss.as.test.shared.TestSuiteEnvironment;
 
 
 /**
@@ -48,9 +49,15 @@ public class ForwardedTestHelperServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         PrintWriter out = resp.getWriter();
+        String localAddr = req.getLocalAddr();
+        if(localAddr.startsWith("/")) {
+            localAddr = "/" + TestSuiteEnvironment.formatPossibleIpv6Address(localAddr.substring(1));
+        } else {
+            localAddr = TestSuiteEnvironment.formatPossibleIpv6Address(localAddr);
+        }
 
         out.print(req.getRemoteAddr() + "|" + req.getRemoteHost() + ":" + req.getRemotePort() + "|" + req.getScheme()
-                + "|" + req.getLocalName() + "|" + req.getLocalAddr() + ":" + req.getLocalPort());
+                + "|" + req.getLocalName() + "|" + localAddr + ":" + req.getLocalPort());
         out.close();
     }
 }

@@ -74,7 +74,7 @@ public abstract class AbstractEntityManager implements EntityManager {
     protected abstract boolean isExtendedPersistenceContext();
 
     /**
-     * @return true if a JTA transaction is active
+     * @return true if a Jakarta Transactions transaction active
      *         <p/>
      *         Precondition: getEntityManager() must be called previous to calling isInTx
      */
@@ -83,6 +83,9 @@ public abstract class AbstractEntityManager implements EntityManager {
     public abstract SynchronizationType getSynchronizationType();
 
     protected abstract boolean deferEntityDetachUntilClose();
+
+    protected abstract boolean skipQueryDetach();
+
 
     public <T> T unwrap(Class<T> cls) {
         return getEntityManager().unwrap(cls);
@@ -837,7 +840,7 @@ public abstract class AbstractEntityManager implements EntityManager {
 
 
     // used by TransactionScopedEntityManager to auto detach loaded entities
-    // after each non-jta invocation
+    // after each non-Jakarta Transactions invocation
     protected void detachNonTxInvocation(EntityManager underlyingEntityManager) {
         if (!this.isExtendedPersistenceContext() && !this.isInTx() && !deferEntityDetachUntilClose()) {
             underlyingEntityManager.clear();
@@ -845,32 +848,32 @@ public abstract class AbstractEntityManager implements EntityManager {
     }
 
     // for JPA 2.0 section 3.8.6
-    // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-jta invocation.
+    // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-Jakarta Transactions invocation.
     protected Query detachQueryNonTxInvocation(EntityManager underlyingEntityManager, Query underLyingQuery) {
-        if (!this.isExtendedPersistenceContext() && !this.isInTx()) {
+        if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
             return new QueryNonTxInvocationDetacher(underlyingEntityManager, underLyingQuery);
         }
         return underLyingQuery;
     }
 
     // for JPA 2.0 section 3.8.6
-    // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-jta invocation.
+    // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-Jakarta Transactions invocation.
     protected <T> TypedQuery<T> detachTypedQueryNonTxInvocation(EntityManager underlyingEntityManager, TypedQuery<T> underLyingQuery) {
-        if (!this.isExtendedPersistenceContext() && !this.isInTx()) {
+        if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
             return new TypedQueryNonTxInvocationDetacher<>(underlyingEntityManager, underLyingQuery);
         }
         return underLyingQuery;
     }
 
     private StoredProcedureQuery detachStoredProcedureQueryNonTxInvocation(EntityManager underlyingEntityManager, StoredProcedureQuery underlyingStoredProcedureQuery) {
-        if (!this.isExtendedPersistenceContext() && !this.isInTx()) {
+        if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
             return new StoredProcedureQueryNonTxInvocationDetacher(underlyingEntityManager, underlyingStoredProcedureQuery);
         }
         return underlyingStoredProcedureQuery;
     }
 
 
-    // JPA 7.9.1 if invoked without a JTA transaction and a transaction scoped persistence context is used,
+    // JPA 7.9.1 if invoked without a Jakarta Transactions transaction and a transaction scoped persistence context is used,
     // will throw TransactionRequiredException for any calls to entity manager remove/merge/persist/refresh.
     private void transactionIsRequired() {
         if (!this.isExtendedPersistenceContext() && !this.isInTx()) {

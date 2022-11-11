@@ -22,17 +22,17 @@
 
 package org.jboss.as.test.integration.ejb.container.interceptor;
 
-import javax.ejb.LocalBean;
-import javax.ejb.Remote;
-import javax.ejb.Stateless;
-import javax.interceptor.AroundInvoke;
-import javax.interceptor.Interceptors;
-import javax.interceptor.InvocationContext;
+import jakarta.ejb.LocalBean;
+import jakarta.ejb.Remote;
+import jakarta.ejb.Stateless;
+import jakarta.interceptor.AroundInvoke;
+import jakarta.interceptor.Interceptors;
+import jakarta.interceptor.InvocationContext;
 
 import org.jboss.logging.Logger;
 
 /**
- * A {@link FlowTracker} implementation. There are 2 EE interceptors used - {@link NonContainerInterceptor} and the class itself
+ * A {@link FlowTracker} implementation. There are 2 Jakarta Interceptors used - {@link NonContainerInterceptor} and the class itself
  * ({@link #aroundInvoke(InvocationContext)}).
  *
  * @author Jaikiran Pai

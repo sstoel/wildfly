@@ -22,14 +22,13 @@
 
 package org.jboss.as.test.integration.weld.jpa.scoping;
 
-import javax.inject.Inject;
-import javax.persistence.NoResultException;
+import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.EnterpriseArchive;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
@@ -66,7 +65,7 @@ public class WeldJpaInjectionScopeTestCase {
         EnterpriseArchive ear = ShrinkWrap.create(EnterpriseArchive.class, "cdiPuScope.ear");
         WebArchive war = ShrinkWrap.create(WebArchive.class, "simple.war");
         war.addClasses(WeldJpaInjectionScopeTestCase.class, CdiJpaInjectingBean.class);
-        war.addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+        war.addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         ear.addAsModule(war);
 
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class, "util.jar");

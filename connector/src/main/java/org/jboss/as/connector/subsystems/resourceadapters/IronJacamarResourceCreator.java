@@ -22,6 +22,8 @@
 
 package org.jboss.as.connector.subsystems.resourceadapters;
 
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATION;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BACKGROUNDVALIDATIONMILLIS;
 import static org.jboss.as.connector.subsystems.common.pool.Constants.BLOCKING_TIMEOUT_WAIT_MILLIS;
@@ -50,12 +52,11 @@ import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ELYTR
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ENABLED;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ENLISTMENT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.INTERLEAVING;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.JNDINAME;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.NOTXSEPARATEPOOL;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.NO_RECOVERY;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.PAD_XID;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERLUGIN_CLASSNAME;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERLUGIN_PROPERTIES;
+import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVER_PLUGIN_CLASSNAME;
+import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVER_PLUGIN_PROPERTIES;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_AUTHENTICATION_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_ELYTRON_ENABLED;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_PASSWORD;
@@ -67,7 +68,6 @@ import static org.jboss.as.connector.subsystems.resourceadapters.Constants.SECUR
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.SHARABLE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.TRACKING;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.USE_CCM;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WM_SECURITY_MAPPING_GROUP;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WM_SECURITY_MAPPING_USER;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.WRAP_XA_RESOURCE;
@@ -92,7 +92,6 @@ import org.jboss.jca.common.api.metadata.common.XaPool;
 import org.jboss.jca.common.api.metadata.resourceadapter.Activation;
 import org.jboss.jca.common.api.metadata.resourceadapter.AdminObject;
 import org.jboss.jca.common.api.metadata.resourceadapter.ConnectionDefinition;
-import org.jboss.jca.core.spi.statistics.StatisticsPlugin;
 
 /**
  * Handler for exposing transaction logs
@@ -145,14 +144,14 @@ public class IronJacamarResourceCreator {
     private void addConnectionDefinition(final Resource parent, ConnectionDefinition connDef) {
         final Resource connDefResource = new IronJacamarResource.IronJacamarRuntimeResource();
         final ModelNode model = connDefResource.getModel();
-        setAttribute(model, Constants.JNDINAME, connDef.getJndiName());
+        setAttribute(model, JNDI_NAME, connDef.getJndiName());
         if (connDef.getConfigProperties() != null) {
             for (Map.Entry<String, String> config : connDef.getConfigProperties().entrySet()) {
                 addConfigProperties(connDefResource, config.getKey(), config.getValue());
             }
         }
         setAttribute(model, CLASS_NAME, connDef.getClassName());
-        setAttribute(model, JNDINAME, connDef.getJndiName());
+        setAttribute(model, JNDI_NAME, connDef.getJndiName());
         setAttribute(model, USE_JAVA_CONTEXT, connDef.isUseJavaContext());
         setAttribute(model, ENABLED, connDef.isEnabled());
 
@@ -253,10 +252,10 @@ public class IronJacamarResourceCreator {
             setAttribute(model, NO_RECOVERY, recovery.getNoRecovery());
             final Extension recoverPlugin = recovery.getRecoverPlugin();
             if (recoverPlugin != null) {
-                setAttribute(model, RECOVERLUGIN_CLASSNAME, recoverPlugin.getClassName());
+                setAttribute(model, RECOVER_PLUGIN_CLASSNAME, recoverPlugin.getClassName());
                 if (recoverPlugin.getConfigPropertiesMap() != null) {
                     for (Map.Entry<String, String> config : recoverPlugin.getConfigPropertiesMap().entrySet()) {
-                        model.get(RECOVERLUGIN_PROPERTIES.getName(), config.getKey()).set(config.getValue());
+                        model.get(RECOVER_PLUGIN_PROPERTIES.getName(), config.getKey()).set(config.getValue());
                     }
                 }
             }
@@ -285,7 +284,7 @@ public class IronJacamarResourceCreator {
         final Resource adminObjectResource = new IronJacamarResource.IronJacamarRuntimeResource();
         final ModelNode model = adminObjectResource.getModel();
         setAttribute(model, CLASS_NAME, adminObject.getClassName());
-        setAttribute(model, JNDINAME, adminObject.getJndiName());
+        setAttribute(model, JNDI_NAME, adminObject.getJndiName());
         setAttribute(model, USE_JAVA_CONTEXT, adminObject.isUseJavaContext());
         setAttribute(model, ENABLED, adminObject.isEnabled());
         if (adminObject.getConfigProperties() != null) {
@@ -398,16 +397,6 @@ public class IronJacamarResourceCreator {
         PathElement ijPe = PathElement.pathElement(Constants.IRONJACAMAR_NAME, Constants.IRONJACAMAR_NAME);
         if (parentResource.getChild(ijPe) == null) {
             parentResource.registerChild(ijPe, ironJacamarResource);
-        }
-    }
-
-    private void setStatsModelValue(ModelNode result, String attributeName, StatisticsPlugin stats) {
-        if (stats.getType(attributeName) == int.class) {
-            result.set((Integer) stats.getValue(attributeName));
-        } else if (stats.getType(attributeName) == long.class) {
-            result.set((Long) stats.getValue(attributeName));
-        } else {
-            result.set("" + stats.getValue(attributeName));
         }
     }
 

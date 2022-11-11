@@ -24,7 +24,6 @@ package org.wildfly.clustering.web.cache.session;
 import static org.junit.Assert.*;
 import static org.mockito.Mockito.*;
 
-import java.time.Instant;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.Test;
@@ -62,7 +61,6 @@ public class CompositeSessionTestCase {
         assertSame(this.metaData, this.session.getMetaData());
     }
 
-    @SuppressWarnings("unchecked")
     @Test
     public void invalidate() {
         when(this.metaData.invalidate()).thenReturn(true);
@@ -97,7 +95,7 @@ public class CompositeSessionTestCase {
         this.session.close();
 
         verify(this.attributes).close();
-        verify(this.metaData).setLastAccessedTime(any(Instant.class));
+        verify(this.metaData).close();
 
         reset(this.metaData, this.attributes);
 
@@ -106,10 +104,8 @@ public class CompositeSessionTestCase {
 
         this.session.close();
 
-        this.session.close();
-
         verify(this.attributes, never()).close();
-        verify(this.metaData, never()).setLastAccessedTime(any(Instant.class));
+        verify(this.metaData, never()).close();
     }
 
     @SuppressWarnings("unchecked")
@@ -126,7 +122,7 @@ public class CompositeSessionTestCase {
 
         result = this.session.getLocalContext();
 
-        verifyZeroInteractions(this.localContextFactory);
+        verifyNoInteractions(this.localContextFactory);
 
         assertSame(expected, result);
     }

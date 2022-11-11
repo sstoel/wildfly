@@ -24,7 +24,7 @@ package org.jboss.as.test.integration.ejb.interceptor.serverside.secured;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
-import javax.ejb.EJBAccessException;
+import jakarta.ejb.EJBAccessException;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -32,9 +32,8 @@ import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.junit.InSequence;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.as.arquillian.api.ServerSetup;
-import org.jboss.as.test.integration.ejb.interceptor.serverside.AbstractServerInterceptorsSetupTask;
-import org.jboss.as.test.integration.ejb.interceptor.serverside.InterceptorModule;
-import org.jboss.as.test.integration.ejb.interceptor.serverside.InterceptorsSetupTask;
+import org.jboss.as.test.shared.integration.ejb.interceptor.serverside.AbstractServerInterceptorsSetupTask;
+import org.jboss.as.test.shared.integration.ejb.interceptor.serverside.InterceptorModule;
 import org.jboss.as.test.integration.ejb.security.EjbSecurityDomainSetup;
 import org.jboss.as.test.integration.security.common.AbstractSecurityDomainSetup;
 import org.jboss.as.test.shared.integration.ejb.security.Util;
@@ -68,11 +67,9 @@ public class SecuredBeanTestCase {
         return ShrinkWrap.create(WebArchive.class, "ejb3security.war")
                 .addClasses(AbstractSecurityDomainSetup.class, EjbSecurityDomainSetup.class)
                 .addClass(Util.class)
-                .addClasses(SampleInterceptor.class, AbstractServerInterceptorsSetupTask.class, InterceptorModule.class, InterceptorsSetupTask.class)
+                .addClasses(SampleInterceptor.class)
                 .addPackage(AbstractServerInterceptorsSetupTask.class.getPackage())
                 .addPackage(SecuredBeanTestCase.class.getPackage())
-                .addAsResource(currentPackage, "users.properties", "users.properties")
-                .addAsResource(currentPackage, "roles.properties", "roles.properties")
                 .addAsWebInfResource(currentPackage, "jboss-web.xml", "jboss-web.xml")
                 .addAsManifestResource(new StringAsset("Manifest-Version: 1.0\nDependencies: org.jboss.as.controller-client,org.jboss.dmr\n"), "MANIFEST.MF")
                 .addAsManifestResource(currentPackage, "permissions.xml", "permissions.xml");

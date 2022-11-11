@@ -40,10 +40,10 @@ import java.net.URL;
 import java.util.Locale;
 
 import javax.net.ssl.SSLHandshakeException;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang.SystemUtils;
+import org.apache.commons.lang3.SystemUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
@@ -78,7 +78,7 @@ public abstract class AbstractCertificateLoginModuleTestCase {
     private static Logger LOGGER = Logger.getLogger(AbstractCertificateLoginModuleTestCase.class);
     protected static SecurityTraceLoggingServerSetupTask TRACE_SECURITY = new SecurityTraceLoggingServerSetupTask();
 
-    protected static final File WORK_DIR = new File("keystores-workdir");
+    protected static final File WORK_DIR = new File("target" + File.separatorChar + "test-classes" + File.separatorChar + "keystores-workdir");
     protected static final File SERVER_KEYSTORE_FILE = new File(WORK_DIR, SecurityTestConstants.SERVER_KEYSTORE);
     protected static final File SERVER_TRUSTSTORE_FILE = new File(WORK_DIR, SecurityTestConstants.SERVER_TRUSTSTORE);
     protected static final File CLIENT_KEYSTORE_FILE = new File(WORK_DIR, SecurityTestConstants.CLIENT_KEYSTORE);
@@ -201,7 +201,7 @@ public abstract class AbstractCertificateLoginModuleTestCase {
             operation.get("keystore-password").set(SecurityTestConstants.KEYSTORE_PASSWORD);
             Utils.applyUpdate(operation, client);
 
-            executeReloadAndWaitForCompletion(client, 100000);
+            executeReloadAndWaitForCompletion(managementClient, 100000);
 
             operation = createOpNode("socket-binding-group=standard-sockets/socket-binding=https2" , ADD);
             operation.get(PORT).set(Integer.toString(HTTPS_PORT));

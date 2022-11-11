@@ -22,14 +22,14 @@
 
 package org.jboss.as.test.integration.jpa.version;
 
-import javax.annotation.Resource;
-import javax.ejb.SessionContext;
-import javax.ejb.Stateful;
-import javax.ejb.TransactionManagement;
-import javax.ejb.TransactionManagementType;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.ejb.SessionContext;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.TransactionManagement;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.transaction.UserTransaction;
 
 /**
  * stateful session bean
@@ -67,7 +67,7 @@ public class SFSB1 {
 
         employee.setName(employee.getName() + " +1");
 
-        // load the entity with no jta transaction (entity should be detached from persistence context)
+        // load the entity with no Jakarta Transactions transaction (entity should be detached from persistence context)
         getEmployeeNoTX(employee.getId());
 
         // update the entity, which will increment the version field
@@ -79,7 +79,7 @@ public class SFSB1 {
             em.flush();
             tx1.commit();
 
-            // load the entity with no jta transaction (should get fresh copy of entity with updated version field)
+            // load the entity with no Jakarta Transactions transaction (should get fresh copy of entity with updated version field)
             return getEmployeeNoTX(employee.getId());
         } catch (Exception e) {
             throw new RuntimeException("mutateEmployee couldn't start tx", e);

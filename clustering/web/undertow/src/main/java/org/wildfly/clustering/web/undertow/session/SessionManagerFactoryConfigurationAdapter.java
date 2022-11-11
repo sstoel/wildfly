@@ -24,42 +24,47 @@ package org.wildfly.clustering.web.undertow.session;
 
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.Map;
 import java.util.ServiceLoader;
 
+import jakarta.servlet.ServletContext;
+import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.HttpSessionActivationListener;
+
+import org.jboss.as.server.deployment.Attachments;
+import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.modules.Module;
-import org.wildfly.clustering.ee.CompositeIterable;
 import org.wildfly.clustering.ee.Immutability;
 import org.wildfly.clustering.ee.immutable.CompositeImmutability;
 import org.wildfly.clustering.ee.immutable.DefaultImmutability;
-import org.wildfly.clustering.marshalling.jboss.MarshallingContext;
-import org.wildfly.clustering.marshalling.jboss.SimpleMarshalledValueFactory;
-import org.wildfly.clustering.marshalling.jboss.SimpleMarshallingConfigurationRepository;
-import org.wildfly.clustering.marshalling.jboss.SimpleMarshallingContextFactory;
-import org.wildfly.clustering.marshalling.spi.MarshalledValueFactory;
+import org.wildfly.clustering.marshalling.spi.ByteBufferMarshaller;
 import org.wildfly.clustering.web.LocalContextFactory;
 import org.wildfly.clustering.web.container.SessionManagerFactoryConfiguration;
+import org.wildfly.clustering.web.session.DistributableSessionManagementConfiguration;
 import org.wildfly.clustering.web.session.SessionAttributeImmutability;
-import org.wildfly.clustering.web.undertow.session.DistributableSessionManagerFactoryServiceConfigurator.MarshallingVersion;
+import org.wildfly.clustering.web.session.SessionAttributePersistenceStrategy;
+import org.wildfly.clustering.web.session.SpecificationProvider;
+import org.wildfly.common.iteration.CompositeIterable;
 
 /**
  * @author Paul Ferraro
  */
-public class SessionManagerFactoryConfigurationAdapter extends WebDeploymentConfigurationAdapter implements org.wildfly.clustering.web.session.SessionManagerFactoryConfiguration<MarshallingContext, LocalSessionContext> {
+public class SessionManagerFactoryConfigurationAdapter<C extends DistributableSessionManagementConfiguration<DeploymentUnit>> extends WebDeploymentConfigurationAdapter implements org.wildfly.clustering.web.session.SessionManagerFactoryConfiguration<HttpSession, ServletContext, HttpSessionActivationListener, Map<String, Object>> {
 
     private final Integer maxActiveSessions;
-    private final MarshallingContext context;
-    private final MarshalledValueFactory<MarshallingContext> marshalledValueFactory;
-    private final LocalContextFactory<LocalSessionContext> localContextFactory = new LocalSessionContextFactory();
+    private final ByteBufferMarshaller marshaller;
     private final Immutability immutability;
+    private final SessionAttributePersistenceStrategy attributePersistenceStrategy;
 
-    public SessionManagerFactoryConfigurationAdapter(SessionManagerFactoryConfiguration configuration, Immutability immutability) {
+    public SessionManagerFactoryConfigurationAdapter(SessionManagerFactoryConfiguration configuration, C managementConfiguration, Immutability immutability) {
         super(configuration);
         this.maxActiveSessions = configuration.getMaxActiveSessions();
-        Module module = configuration.getModule();
-        this.context = new SimpleMarshallingContextFactory().createMarshallingContext(new SimpleMarshallingConfigurationRepository(MarshallingVersion.class, MarshallingVersion.CURRENT, module), module.getClassLoader());
-        this.marshalledValueFactory = new SimpleMarshalledValueFactory(this.context);
-        ServiceLoader<Immutability> loadedImmutability = ServiceLoader.load(Immutability.class, Immutability.class.getClassLoader());
+        DeploymentUnit unit = configuration.getDeploymentUnit();
+        Module module = unit.getAttachment(Attachments.MODULE);
+        this.marshaller = managementConfiguration.getMarshallerFactory().apply(configuration.getDeploymentUnit());
+        ServiceLoader<Immutability> loadedImmutability = module.loadService(Immutability.class);
         this.immutability = new CompositeImmutability(new CompositeIterable<>(EnumSet.allOf(DefaultImmutability.class), EnumSet.allOf(SessionAttributeImmutability.class), EnumSet.allOf(UndertowSessionAttributeImmutability.class), loadedImmutability, Collections.singleton(immutability)));
+        this.attributePersistenceStrategy = managementConfiguration.getAttributePersistenceStrategy();
     }
 
     @Override
@@ -68,22 +73,27 @@ public class SessionManagerFactoryConfigurationAdapter extends WebDeploymentConf
     }
 
     @Override
-    public MarshalledValueFactory<MarshallingContext> getMarshalledValueFactory() {
-        return this.marshalledValueFactory;
+    public ByteBufferMarshaller getMarshaller() {
+        return this.marshaller;
     }
 
     @Override
-    public MarshallingContext getMarshallingContext() {
-        return this.context;
-    }
-
-    @Override
-    public LocalContextFactory<LocalSessionContext> getLocalContextFactory() {
-        return this.localContextFactory;
+    public LocalContextFactory<Map<String, Object>> getLocalContextFactory() {
+        return LocalSessionContextFactory.INSTANCE;
     }
 
     @Override
     public Immutability getImmutability() {
         return this.immutability;
+    }
+
+    @Override
+    public SpecificationProvider<HttpSession, ServletContext, HttpSessionActivationListener> getSpecificationProvider() {
+        return UndertowSpecificationProvider.INSTANCE;
+    }
+
+    @Override
+    public SessionAttributePersistenceStrategy getAttributePersistenceStrategy() {
+        return this.attributePersistenceStrategy;
     }
 }

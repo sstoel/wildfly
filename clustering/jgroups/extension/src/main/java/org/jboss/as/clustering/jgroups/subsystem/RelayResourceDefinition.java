@@ -22,15 +22,12 @@
 package org.jboss.as.clustering.jgroups.subsystem;
 
 import org.jboss.as.clustering.controller.ResourceServiceConfiguratorFactory;
-import org.jboss.as.clustering.controller.SimpleAliasEntry;
 import org.jboss.as.clustering.controller.SimpleResourceDescriptorConfigurator;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelType;
 import org.wildfly.clustering.jgroups.spi.RelayConfiguration;
 
@@ -42,7 +39,6 @@ import org.wildfly.clustering.jgroups.spi.RelayConfiguration;
 public class RelayResourceDefinition extends AbstractProtocolResourceDefinition {
 
     static final PathElement PATH = pathElement(RelayConfiguration.PROTOCOL_NAME);
-    static final PathElement LEGACY_PATH = pathElement("RELAY");
     static final PathElement WILDCARD_PATH = pathElement(PathElement.WILDCARD_VALUE);
 
     public static PathElement pathElement(String name) {
@@ -68,14 +64,6 @@ public class RelayResourceDefinition extends AbstractProtocolResourceDefinition 
         }
     }
 
-    @SuppressWarnings("deprecation")
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        ResourceTransformationDescriptionBuilder builder = parent.addChildResource(PATH);
-
-        RemoteSiteResourceDefinition.buildTransformation(version, builder);
-        PropertyResourceDefinition.buildTransformation(version, builder);
-    }
-
     private final ResourceServiceConfiguratorFactory serviceConfiguratorFactory;
 
     RelayResourceDefinition(ResourceServiceConfiguratorFactory parentServiceConfiguratorFactory) {
@@ -90,8 +78,6 @@ public class RelayResourceDefinition extends AbstractProtocolResourceDefinition 
     @Override
     public ManagementResourceRegistration register(ManagementResourceRegistration parent) {
         ManagementResourceRegistration registration = super.register(parent);
-
-        parent.registerAlias(LEGACY_PATH, new SimpleAliasEntry(registration));
 
         new RemoteSiteResourceDefinition(this.serviceConfiguratorFactory).register(registration);
 

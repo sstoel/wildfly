@@ -22,7 +22,7 @@
 
 package org.jboss.as.test.clustering.cluster.ejb.stateful.bean;
 
-import javax.ejb.Local;
+import jakarta.ejb.Local;
 
 /**
  * @author Paul Ferraro
@@ -30,4 +30,8 @@ import javax.ejb.Local;
 @Local
 public interface Incrementor {
     int increment();
+
+    default void reset() {
+        // Do nothing
+    }
 }

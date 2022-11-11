@@ -30,10 +30,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-
-import javax.ejb.EJBLocalObject;
-import javax.ejb.EJBObject;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.EJBLocalObject;
+import jakarta.ejb.EJBObject;
+import jakarta.ejb.TransactionManagementType;
 
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.component.Attachments;
@@ -54,7 +53,6 @@ import org.jboss.as.ejb3.cache.CacheFactoryBuilder;
 import org.jboss.as.ejb3.cache.CacheFactoryBuilderServiceNameProvider;
 import org.jboss.as.ejb3.cache.CacheInfo;
 import org.jboss.as.ejb3.component.EJBViewDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.component.interceptors.ComponentTypeIdentityInterceptorFactory;
 import org.jboss.as.ejb3.component.session.SessionBeanComponentDescription;
 import org.jboss.as.ejb3.deployment.EjbJarDescription;
@@ -62,6 +60,7 @@ import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.tx.LifecycleCMTTxInterceptor;
 import org.jboss.as.ejb3.tx.StatefulBMTInterceptor;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
+import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.reflect.ClassReflectionIndex;
 import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
@@ -71,6 +70,7 @@ import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorFactory;
 import org.jboss.invocation.InterceptorFactoryContext;
 import org.jboss.invocation.proxy.MethodIdentifier;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.metadata.ejb.spec.SessionBeanMetaData;
 import org.jboss.modules.ModuleLoader;
 import org.jboss.msc.Service;
@@ -90,16 +90,16 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
     private final Map<MethodIdentifier, StatefulRemoveMethod> removeMethods = new HashMap<MethodIdentifier, StatefulRemoveMethod>();
     private StatefulTimeoutInfo statefulTimeout;
     private CacheInfo cache;
-    // by default stateful beans are passivation capable, but beans can override it via annotation or deployment descriptor, starting EJB 3.2
+    // by default stateful beans are passivation capable, but beans can override it via annotation or deployment descriptor, starting Jakarta Enterprise Beans 3.2
     private boolean passivationApplicable = true;
     private final ServiceName deploymentUnitServiceName;
 
     /**
      * Map of init method, to the corresponding home create method on the home interface
      */
-    private Map<Method, String> initMethods = new HashMap<Method, String>(0);
+    private final Map<Method, String> initMethods = new HashMap<Method, String>(0);
 
-    public class StatefulRemoveMethod {
+    public static final class StatefulRemoveMethod {
         private final MethodIdentifier methodIdentifier;
         private final boolean retainIfException;
 
@@ -113,6 +113,10 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
 
         public MethodIdentifier getMethodIdentifier() {
             return methodIdentifier;
+        }
+
+        public boolean getRetainIfException() {
+            return retainIfException;
         }
 
         @Override
@@ -141,9 +145,9 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
      * @param ejbJarDescription  the module description
      */
     public StatefulComponentDescription(final String componentName, final String componentClassName, final EjbJarDescription ejbJarDescription,
-                                        final ServiceName deploymentUnitServiceName, final SessionBeanMetaData descriptorData) {
-        super(componentName, componentClassName, ejbJarDescription, deploymentUnitServiceName, descriptorData);
-        this.deploymentUnitServiceName = deploymentUnitServiceName;
+                                        final DeploymentUnit deploymentUnit, final SessionBeanMetaData descriptorData) {
+        super(componentName, componentClassName, ejbJarDescription, deploymentUnit, descriptorData);
+        this.deploymentUnitServiceName = deploymentUnit.getServiceName();
         addInitMethodInvokingInterceptor();
     }
 
@@ -212,16 +216,16 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
         this.getConfigurators().add(new ComponentConfigurator() {
             @Override
             public void configure(DeploymentPhaseContext context, ComponentDescription description, ComponentConfiguration configuration) throws DeploymentUnitProcessingException {
-                CapabilityServiceSupport support = context.getDeploymentUnit().getAttachment(org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT);
+                DeploymentUnit unit = context.getDeploymentUnit();
+                CapabilityServiceSupport support = unit.getAttachment(org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT);
                 StatefulComponentDescription statefulDescription = (StatefulComponentDescription) description;
-                ServiceName cacheFactoryServiceName = statefulDescription.getCacheFactoryServiceName();
                 ServiceTarget target = context.getServiceTarget();
-                ServiceBuilder<?> builder = target.addService(cacheFactoryServiceName.append("installer"));
+                ServiceBuilder<?> builder = target.addService(statefulDescription.getCacheFactoryServiceName().append("installer"));
                 Supplier<CacheFactoryBuilder<SessionID, StatefulSessionComponentInstance>> cacheFactoryBuilder = builder.requires(this.getCacheFactoryBuilderRequirement(statefulDescription));
                 Service service = new ChildTargetService(new Consumer<ServiceTarget>() {
                     @Override
                     public void accept(ServiceTarget target) {
-                        cacheFactoryBuilder.get().getServiceConfigurator(cacheFactoryServiceName, statefulDescription, configuration).configure(support).build(target).install();
+                        cacheFactoryBuilder.get().getServiceConfigurator(unit, statefulDescription, configuration).configure(support).build(target).install();
                     }
                 });
                 builder.setInstance(service).install();
@@ -279,7 +283,7 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
 
         this.addViewSerializationInterceptor(view);
 
-        if (view.getMethodIntf() == MethodIntf.REMOTE) {
+        if (view.getMethodIntf() == MethodInterfaceType.Remote) {
             view.getConfigurators().add(new ViewConfigurator() {
                 @Override
                 public void configure(final DeploymentPhaseContext context, final ComponentConfiguration componentConfiguration, final ViewDescription description, final ViewConfiguration configuration) throws DeploymentUnitProcessingException {
@@ -335,10 +339,10 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
             public void configure(final DeploymentPhaseContext context, final ComponentConfiguration componentConfiguration, ViewDescription description, ViewConfiguration viewConfiguration) throws DeploymentUnitProcessingException {
                 EJBViewDescription ejbViewDescription = (EJBViewDescription) view;
                 //if this is a home interface we add a different interceptor
-                if (ejbViewDescription.getMethodIntf() == MethodIntf.HOME || ejbViewDescription.getMethodIntf() == MethodIntf.LOCAL_HOME) {
+                if (ejbViewDescription.getMethodIntf() == MethodInterfaceType.Home || ejbViewDescription.getMethodIntf() == MethodInterfaceType.LocalHome) {
                     for (Method method : viewConfiguration.getProxyFactory().getCachedMethods()) {
-                        if ((method.getName().equals("hashCode") && method.getParameterTypes().length == 0) ||
-                                method.getName().equals("equals") && method.getParameterTypes().length == 1 &&
+                        if ((method.getName().equals("hashCode") && method.getParameterCount() == 0) ||
+                                method.getName().equals("equals") && method.getParameterCount() == 1 &&
                                         method.getParameterTypes()[0] == Object.class) {
                             viewConfiguration.addClientInterceptor(method, ComponentTypeIdentityInterceptorFactory.INSTANCE, InterceptorOrder.Client.EJB_EQUALS_HASHCODE);
                         }
@@ -351,8 +355,8 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
                     viewConfiguration.addClientPostConstructInterceptor(sessionIdGeneratingInterceptorFactory, InterceptorOrder.ClientPostConstruct.INSTANCE_CREATE);
 
                     for (Method method : viewConfiguration.getProxyFactory().getCachedMethods()) {
-                        if ((method.getName().equals("hashCode") && method.getParameterTypes().length == 0) ||
-                                method.getName().equals("equals") && method.getParameterTypes().length == 1 &&
+                        if ((method.getName().equals("hashCode") && method.getParameterCount() == 0) ||
+                                method.getName().equals("equals") && method.getParameterCount() == 1 &&
                                         method.getParameterTypes()[0] == Object.class) {
                             viewConfiguration.addClientInterceptor(method, StatefulIdentityInterceptor.FACTORY, InterceptorOrder.Client.EJB_EQUALS_HASHCODE);
                         }
@@ -360,7 +364,7 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
                 }
             }
         });
-        if (view.getMethodIntf() != MethodIntf.LOCAL_HOME && view.getMethodIntf() != MethodIntf.HOME) {
+        if (view.getMethodIntf() != MethodInterfaceType.LocalHome && view.getMethodIntf() != MethodInterfaceType.Home) {
             view.getConfigurators().add(new ViewConfigurator() {
                 @Override
                 public void configure(DeploymentPhaseContext context, ComponentConfiguration componentConfiguration, ViewDescription description, ViewConfiguration configuration) throws DeploymentUnitProcessingException {
@@ -425,10 +429,10 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
     }
 
     /**
-     * EJB 3.2 spec allows the TimeService to be injected/looked up/accessed from the stateful bean so as to allow access to the {@link javax.ejb.TimerService#getAllTimers()}
-     * method from a stateful bean. Hence we make timerservice applicable for stateful beans too. However, we return <code>false</code> in {@link #isTimerServiceRequired()} so that a {@link org.jboss.as.ejb3.timerservice.NonFunctionalTimerService}
-     * is made available for the stateful bean. The {@link org.jboss.as.ejb3.timerservice.NonFunctionalTimerService} only allows access to {@link javax.ejb.TimerService#getAllTimers()} and {@link javax.ejb.TimerService#getTimers()}
-     * methods and throws an {@link IllegalStateException} for all othre methods on the timerservice and that's exactly how we want it to behave for stateful beans
+     * EJB 3.2 spec allows the {@link jakarta.ejb.TimerService} to be injected/looked up/accessed from the stateful bean so as to allow access to the {@link jakarta.ejb.TimerService#getAllTimers()}
+     * method from a stateful bean. Hence we make {@link jakarta.ejb.TimerService} applicable for stateful beans too. However, we return <code>false</code> in {@link #isTimerServiceRequired()} so that a {@link org.jboss.as.ejb3.timerservice.NonFunctionalTimerService}
+     * is made available for the stateful bean. The {@link org.jboss.as.ejb3.timerservice.NonFunctionalTimerService} only allows access to {@link jakarta.ejb.TimerService#getAllTimers()} and {@link jakarta.ejb.TimerService#getTimers()}
+     * methods and throws an {@link IllegalStateException} for all other methods on the {@link jakarta.ejb.TimerService} and that's exactly how we want it to behave for stateful beans
      *
      * @return
      * @see {@link #isTimerServiceRequired()}

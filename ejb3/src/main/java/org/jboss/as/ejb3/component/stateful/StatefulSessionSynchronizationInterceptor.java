@@ -30,11 +30,11 @@ import static org.jboss.as.ejb3.logging.EjbLogger.ROOT_LOGGER;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.ejb.EJBException;
-import javax.ejb.TransactionManagementType;
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
-import javax.transaction.TransactionSynchronizationRegistry;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.TransactionManagementType;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentInstanceInterceptorFactory;
@@ -205,12 +205,14 @@ public class StatefulSessionSynchronizationInterceptor extends AbstractEJBInterc
      */
     static void releaseInstance(final StatefulSessionComponentInstance instance, boolean toDiscard) {
         try {
+            // calling setSynchronizationRegistered(false) before releasing the instance from cache,
+            // so that the instance can be destroyed in StatefulSessionComponent.destroyInstance(...)
+            instance.setSynchronizationRegistered(false);
             if (!instance.isDiscarded() && !toDiscard) {
                 // mark the SFSB instance as no longer in use
                 instance.getComponent().getCache().release(instance);
             }
         } finally {
-            instance.setSynchronizationRegistered(false);
             // release the lock on the SFSB instance
             releaseLock(instance);
         }
@@ -239,7 +241,7 @@ public class StatefulSessionSynchronizationInterceptor extends AbstractEJBInterc
     }
 
 
-    private class StatefulSessionSynchronization implements Synchronization {
+    private static final class StatefulSessionSynchronization implements Synchronization {
 
         private final StatefulSessionComponentInstance statefulSessionComponentInstance;
 
@@ -275,6 +277,7 @@ public class StatefulSessionSynchronizationInterceptor extends AbstractEJBInterc
             }
         }
     }
+
     static void handleAfterCompletion(boolean committed, StatefulSessionComponentInstance statefulSessionComponentInstance, boolean toDiscard) {
         try {
             ROOT_LOGGER.tracef("After completion callback invoked on Transaction synchronization: %s", statefulSessionComponentInstance);

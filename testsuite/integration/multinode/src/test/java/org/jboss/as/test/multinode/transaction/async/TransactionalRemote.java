@@ -21,10 +21,8 @@
  */
 package org.jboss.as.test.multinode.transaction.async;
 
-import java.rmi.RemoteException;
 import java.util.concurrent.Future;
-
-import javax.ejb.Remote;
+import jakarta.ejb.Remote;
 
 /**
  * Remote interface for testing beans being called.
@@ -33,5 +31,7 @@ import javax.ejb.Remote;
  */
 @Remote
 public interface TransactionalRemote {
-    Future<Integer> transactionStatus() throws RemoteException;
+    Future<Integer> transactionStatus();
+
+    Future<Integer> asyncWithRequired();
 }

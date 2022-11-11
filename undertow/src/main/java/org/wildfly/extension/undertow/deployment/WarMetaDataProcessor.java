@@ -119,9 +119,10 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
         if (!isComplete) {
             HashSet<String> jarsWithoutFragmentsSet = new HashSet<String>();
             jarsWithoutFragmentsSet.addAll(jarsSet);
-            for (String jarName : webFragments.keySet()) {
+            for (Map.Entry<String, WebFragmentMetaData> entry : webFragments.entrySet()) {
                 fragmentFound = true;
-                WebFragmentMetaData fragmentMetaData = webFragments.get(jarName);
+                String jarName = entry.getKey();
+                WebFragmentMetaData fragmentMetaData = entry.getValue();
                 webFragments.put(jarName, fragmentMetaData);
                 WebOrdering webOrdering = new WebOrdering();
                 webOrdering.setName(fragmentMetaData.getName());
@@ -202,7 +203,7 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
                 order.addAll(otherPos, jarsSet);
                 jarsSet.clear();
             }
-        } else if (orderings.size() > 0) {
+        } else if (!orderings.isEmpty()) {
             // Resolve relative ordering
             try {
                 resolveOrder(orderings, order);
@@ -345,7 +346,7 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
             description.setModuleName(mergedMetaData.getModuleName());
         }
 
-        //WFLY-3102 EJB in WAR should inherit WAR's security domain
+        //WFLY-3102 Jakarta Enterprise Beans in WAR should inherit WAR's security domain
         if(mergedMetaData.getSecurityDomain() != null) {
             final EEModuleDescription description = deploymentUnit.getAttachment(org.jboss.as.ee.component.Attachments.EE_MODULE_DESCRIPTION);
             description.setDefaultSecurityDomain(mergedMetaData.getSecurityDomain());
@@ -365,10 +366,6 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
                 }
             }
         }
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
     }
 
     /**

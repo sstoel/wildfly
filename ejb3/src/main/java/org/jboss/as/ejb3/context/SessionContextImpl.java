@@ -21,21 +21,20 @@
  */
 package org.jboss.as.ejb3.context;
 
-import javax.ejb.EJBLocalObject;
-import javax.ejb.EJBObject;
-import javax.ejb.SessionContext;
-import javax.ejb.TimerService;
-import javax.transaction.UserTransaction;
-import javax.xml.rpc.handler.MessageContext;
+import jakarta.ejb.EJBLocalObject;
+import jakarta.ejb.EJBObject;
+import jakarta.ejb.SessionContext;
+import jakarta.ejb.TimerService;
+import jakarta.transaction.UserTransaction;
 
 import org.jboss.as.ee.component.ComponentView;
-import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.allowedmethods.AllowedMethodsInformation;
 import org.jboss.as.ejb3.component.allowedmethods.MethodType;
 import org.jboss.as.ejb3.component.interceptors.CancellationFlag;
 import org.jboss.as.ejb3.component.session.SessionBeanComponent;
 import org.jboss.as.ejb3.component.session.SessionBeanComponentInstance;
 import org.jboss.as.ejb3.component.stateful.StatefulSessionComponent;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.invocation.InterceptorContext;
 
 /**
@@ -85,16 +84,6 @@ public class SessionContextImpl extends EJBContextImpl implements SessionContext
 
     public SessionBeanComponent getComponent() {
         return (SessionBeanComponent) super.getComponent();
-    }
-
-    public MessageContext getMessageContext() throws IllegalStateException {
-        final InterceptorContext invocation = CurrentInvocationContext.get();
-        final MessageContext context = invocation.getPrivateData(MessageContext.class);
-        if (context == null) {
-            throw EjbLogger.ROOT_LOGGER.cannotCall("getMessageContext()", "MessageContext");
-
-        }
-        return context;
     }
 
     public boolean wasCancelCalled() throws IllegalStateException {

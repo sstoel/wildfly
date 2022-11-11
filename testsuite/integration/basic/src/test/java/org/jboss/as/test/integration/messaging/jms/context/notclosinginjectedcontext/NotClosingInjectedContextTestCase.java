@@ -47,13 +47,13 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.annotation.Resource;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.JMSException;
-import javax.jms.Message;
-import javax.jms.Queue;
+import jakarta.annotation.Resource;
+import jakarta.jms.ConnectionFactory;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSException;
+import jakarta.jms.Message;
+import jakarta.jms.Queue;
 import java.io.IOException;
 import java.util.List;
 import java.util.PropertyPermission;
@@ -111,7 +111,7 @@ public class NotClosingInjectedContextTestCase {
                         new PropertyPermission("ts.timeout.factor", "read")), "jboss-permissions.xml")
                 .addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml")
                 .addClass(TimeoutUtil.class)
-                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller,org.jboss.remoting3\n"), "MANIFEST.MF");
+                .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller,org.jboss.remoting\n"), "MANIFEST.MF");
         return archive;
     }
 
@@ -223,7 +223,7 @@ public class NotClosingInjectedContextTestCase {
             operation.get("value").set("true");
             client.getControllerClient().execute(operation);
 
-            ServerReload.executeReloadAndWaitForCompletion(client.getControllerClient(), TimeoutUtil.adjust(50000));
+            ServerReload.executeReloadAndWaitForCompletion(client, TimeoutUtil.adjust(50000));
         }
     }
 }

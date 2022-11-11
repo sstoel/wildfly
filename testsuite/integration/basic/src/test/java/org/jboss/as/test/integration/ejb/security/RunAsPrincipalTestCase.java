@@ -26,10 +26,11 @@ import java.util.Collection;
 import java.util.PropertyPermission;
 import java.util.concurrent.Callable;
 
-import javax.ejb.EJBAccessException;
+import jakarta.ejb.EJBAccessException;
 import javax.naming.InitialContext;
 
 import org.hamcrest.CoreMatchers;
+import org.hamcrest.MatcherAssert;
 import org.jboss.arquillian.container.test.api.Deployer;
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
@@ -60,6 +61,7 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 import org.junit.runner.RunWith;
+import org.wildfly.security.auth.permission.ChangeRoleMapperPermission;
 import org.wildfly.security.permission.ElytronPermission;
 
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
@@ -95,7 +97,8 @@ public class RunAsPrincipalTestCase  {
                 .addClasses(AbstractSecurityDomainSetup.class, EjbSecurityDomainSetup.class)
                 .addAsWebInfResource(RunAsPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller-client,org.jboss.dmr\n"), "MANIFEST.MF")
-                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain")), "permissions.xml");
+                .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
+                                                                 new ElytronPermission("authenticate")), "permissions.xml");
         war.addPackage(CommonCriteria.class.getPackage());
         return war;
     }
@@ -115,9 +118,15 @@ public class RunAsPrincipalTestCase  {
                 .addClasses(AbstractSecurityDomainSetup.class, EjbSecurityDomainSetup.class)
                 .addAsWebInfResource(RunAsPrincipalTestCase.class.getPackage(), "jboss-ejb3.xml", "jboss-ejb3.xml")
                 .addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller-client,org.jboss.dmr\n"), "MANIFEST.MF")
+               // TODO WFLY-15289 The Elytron permissions need to be checked, should a deployment really need these?
                 .addAsManifestResource(createPermissionsXmlAsset(new ElytronPermission("getSecurityDomain"),
                         new PropertyPermission("jboss.server.log.dir", "read"),
-                        PermissionUtils.createFilePermission("read", "standalone", "log", TEST_LOG_FILE_NAME)), "permissions.xml");
+                        PermissionUtils.createFilePermission("read", "standalone", "log", TEST_LOG_FILE_NAME),
+                        new ElytronPermission("authenticate"),
+                        new ElytronPermission("getIdentity"),
+                        new ElytronPermission("createAdHocIdentity"),
+                        new ChangeRoleMapperPermission("ejb"),
+                        new ElytronPermission("setRunAsPrincipal")), "permissions.xml");
         war.addPackage(CommonCriteria.class.getPackage());
         return war;
     }
@@ -202,7 +211,7 @@ public class RunAsPrincipalTestCase  {
         } catch (Exception dex) {
             Throwable t = checkEjbException(dex);
             log.trace("Expected deployment error because the Singleton has nosecurity context per itself", dex.getCause());
-            Assert.assertThat(t.getMessage(), t.getMessage(), CoreMatchers.containsString("WFLYEJB0364"));
+            MatcherAssert.assertThat(t.getMessage(), t.getMessage(), CoreMatchers.containsString("WFLYEJB0364"));
         } finally {
             deployer.undeploy(STARTUP_SINGLETON_DEPLOYMENT);
         }
@@ -221,7 +230,7 @@ public class RunAsPrincipalTestCase  {
         } catch (Exception dex) {
             Throwable t = checkEjbException(dex);
             log.trace("Expected EJB call fail because identity should not be propagated from @PostConstruct method", dex.getCause());
-            Assert.assertThat(t.getMessage(), t.getMessage(), CoreMatchers.containsString("WFLYEJB0364"));
+            MatcherAssert.assertThat(t.getMessage(), t.getMessage(), CoreMatchers.containsString("WFLYEJB0364"));
         }
     }
 

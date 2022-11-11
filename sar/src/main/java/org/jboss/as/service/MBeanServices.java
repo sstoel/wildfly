@@ -50,19 +50,12 @@ final class MBeanServices {
     private static final String DESTROY_METHOD_NAME = "destroy";
     private static final String START_METHOD_NAME = "start";
     private static final String STOP_METHOD_NAME = "stop";
-    private static final Class<?>[] NO_ARGS = new Class<?>[0];
-    private final String mBeanName;
-    private final ServiceName createDestroyServiceName;
-    private final ServiceName startStopServiceName;
+
     private final CreateDestroyService createDestroyService;
-    private final StartStopService startStopService;
     private final ServiceBuilder<?> createDestroyServiceBuilder;
     private final ServiceBuilder<?> startStopServiceBuilder;
-    private final ServiceTarget target;
-    private final ServiceName mbeanServerServiceName;
+    private final ServiceBuilder<?> registerUnregisterServiceBuilder;
     private boolean installed;
-
-    private final List<SetupAction> setupActions;
 
     MBeanServices(final String mBeanName, final Object mBeanInstance, final List<ClassReflectionIndex> mBeanClassHierarchy,
                   final ServiceTarget target, final ServiceComponentInstantiator componentInstantiator,
@@ -80,9 +73,9 @@ final class MBeanServices {
             throw SarLogger.ROOT_LOGGER.nullVar("mbeanServerServiceName");
         }
 
-        final Method createMethod = ReflectionUtils.getMethod(mBeanClassHierarchy, CREATE_METHOD_NAME, NO_ARGS, false);
-        final Method destroyMethod = ReflectionUtils.getMethod(mBeanClassHierarchy, DESTROY_METHOD_NAME, NO_ARGS, false);
-        createDestroyServiceName = ServiceNameFactory.newCreateDestroy(mBeanName);
+        final Method createMethod = ReflectionUtils.getNoArgMethod(mBeanClassHierarchy, CREATE_METHOD_NAME);
+        final Method destroyMethod = ReflectionUtils.getNoArgMethod(mBeanClassHierarchy, DESTROY_METHOD_NAME);
+        ServiceName createDestroyServiceName = ServiceNameFactory.newCreateDestroy(mBeanName);
         createDestroyServiceBuilder = target.addService(createDestroyServiceName);
         Consumer<Object> mBeanInstanceConsumer = createDestroyServiceBuilder.provides(createDestroyServiceName);
         Supplier<ExecutorService> executorSupplier = createDestroyServiceBuilder.requires(AbstractControllerService.EXECUTOR_CAPABILITY.getCapabilityServiceName());
@@ -93,15 +86,23 @@ final class MBeanServices {
             createDestroyServiceBuilder.requires(componentInstantiator.getComponentStartServiceName());
         }
 
-        final Method startMethod = ReflectionUtils.getMethod(mBeanClassHierarchy, START_METHOD_NAME, NO_ARGS, false);
-        final Method stopMethod = ReflectionUtils.getMethod(mBeanClassHierarchy, STOP_METHOD_NAME, NO_ARGS, false);
-        startStopServiceName = ServiceNameFactory.newStartStop(mBeanName);
+        final Method startMethod = ReflectionUtils.getNoArgMethod(mBeanClassHierarchy, START_METHOD_NAME);
+        final Method stopMethod = ReflectionUtils.getNoArgMethod(mBeanClassHierarchy, STOP_METHOD_NAME);
+        ServiceName startStopServiceName = ServiceNameFactory.newStartStop(mBeanName);
         startStopServiceBuilder = target.addService(startStopServiceName);
         mBeanInstanceConsumer = startStopServiceBuilder.provides(startStopServiceName);
         executorSupplier = startStopServiceBuilder.requires(AbstractControllerService.EXECUTOR_CAPABILITY.getCapabilityServiceName());
-        startStopService = new StartStopService(mBeanInstance, startMethod, stopMethod, setupActions, mbeanContextClassLoader, mBeanInstanceConsumer, executorSupplier);
+        StartStopService startStopService = new StartStopService(mBeanInstance, startMethod, stopMethod, setupActions, mbeanContextClassLoader, mBeanInstanceConsumer, executorSupplier);
         startStopServiceBuilder.setInstance(startStopService);
         startStopServiceBuilder.requires(createDestroyServiceName);
+
+        ServiceName registerUnregisterServiceName = ServiceNameFactory.newRegisterUnregister(mBeanName);
+        registerUnregisterServiceBuilder = target.addService(registerUnregisterServiceName);
+        // register with the legacy alias as well
+        registerUnregisterServiceBuilder.provides(registerUnregisterServiceName, MBeanRegistrationService.SERVICE_NAME.append(mBeanName));
+        final Supplier<MBeanServer> mBeanServerSupplier = registerUnregisterServiceBuilder.requires(mbeanServerServiceName);
+        final Supplier<Object> objectSupplier = registerUnregisterServiceBuilder.requires(startStopServiceName);
+        registerUnregisterServiceBuilder.setInstance(new MBeanRegistrationService(mBeanName, setupActions, mBeanServerSupplier, objectSupplier));
 
         for (SetupAction action : setupActions) {
             for (ServiceName dependency : action.dependencies()) {
@@ -110,10 +111,6 @@ final class MBeanServices {
             }
         }
 
-        this.mBeanName = mBeanName;
-        this.target = target;
-        this.setupActions = setupActions;
-        this.mbeanServerServiceName = mbeanServerServiceName;
     }
 
     void addDependency(final String dependencyMBeanName)  {
@@ -122,6 +119,8 @@ final class MBeanServices {
         createDestroyServiceBuilder.requires(injectedMBeanCreateDestroyServiceName);
         final ServiceName injectedMBeanStartStopServiceName = ServiceNameFactory.newStartStop(dependencyMBeanName);
         startStopServiceBuilder.requires(injectedMBeanStartStopServiceName);
+        final ServiceName injectedMBeanRegisterUnregisterServiceName = ServiceNameFactory.newRegisterUnregister(dependencyMBeanName);
+        registerUnregisterServiceBuilder.requires(injectedMBeanRegisterUnregisterServiceName);
     }
 
     void addAttribute(final String attributeMBeanName, final Method setter, final DelegatingSupplier propertySupplier) {
@@ -143,13 +142,7 @@ final class MBeanServices {
         assertState();
         createDestroyServiceBuilder.install();
         startStopServiceBuilder.install();
-
-        // Add service to register the mbean in the mbean server
-        final ServiceBuilder<?> sb = target.addService(MBeanRegistrationService.SERVICE_NAME.append(mBeanName));
-        final Supplier<MBeanServer> mBeanServerSupplier = sb.requires(mbeanServerServiceName);
-        final Supplier<Object> objectSupplier = sb.requires(startStopServiceName);
-        sb.setInstance(new MBeanRegistrationService(mBeanName, setupActions, mBeanServerSupplier, objectSupplier));
-        sb.install();
+        registerUnregisterServiceBuilder.install();
 
         installed = true;
     }

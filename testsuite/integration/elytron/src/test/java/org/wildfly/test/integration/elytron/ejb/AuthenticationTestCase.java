@@ -37,7 +37,7 @@ import java.net.URL;
 import java.security.Principal;
 import java.util.concurrent.Callable;
 
-import javax.ejb.EJB;
+import jakarta.ejb.EJB;
 import javax.security.auth.AuthPermission;
 
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -69,6 +69,8 @@ import org.wildfly.test.security.common.elytron.ServletElytronDomainSetup;
  *
  * @author <a href="mailto:cdewolf@redhat.com">Carlo de Wolf</a>
  * @author <a href="mailto:darran.lofthouse@jboss.com">Darran Lofthouse</a>
+ *
+ * NOTE: References in this file to Enterprise JavaBeans(EJB) refer to the Jakarta Enterprise Beans unless otherwise noted.
  */
 @RunWith(Arquillian.class)
 @ServerSetup({ AuthenticationTestCase.ElytronDomainSetupOverride.class, EjbElytronDomainSetup.class, ServletElytronDomainSetup.class })
@@ -238,7 +240,8 @@ public class AuthenticationTestCase {
         } catch (IOException e) {
             final String message = e.getMessage();
             assertTrue("Response should contain 'ELY01151: Evidence Verification Failed'", message.contains("ELY01151:"));
-            assertTrue("Response should contain 'javax.ejb.EJBException'", message.contains("javax.ejb.EJBException"));
+            assertTrue("Response should contain 'jakarta.ejb.EJBException' or 'jakarta.ejb.EJBException'",
+                    message.contains("jakarta.ejb.EJBException") || message.contains("jakarta.ejb.EJBException"));
         }
     }
 

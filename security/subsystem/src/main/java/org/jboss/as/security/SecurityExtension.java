@@ -22,7 +22,9 @@
 
 package org.jboss.as.security;
 
-import org.jboss.as.controller.Extension;
+import java.util.Collections;
+import java.util.Set;
+
 import org.jboss.as.controller.ExtensionContext;
 import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
@@ -30,20 +32,17 @@ import org.jboss.as.controller.SubsystemRegistration;
 import org.jboss.as.controller.descriptions.DeprecatedResourceDescriptionResolver;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.descriptions.StandardResourceDescriptionResolver;
-import org.jboss.as.controller.operations.common.GenericSubsystemDescribeHandler;
+import org.jboss.as.controller.extension.AbstractLegacyExtension;
 import org.jboss.as.controller.parsing.ExtensionParsingContext;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.security.elytron.ElytronIntegrationResourceDefinitions;
-import org.jboss.msc.service.ServiceName;
 
 /**
  * The security extension.
  *
  * @author <a href="mailto:mmoyses@redhat.com">Marcus Moyses</a>
  * @author <a href="mailto:darran.lofthouse@jboss.com">Darran Lofthouse</a>
- */public class SecurityExtension implements Extension {
-
-    public static final ServiceName JBOSS_SECURITY = ServiceName.JBOSS.append("security");
+ */public class SecurityExtension extends AbstractLegacyExtension {
 
     public static final String SUBSYSTEM_NAME = "security";
     static final PathElement PATH_SUBSYSTEM = PathElement.pathElement(ModelDescriptionConstants.SUBSYSTEM, SUBSYSTEM_NAME);
@@ -53,7 +52,6 @@ import org.jboss.msc.service.ServiceName;
     private static final ModelVersion CURRENT_MODEL_VERSION = ModelVersion.create(2, 0, 0);
 
     static final PathElement ACL_PATH = PathElement.pathElement(Constants.ACL, Constants.CLASSIC);
-    static final PathElement PATH_IDENTITY_TRUST_CLASSIC = PathElement.pathElement(Constants.IDENTITY_TRUST, Constants.CLASSIC);
     static final PathElement PATH_JASPI_AUTH = PathElement.pathElement(Constants.AUTHENTICATION, Constants.JASPI);
     static final PathElement PATH_CLASSIC_AUTHENTICATION = PathElement.pathElement(Constants.AUTHENTICATION, Constants.CLASSIC);
     static final PathElement SECURITY_DOMAIN_PATH = PathElement.pathElement(Constants.SECURITY_DOMAIN);
@@ -67,12 +65,14 @@ import org.jboss.msc.service.ServiceName;
     //deprecated in EAP 6.4
     static final ModelVersion DEPRECATED_SINCE = ModelVersion.create(1,3,0);
 
-    @SuppressWarnings("deprecation")
+    public SecurityExtension() {
+        super("org.jboss.as.security.SecurityExtension", SUBSYSTEM_NAME);
+    }
+
     public static StandardResourceDescriptionResolver getResourceDescriptionResolver(final String keyPrefix) {
         return new DeprecatedResourceDescriptionResolver(SUBSYSTEM_NAME, keyPrefix, RESOURCE_NAME, SecurityExtension.class.getClassLoader(), true, true);
     }
 
-    @SuppressWarnings("deprecation")
     public static StandardResourceDescriptionResolver getResourceDescriptionResolver(final String... keyPrefix) {
         StringBuilder prefix = new StringBuilder();
         for (String kp : keyPrefix) {
@@ -85,15 +85,12 @@ import org.jboss.msc.service.ServiceName;
     }
 
     @Override
-    public void initialize(ExtensionContext context) {
-
-        final boolean registerRuntimeOnly = context.isRuntimeOnlyRegistrationValid();
-
-        final SubsystemRegistration subsystem = context.registerSubsystem(SUBSYSTEM_NAME, CURRENT_MODEL_VERSION);
+    protected Set<ManagementResourceRegistration> initializeLegacyModel(ExtensionContext context) {
+        final SubsystemRegistration subsystem = context.registerSubsystem(SUBSYSTEM_NAME, CURRENT_MODEL_VERSION, true);
         final ManagementResourceRegistration registration = subsystem.registerSubsystemModel(SecuritySubsystemRootResourceDefinition.INSTANCE);
-        registration.registerOperationHandler(GenericSubsystemDescribeHandler.DEFINITION, GenericSubsystemDescribeHandler.INSTANCE);
+        //registration.registerOperationHandler(GenericSubsystemDescribeHandler.DEFINITION, GenericSubsystemDescribeHandler.INSTANCE);
 
-        final ManagementResourceRegistration securityDomain = registration.registerSubModel(new SecurityDomainResourceDefinition(registerRuntimeOnly));
+        final ManagementResourceRegistration securityDomain = registration.registerSubModel(new SecurityDomainResourceDefinition());
         securityDomain.registerSubModel(JASPIAuthenticationResourceDefinition.INSTANCE);
         securityDomain.registerSubModel(ClassicAuthenticationResourceDefinition.INSTANCE);
         securityDomain.registerSubModel(AuthorizationResourceDefinition.INSTANCE);
@@ -112,10 +109,11 @@ import org.jboss.msc.service.ServiceName;
         // register the subsystem XML persister.
         subsystem.registerXMLElementWriter(SecuritySubsystemPersister.INSTANCE);
 
+        return Collections.singleton(registration);
     }
 
     @Override
-    public void initializeParsers(ExtensionParsingContext context) {
+    protected void initializeLegacyParsers(ExtensionParsingContext context) {
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.SECURITY_1_0.getUriString(), SecuritySubsystemParser::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.SECURITY_1_1.getUriString(), SecuritySubsystemParser::new);
         context.setSubsystemXmlMapping(SUBSYSTEM_NAME, Namespace.SECURITY_1_2.getUriString(), SecuritySubsystemParser::new);

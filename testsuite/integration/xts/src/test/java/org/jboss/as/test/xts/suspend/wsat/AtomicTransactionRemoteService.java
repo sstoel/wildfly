@@ -27,9 +27,9 @@ import com.arjuna.mw.wst11.TransactionManager;
 import org.jboss.as.test.xts.suspend.RemoteService;
 import org.jboss.logging.Logger;
 
-import javax.jws.HandlerChain;
-import javax.jws.WebService;
-import javax.jws.soap.SOAPBinding;
+import jakarta.jws.HandlerChain;
+import jakarta.jws.WebService;
+import jakarta.jws.soap.SOAPBinding;
 import java.util.List;
 
 /**
@@ -44,7 +44,7 @@ public class AtomicTransactionRemoteService implements RemoteService {
 
     @Override
     public void execute() throws Exception {
-        LOGGER.infof("trying to enlist participant to the transaction %s",
+        LOGGER.debugf("trying to enlist participant to the transaction %s",
                 TransactionManager.getTransactionManager().currentTransaction());
 
         String participantId = new Uid().stringForm();
@@ -52,7 +52,7 @@ public class AtomicTransactionRemoteService implements RemoteService {
         TransactionManager.getTransactionManager().enlistForVolatileTwoPhase(transactionParticipant,
                 transactionParticipant.getId());
 
-        LOGGER.infof("enlisted participant %s", transactionParticipant);
+        LOGGER.debugf("enlisted participant %s", transactionParticipant);
     }
 
     @Override

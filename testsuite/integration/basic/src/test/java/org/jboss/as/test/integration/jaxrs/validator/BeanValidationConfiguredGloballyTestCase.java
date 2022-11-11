@@ -23,8 +23,8 @@ package org.jboss.as.test.integration.jaxrs.validator;
 
 import java.net.URL;
 
-import javax.ws.rs.ApplicationPath;
-import javax.ws.rs.core.Application;
+import jakarta.ws.rs.ApplicationPath;
+import jakarta.ws.rs.core.Application;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -45,7 +45,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Test for JAX-RS taking the global Bean Validation configuration into account (META-INF/validation.xml).
+ * Test for Jakarta RESTful Web Services taking the global Jakarta Bean Validation configuration into account (META-INF/validation.xml).
  *
  * @author Gunnar Morling
  */

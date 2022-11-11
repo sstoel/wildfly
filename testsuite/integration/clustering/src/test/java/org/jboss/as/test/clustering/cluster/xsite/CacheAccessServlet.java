@@ -28,16 +28,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
-import javax.annotation.Resource;
-import javax.servlet.ServletException;
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import jakarta.annotation.Resource;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.WebServlet;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import org.infinispan.Cache;
-import org.infinispan.manager.EmbeddedCacheManager;
-import org.infinispan.marshall.core.ExternallyMarshallable;
 
 /**
  * Servlet providing get/put access to Infinispan cache instance.
@@ -87,15 +85,8 @@ public class CacheAccessServlet extends HttpServlet {
         return baseURL.toURI().resolve(builder.toString());
     }
 
-    @Resource(name="infinispan/container")
-    private EmbeddedCacheManager manager;
+    @Resource(name="infinispan/cache")
     private Cache<String, Custom> cache;
-
-    @Override
-    public void init() throws ServletException {
-        ExternallyMarshallable.addToWhiteList(Custom.class.getName());
-        this.cache = this.manager.getCache();
-    }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {

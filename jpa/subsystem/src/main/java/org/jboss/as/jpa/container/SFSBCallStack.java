@@ -112,7 +112,7 @@ public class SFSBCallStack {
      */
     public static Map<String, ExtendedEntityManager> currentSFSBCallStackInvocation() {
         ArrayList<Map<String, ExtendedEntityManager>> stack = CURRENT.get().invocationStack;
-        if ( stack != null && stack.size() > 0) {
+        if ( stack != null && !stack.isEmpty()) {
             return stack.get(stack.size() - 1);
         }
         return null;
@@ -131,8 +131,8 @@ public class SFSBCallStack {
              * JPA 2.0 spec section 7.9.1 Container Responsibilities:
              * "When a business method of the stateful session bean is invoked,
              *  if the stateful session bean uses container managed transaction demarcation,
-             *  and the entity manager is not already associated with the current JTA transaction,
-             *  the container associates the entity manager with the current JTA transaction and
+             *  and the entity manager is not already associated with the current Jakarta Transactions transaction,
+             *  the container associates the entity manager with the current Jakarta Transactions transaction and
              *  calls EntityManager.joinTransaction.
              *  "
              */

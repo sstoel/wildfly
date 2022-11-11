@@ -22,24 +22,25 @@
 
 package org.jboss.as.test.integration.messaging.jms.context.auxiliary;
 
-import static javax.ejb.TransactionManagementType.BEAN;
+import static jakarta.ejb.TransactionManagementType.BEAN;
 import static org.jboss.as.test.integration.messaging.jms.context.ScopedInjectedJMSContextTestCase.QUEUE_NAME_FOR_REQUEST_SCOPE;
 import static org.jboss.as.test.integration.messaging.jms.context.ScopedInjectedJMSContextTestCase.QUEUE_NAME_FOR_TRANSACTION_SCOPE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
-import javax.annotation.Resource;
-import javax.ejb.Stateless;
-import javax.ejb.TransactionManagement;
-import javax.inject.Inject;
-import javax.jms.Destination;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.JMSDestinationDefinition;
-import javax.jms.JMSDestinationDefinitions;
-import javax.jms.JMSRuntimeException;
-import javax.transaction.UserTransaction;
+import jakarta.annotation.Resource;
+import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionManagement;
+import jakarta.inject.Inject;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSConsumer;
+import jakarta.jms.JMSContext;
+import jakarta.jms.JMSDestinationDefinition;
+import jakarta.jms.JMSDestinationDefinitions;
+import jakarta.jms.JMSRuntimeException;
+import jakarta.transaction.UserTransaction;
 
+import org.jboss.as.test.shared.TimeoutUtil;
 import org.junit.Assert;
 
 /**
@@ -49,11 +50,11 @@ import org.junit.Assert;
         value =  {
                 @JMSDestinationDefinition(
                         name = QUEUE_NAME_FOR_TRANSACTION_SCOPE,
-                        interfaceName = "javax.jms.Queue",
+                        interfaceName = "jakarta.jms.Queue",
                         destinationName = "ScopedInjectedJMSContextTestCaseQueue-transactionScope"),
                 @JMSDestinationDefinition(
                         name = QUEUE_NAME_FOR_REQUEST_SCOPE,
-                        interfaceName = "javax.jms.Queue",
+                        interfaceName = "jakarta.jms.Queue",
                         destinationName = "ScopedInjectedJMSContextTestCaseQueue-requestScope")
         }
 )
@@ -72,14 +73,14 @@ public class BeanManagedMessageConsumer {
         transaction.begin();
 
         JMSConsumer consumer = context.createConsumer(destination);
-        String text = consumer.receiveBody(String.class, 1000);
+        String text = consumer.receiveBody(String.class, TimeoutUtil.adjust(1000));
         assertNotNull(text);
         assertEquals(expectedText, text);
 
         transaction.commit();
 
         try {
-            consumer.receiveBody(String.class, 1000);
+            consumer.receiveBody(String.class, TimeoutUtil.adjust(1000));
             Assert.fail("call must fail as the injected JMSContext is closed when the transaction is committed");
         } catch (JMSRuntimeException e) {
             // exception is expected

@@ -75,8 +75,9 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
     private final InjectedValue<BeanManager> beanManagerInjector = new InjectedValue<>();
     private final InjectedValue<PhaseOnePersistenceUnitServiceImpl> phaseOnePersistenceUnitServiceInjectedValue = new InjectedValue<>();
 
-    private static final String CDI_BEAN_MANAGER = "javax.persistence.bean.manager";
-    private static final String VALIDATOR_FACTORY = "javax.persistence.validation.factory";
+    private static final String EE_NAMESPACE = BeanManager.class.getName().startsWith("javax") ? "javax" : "jakarta";
+    private static final String CDI_BEAN_MANAGER = ".persistence.bean.manager";
+    private static final String VALIDATOR_FACTORY = ".persistence.validation.factory";
 
     private final Map properties;
     private final PersistenceProviderAdaptor persistenceProviderAdaptor;
@@ -141,10 +142,10 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
                                     WritableServiceBasedNamingStore.pushOwner(deploymentUnitServiceName);
                                     Object wrapperBeanManagerLifeCycle=null;
 
-                                    // as per JPA specification contract, always pass ValidatorFactory in via standard property before
+                                    // as per Jakarta Persistence specification contract, always pass ValidatorFactory in via standard property before
                                     // creating container EntityManagerFactory
                                     if (validatorFactory != null) {
-                                        properties.put(VALIDATOR_FACTORY, validatorFactory);
+                                        properties.put(EE_NAMESPACE + VALIDATOR_FACTORY, validatorFactory);
                                     }
 
                                     // handle phase 2 of 2 of bootstrapping the persistence unit
@@ -154,7 +155,7 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
                                         phaseOnePersistenceUnitService.setSecondPhaseStarted(true);
                                         if (beanManagerInjector.getOptionalValue() != null) {
                                             wrapperBeanManagerLifeCycle = phaseOnePersistenceUnitService.getBeanManagerLifeCycle();
-                                            // update the bean manager proxy to the actual CDI bean manager
+                                            // update the bean manager proxy to the actual Jakarta Contexts and Dependency Injection bean manager
                                             proxyBeanManager = phaseOnePersistenceUnitService.getBeanManager();
                                             proxyBeanManager.setDelegate(beanManagerInjector.getOptionalValue());
                                         }
@@ -181,10 +182,10 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
                                             wrapperBeanManagerLifeCycle = persistenceProviderAdaptor.beanManagerLifeCycle(proxyBeanManager);
                                             if (wrapperBeanManagerLifeCycle != null) {
                                               // pass the wrapper object representing the bean manager life cycle object
-                                              properties.put(CDI_BEAN_MANAGER, wrapperBeanManagerLifeCycle);
+                                              properties.put(EE_NAMESPACE + CDI_BEAN_MANAGER, wrapperBeanManagerLifeCycle);
                                             }
                                             else {
-                                              properties.put(CDI_BEAN_MANAGER, proxyBeanManager);
+                                              properties.put(EE_NAMESPACE + CDI_BEAN_MANAGER, proxyBeanManager);
                                             }
                                         }
                                         entityManagerFactory = createContainerEntityManagerFactory();
@@ -198,6 +199,7 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
                                     context.failed(new StartException(t));
                                 } finally {
                                     Thread.currentThread().setContextClassLoader(old);
+                                    pu.setAnnotationIndex(null);    // close reference to Annotation Index
                                     pu.setTempClassLoaderFactory(null);    // release the temp classloader factory (only needed when creating the EMF)
                                     WritableServiceBasedNamingStore.popOwner();
 
@@ -364,13 +366,7 @@ public class PersistenceUnitServiceImpl implements Service<PersistenceUnitServic
                     pu.getScopedPersistenceUnitName(), properties, pu.getProperties());
             return persistenceProvider.createContainerEntityManagerFactory(pu, properties);
         } finally {
-            try {
-                persistenceProviderAdaptor.afterCreateContainerEntityManagerFactory(pu);
-            } finally {
-                pu.setAnnotationIndex(null);    // close reference to Annotation Index (only needed during call to createContainerEntityManagerFactory)
-                //This is needed if the datasource is restarted
-                //pu.setTempClassLoaderFactory(null);    // close reference to temp classloader factory (only needed during call to createEntityManagerFactory)
-            }
+            persistenceProviderAdaptor.afterCreateContainerEntityManagerFactory(pu);
         }
     }
 

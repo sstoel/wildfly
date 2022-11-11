@@ -22,7 +22,7 @@ package org.jboss.as.test.integration.web.jsp;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -46,7 +46,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Test case for JSP pattern declaration in web.xml
+ * Test case for Jakarta Server Pages pattern declaration in web.xml
  *
  * @author <a href="mailto:ehugonne@redhat.com">Emmanuel Hugonnet</a> (c) 2014
  * Red Hat, inc.

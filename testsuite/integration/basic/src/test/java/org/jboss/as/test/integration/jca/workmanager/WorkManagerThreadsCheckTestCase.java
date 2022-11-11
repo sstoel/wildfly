@@ -23,26 +23,22 @@ package org.jboss.as.test.integration.jca.workmanager;
 
 import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.core.AllOf.allOf;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.READ_RESOURCE_DESCRIPTION_OPERATION;
 
 import java.io.IOException;
 
+import org.hamcrest.MatcherAssert;
 import org.jboss.arquillian.container.test.api.Deployment;
+
 import org.jboss.arquillian.container.test.api.RunAsClient;
 import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.as.controller.PathAddress;
+import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.integration.jca.JcaMgmtBase;
-import org.jboss.as.test.integration.jca.JcaTestsUtil;
-import org.jboss.as.test.integration.management.ManagementOperations;
-import org.jboss.as.test.integration.management.base.AbstractMgmtTestBase;
-import org.jboss.as.test.integration.management.base.ContainerResourceMgmtTestBase;
 import org.jboss.as.test.integration.management.util.MgmtOperationException;
 import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
 import org.junit.Test;
@@ -57,28 +53,16 @@ import org.junit.runner.RunWith;
 @RunAsClient
 public class WorkManagerThreadsCheckTestCase extends JcaMgmtBase {
 
+    private static final PathAddress WORKMANAGER_ADDRESS = PathAddress.pathAddress("subsystem", "jca").append("workmanager", "default");
+
     @Deployment
     public static Archive<?> deploytRar() {
-        JavaArchive jar = ShrinkWrap.create(JavaArchive.class, "dummy.jar");
-        jar.addClass(JcaMgmtBase.class).addClass(WorkManagerThreadsCheckTestCase.class)
-                .addClass(ContainerResourceMgmtTestBase.class).addClass(ManagementOperations.class)
-                .addClass(MgmtOperationException.class).addClass(JcaTestsUtil.class).addClass(AbstractMgmtTestBase.class);
-        jar.addAsManifestResource(new StringAsset("Dependencies: javax.inject.api,org.jboss.as.connector,"
-                + "org.jboss.as.controller,org.jboss.dmr,org.jboss.as.cli,org.jboss.staxmapper,"
-                + "org.jboss.ironjacamar.impl\n"), "MANIFEST.MF");
-        return jar;
+        return ShrinkWrap.create(JavaArchive.class, "dummy.jar");
     }
 
     @Test
     public void testOneLongRunningThreadPool() throws IOException {
-        ModelNode address = new ModelNode();
-        address.add("subsystem", "jca");
-        address.add("workmanager", "default");
-        address.add("long-running-threads", "Long");
-
-        ModelNode operation = new ModelNode();
-        operation.get(OP_ADDR).set(address);
-        operation.get(OP).set(ADD);
+        ModelNode operation = Operations.createAddOperation(WORKMANAGER_ADDRESS.append("long-running-threads", "Long").toModelNode());
         operation.get("max-threads").set(10);
         operation.get("queue-length").set(10);
         try {
@@ -86,7 +70,7 @@ public class WorkManagerThreadsCheckTestCase extends JcaMgmtBase {
             Assert.fail("NOT HERE!");
         } catch (MgmtOperationException e) {
             String reason = e.getResult().get("failure-description").asString();
-            Assert.assertThat("Wrong error message", reason, allOf(
+            MatcherAssert.assertThat("Wrong error message", reason, allOf(
                     containsString("WFLYJCA0101"),
                     containsString("Long"),
                     containsString("long-running-threads"),
@@ -97,14 +81,7 @@ public class WorkManagerThreadsCheckTestCase extends JcaMgmtBase {
 
     @Test
     public void testOneShortRunningThreadPool() throws IOException {
-        ModelNode address = new ModelNode();
-        address.add("subsystem", "jca");
-        address.add("workmanager", "default");
-        address.add("short-running-threads", "Short");
-
-        ModelNode operation = new ModelNode();
-        operation.get(OP_ADDR).set(address);
-        operation.get(OP).set(ADD);
+        ModelNode operation = Operations.createAddOperation(WORKMANAGER_ADDRESS.append("short-running-threads", "Short").toModelNode());
         operation.get("max-threads").set(10);
         operation.get("queue-length").set(10);
         try {
@@ -112,12 +89,37 @@ public class WorkManagerThreadsCheckTestCase extends JcaMgmtBase {
             Assert.fail("NOT HERE!");
         } catch (MgmtOperationException e) {
             String reason = e.getResult().get("failure-description").asString();
-            Assert.assertThat("Wrong error message", reason, allOf(
+            MatcherAssert.assertThat("Wrong error message", reason, allOf(
                     containsString("WFLYJCA0101"),
                     containsString("Short"),
                     containsString("short-running-threads"),
                     containsString("default")
             ));
+        }
+    }
+
+    @Test
+    public void testShortRunningThreadPoolName() throws Exception {
+        PathAddress address = PathAddress.pathAddress("subsystem", "jca").append("workmanager", "name-test");
+        ModelNode operation = Operations.createAddOperation(address.toModelNode());
+        operation.get("name").set("name-test");
+        executeOperation(operation);
+        operation = Operations.createAddOperation(address.append("short-running-threads", "Short").toModelNode());
+        operation.get("max-threads").set(10);
+        operation.get("queue-length").set(10);
+        try {
+            executeOperation(operation);
+            Assert.fail("NOT HERE!");
+        } catch (MgmtOperationException e) {
+            String reason = e.getResult().get("failure-description").asString();
+            MatcherAssert.assertThat("Wrong error message", reason, allOf(
+                    containsString("WFLYJCA0122"),
+                    containsString("Short"),
+                    containsString("short-running-threads"),
+                    containsString("name-test")
+            ));
+        } finally {
+            executeOperation(Operations.createRemoveOperation(address.toModelNode()));
         }
     }
 
@@ -128,14 +130,7 @@ public class WorkManagerThreadsCheckTestCase extends JcaMgmtBase {
     }
 
     protected boolean isBlockingThreadPool(String pool) throws IOException {
-        ModelNode address = new ModelNode();
-        address.add("subsystem", "jca");
-        address.add("workmanager", "default");
-        address.add(pool, "default");
-
-        ModelNode operation = new ModelNode();
-        operation.get(OP_ADDR).set(address);
-        operation.get(OP).set(READ_RESOURCE_DESCRIPTION_OPERATION);
+        ModelNode operation = Operations.createOperation(READ_RESOURCE_DESCRIPTION_OPERATION, WORKMANAGER_ADDRESS.append(pool, "default").toModelNode());
         try {
             ModelNode result = executeOperation(operation);
             return result.asString().contains("A thread pool executor with a bounded queue where threads submittings tasks may block");

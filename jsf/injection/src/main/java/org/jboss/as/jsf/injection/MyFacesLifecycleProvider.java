@@ -37,9 +37,9 @@ import org.wildfly.security.manager.WildFlySecurityManager;
 /**
  * @author Stan Silvert ssilvert@redhat.com (C) 2012 Red Hat Inc.
  */
-public class MyFacesLifecycleProvider implements LifecycleProvider2 {
+public class MyFacesLifecycleProvider implements LifecycleProvider2, AutoCloseable {
 
-    private final WebInjectionContainer injectionContainer;
+    private WebInjectionContainer injectionContainer;
 
     public MyFacesLifecycleProvider() {
         this.injectionContainer = StartupContext.getInjectionContainer();
@@ -71,15 +71,16 @@ public class MyFacesLifecycleProvider implements LifecycleProvider2 {
 
     public void postConstruct(Object obj) throws IllegalAccessException, InvocationTargetException {
         // WFLY-3387 MyFaces injects managed properties before calling this method
-        try {
-            injectionContainer.newInstance(obj);
-        } catch (NamingException e) {
-            throw new FacesException(e);
-        }
+        injectionContainer.newInstance(obj);
     }
 
     public void destroyInstance(Object obj) throws IllegalAccessException, InvocationTargetException {
         injectionContainer.destroyInstance(obj);
     }
 
+    @Override
+    public void close()  {
+        this.injectionContainer = null;
+        StartupContext.removeInjectionContainer();
+    }
 }

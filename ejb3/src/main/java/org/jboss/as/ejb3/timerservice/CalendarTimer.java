@@ -24,16 +24,16 @@ package org.jboss.as.ejb3.timerservice;
 import java.lang.reflect.Method;
 import java.util.Calendar;
 import java.util.Date;
-
-import javax.ejb.EJBException;
-import javax.ejb.ScheduleExpression;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.ScheduleExpression;
+import jakarta.ejb.Timer;
 
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.timerservice.persistence.TimeoutMethod;
 import org.jboss.as.ejb3.timerservice.schedule.CalendarBasedTimeout;
 
 /**
- * Represents a {@link javax.ejb.Timer} which is created out a calendar expression
+ * Represents a {@link jakarta.ejb.Timer} which is created out a calendar expression
  *
  * @author Jaikiran Pai
  * @version $Revision: $
@@ -53,19 +53,6 @@ public class CalendarTimer extends TimerImpl {
 
     private final Method timeoutMethod;
 
-
-    /**
-     * Constructs a {@link CalendarTimer}
-     *
-     * @param id              The id of this timer
-     * @param timerService    The timer service to which this timer belongs
-     * @param calendarTimeout The {@link CalendarBasedTimeout} from which this {@link CalendarTimer} is being created
-     * @param info            The serializable info which will be made available through {@link javax.ejb.Timer#getInfo()}
-     * @param persistent      True if this timer is persistent. False otherwise
-     * @param timeoutMethod   If this is a non-null value, then this {@link CalendarTimer} is marked as an auto-timer.
-     *                        This <code>timeoutMethod</code> is then considered as the name of the timeout method which has to
-     *                        be invoked when this timer times out.
-     */
     public CalendarTimer(Builder builder, TimerServiceImpl timerService) {
         super(builder, timerService);
 
@@ -78,18 +65,7 @@ public class CalendarTimer extends TimerImpl {
             this.timeoutMethod = null;
         }
 
-        ScheduleExpression s = new ScheduleExpression();
-        s.second(builder.scheduleExprSecond);
-        s.minute(builder.scheduleExprMinute);
-        s.hour(builder.scheduleExprHour);
-        s.dayOfWeek(builder.scheduleExprDayOfWeek);
-        s.dayOfMonth(builder.scheduleExprDayOfMonth);
-        s.month(builder.scheduleExprMonth);
-        s.year(builder.scheduleExprYear);
-        s.start(builder.scheduleExprStartDate);
-        s.end(builder.scheduleExprEndDate);
-        s.timezone(builder.scheduleExprTimezone);
-        this.calendarTimeout = new CalendarBasedTimeout(s);
+        this.calendarTimeout = new CalendarBasedTimeout(builder.scheduleExpression);
 
         if (builder.nextDate == null && builder.newTimer) {
             // compute the next timeout (from "now")
@@ -108,14 +84,14 @@ public class CalendarTimer extends TimerImpl {
      */
     @Override
     public ScheduleExpression getSchedule() throws IllegalStateException, EJBException {
-        this.assertTimerState();
+        this.validateInvocationContext();
         return this.calendarTimeout.getScheduleExpression();
     }
 
     /**
      * This method is similar to {@link #getSchedule()}, except that this method does <i>not</i> check the timer state
-     * and hence does <i>not</i> throw either {@link IllegalStateException} or {@link javax.ejb.NoSuchObjectLocalException}
-     * or {@link javax.ejb.EJBException}.
+     * and hence does <i>not</i> throw either {@link IllegalStateException} or {@link jakarta.ejb.NoSuchObjectLocalException}
+     * or {@link jakarta.ejb.EJBException}.
      *
      * @return
      */
@@ -128,7 +104,7 @@ public class CalendarTimer extends TimerImpl {
      */
     @Override
     public boolean isCalendarTimer() throws IllegalStateException, EJBException {
-        this.assertTimerState();
+        this.validateInvocationContext();
         return true;
     }
 
@@ -156,7 +132,7 @@ public class CalendarTimer extends TimerImpl {
      * @see CalendarTimerTask
      */
     @Override
-    protected TimerTask<?> getTimerTask() {
+    protected CalendarTimerTask getTimerTask() {
         return new CalendarTimerTask(this);
     }
 
@@ -166,32 +142,6 @@ public class CalendarTimer extends TimerImpl {
         }
         return this.timeoutMethod;
     }
-
-    @Override
-    public int hashCode() {
-        return super.hashCode();
-    }
-
-    /**
-     * A {@link javax.ejb.Timer} is equal to another {@link javax.ejb.Timer} if their
-     * {@link javax.ejb.TimerHandle}s are equal
-     */
-    @Override
-    public boolean equals(Object obj) {
-        if (obj == null) {
-            return false;
-        }
-        if (this.handle == null) {
-            return false;
-        }
-        if (!(obj instanceof CalendarTimer)) {
-            return false;
-        }
-        CalendarTimer otherTimer = (CalendarTimer) obj;
-        return this.handle.equals(otherTimer.getTimerHandle());
-    }
-
-
 
     public static Builder builder() {
         return new Builder();
@@ -215,66 +165,12 @@ public class CalendarTimer extends TimerImpl {
     }
 
     public static class Builder extends TimerImpl.Builder {
-        private String scheduleExprSecond;
-        private String scheduleExprMinute;
-        private String scheduleExprHour;
-        private String scheduleExprDayOfWeek;
-        private String scheduleExprDayOfMonth;
-        private String scheduleExprMonth;
-        private String scheduleExprYear;
-        private Date scheduleExprStartDate;
-        private Date scheduleExprEndDate;
-        private String scheduleExprTimezone;
+        private ScheduleExpression scheduleExpression;
         private boolean autoTimer;
         private Method timeoutMethod;
 
-        public Builder setScheduleExprSecond(final String scheduleExprSecond) {
-            this.scheduleExprSecond = scheduleExprSecond;
-            return this;
-        }
-
-        public Builder setScheduleExprMinute(final String scheduleExprMinute) {
-            this.scheduleExprMinute = scheduleExprMinute;
-            return this;
-        }
-
-        public Builder setScheduleExprHour(final String scheduleExprHour) {
-            this.scheduleExprHour = scheduleExprHour;
-            return this;
-        }
-
-        public Builder setScheduleExprDayOfWeek(final String scheduleExprDayOfWeek) {
-            this.scheduleExprDayOfWeek = scheduleExprDayOfWeek;
-            return this;
-        }
-
-        public Builder setScheduleExprDayOfMonth(final String scheduleExprDayOfMonth) {
-            this.scheduleExprDayOfMonth = scheduleExprDayOfMonth;
-            return this;
-        }
-
-        public Builder setScheduleExprMonth(final String scheduleExprMonth) {
-            this.scheduleExprMonth = scheduleExprMonth;
-            return this;
-        }
-
-        public Builder setScheduleExprYear(final String scheduleExprYear) {
-            this.scheduleExprYear = scheduleExprYear;
-            return this;
-        }
-
-        public Builder setScheduleExprStartDate(final Date scheduleExprStartDate) {
-            this.scheduleExprStartDate = scheduleExprStartDate;
-            return this;
-        }
-
-        public Builder setScheduleExprEndDate(final Date scheduleExprEndDate) {
-            this.scheduleExprEndDate = scheduleExprEndDate;
-            return this;
-        }
-
-        public Builder setScheduleExprTimezone(final String scheduleExprTimezone) {
-            this.scheduleExprTimezone = scheduleExprTimezone;
+        public Builder setScheduleExpression(final ScheduleExpression scheduleExpression) {
+            this.scheduleExpression = scheduleExpression;
             return this;
         }
 
@@ -302,63 +198,35 @@ public class CalendarTimer extends TimerImpl {
      *
      * @param timeoutMethodInfo  The timeout method
      * @param classLoader The class loader
-     * @return
+     * @return timeout method matching {@code timeoutMethodInfo}
      */
     public static Method getTimeoutMethod(TimeoutMethod timeoutMethodInfo, ClassLoader classLoader) {
         if(timeoutMethodInfo == null) {
             return null;
         }
-        String declaringClass = timeoutMethodInfo.getDeclaringClass();
-        Class<?> timeoutMethodDeclaringClass = null;
+        Class<?> timeoutMethodDeclaringClass;
         try {
-            timeoutMethodDeclaringClass = Class.forName(declaringClass, false, classLoader);
+            timeoutMethodDeclaringClass = Class.forName(timeoutMethodInfo.getDeclaringClass(), false, classLoader);
         } catch (ClassNotFoundException cnfe) {
-            throw EjbLogger.EJB3_TIMER_LOGGER.failToLoadDeclaringClassOfTimeOut(declaringClass);
+            throw EjbLogger.EJB3_TIMER_LOGGER.failToLoadDeclaringClassOfTimeOut(timeoutMethodInfo.getDeclaringClass());
         }
 
-        String timeoutMethodName = timeoutMethodInfo.getMethodName();
-        String[] timeoutMethodParams = timeoutMethodInfo.getMethodParams();
-        // load the method param classes
-        Class<?>[] timeoutMethodParamTypes = new Class<?>[]
-                {};
-        if (timeoutMethodParams != null) {
-            timeoutMethodParamTypes = new Class<?>[timeoutMethodParams.length];
-            int i = 0;
-            for (String paramClassName : timeoutMethodParams) {
-                Class<?> methodParamClass = null;
-                try {
-                    methodParamClass = Class.forName(paramClassName, false, classLoader);
-                } catch (ClassNotFoundException cnfe) {
-                    throw EjbLogger.EJB3_TIMER_LOGGER.failedToLoadTimeoutMethodParamClass(cnfe, paramClassName);
-                }
-                timeoutMethodParamTypes[i++] = methodParamClass;
-            }
-        }
         // now start looking for the method
+        String timeoutMethodName = timeoutMethodInfo.getMethodName();
         Class<?> klass = timeoutMethodDeclaringClass;
         while (klass != null) {
             Method[] methods = klass.getDeclaredMethods();
             for (Method method : methods) {
                 if (method.getName().equals(timeoutMethodName)) {
-                    Class<?>[] methodParamTypes = method.getParameterTypes();
-                    // param length doesn't match
-                    if (timeoutMethodParamTypes.length != methodParamTypes.length) {
-                        continue;
-                    }
-                    boolean match = true;
-                    for (int i = 0; i < methodParamTypes.length; i++) {
-                        // param type doesn't match
-                        if (!timeoutMethodParamTypes[i].equals(methodParamTypes[i])) {
-                            match = false;
-                            break;
+                    if (timeoutMethodInfo.hasTimerParameter()) {
+                        if (method.getParameterCount() == 1 && method.getParameterTypes()[0] == Timer.class) {
+                            return method;
                         }
-                    }
-                    if (match) {
-                        // match found
+                    } else if (method.getParameterCount() == 0) {
                         return method;
                     }
-                }
-            }
+                } // end: method name matching
+            } // end: all methods in current klass
             klass = klass.getSuperclass();
 
         }

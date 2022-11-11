@@ -21,16 +21,15 @@
  */
 package org.jboss.as.test.multinode.transaction.async;
 
-import java.rmi.RemoteException;
 import java.util.concurrent.Future;
-import javax.annotation.Resource;
-import javax.ejb.AsyncResult;
-import javax.ejb.Asynchronous;
-import javax.ejb.Stateless;
-import javax.ejb.TransactionAttribute;
-import javax.ejb.TransactionAttributeType;
-import javax.transaction.TransactionManager;
-import javax.transaction.SystemException;
+import jakarta.annotation.Resource;
+import jakarta.ejb.AsyncResult;
+import jakarta.ejb.Asynchronous;
+import jakarta.ejb.Stateless;
+import jakarta.ejb.TransactionAttribute;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
 
 /**
  * Asynchronously invoked bean where we expect that transaction manager returns
@@ -46,12 +45,18 @@ public class TransactionalStatusByManager implements TransactionalRemote {
 
     @Asynchronous
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public Future<Integer> transactionStatus() throws RemoteException {
+    public Future<Integer> transactionStatus() {
         try {
             return new AsyncResult<Integer>(txnManager.getStatus());
         } catch (SystemException se) {
-            throw new RemoteException("Can't get transaction status", se);
+            throw new RuntimeException("Can't get transaction status", se);
         }
     }
 
+    @Override
+    @Asynchronous
+    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    public Future<Integer> asyncWithRequired() {
+        throw new RuntimeException("Throw RuntimeException on purpose to cause the transaction rollback");
+    }
 }

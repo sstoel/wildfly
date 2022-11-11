@@ -22,7 +22,6 @@
 
 package org.jboss.as.ejb3.deployment.processors.dd;
 
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.deployment.EjbDeploymentAttachmentKeys;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
@@ -31,8 +30,6 @@ import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.metadata.ejb.spec.EjbJarMetaData;
 import org.jboss.metadata.ejb.spec.EnterpriseBeanMetaData;
 import org.jboss.metadata.ejb.spec.EnterpriseBeansMetaData;
-import org.jboss.metadata.ejb.spec.MethodInterfaceType;
-import org.jboss.metadata.ejb.spec.MethodParametersMetaData;
 
 /**
  * User: jpai
@@ -45,12 +42,12 @@ public abstract class AbstractEjbXmlDescriptorProcessor<T extends EnterpriseBean
         // get the deployment unit
         DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
 
-        // find the EJB jar metadata and start processing it
+        // find the Jakarta Enterprise Beans jar metadata and start processing it
         EjbJarMetaData ejbJarMetaData = deploymentUnit.getAttachment(EjbDeploymentAttachmentKeys.EJB_JAR_METADATA);
         if (ejbJarMetaData == null) {
             return;
         }
-        // process EJBs
+        // process Jakarta Enterprise Beans
         EnterpriseBeansMetaData ejbs = ejbJarMetaData.getEnterpriseBeans();
         if (ejbs != null && !ejbs.isEmpty()) {
             for (EnterpriseBeanMetaData ejb : ejbs) {
@@ -64,37 +61,4 @@ public abstract class AbstractEjbXmlDescriptorProcessor<T extends EnterpriseBean
     protected abstract Class<T> getMetaDataType();
 
     protected abstract void processBeanMetaData(T beanMetaData, DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException;
-
-    protected MethodIntf getMethodIntf(MethodInterfaceType viewType) {
-        if (viewType == null) {
-            return MethodIntf.BEAN;
-        }
-        switch (viewType) {
-            case Home:
-                return MethodIntf.HOME;
-            case LocalHome:
-                return MethodIntf.LOCAL_HOME;
-            case ServiceEndpoint:
-                return MethodIntf.SERVICE_ENDPOINT;
-            case Local:
-                return MethodIntf.LOCAL;
-            case Remote:
-                return MethodIntf.REMOTE;
-            // TODO: Need to handle more recent ones (like timer, mdb)
-        }
-        return MethodIntf.BEAN;
-    }
-
-    protected String[] getMethodParams(MethodParametersMetaData methodParametersMetaData) {
-        if (methodParametersMetaData == null) {
-            return null;
-        }
-        return methodParametersMetaData.toArray(new String[0]);
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
-    }
-
 }

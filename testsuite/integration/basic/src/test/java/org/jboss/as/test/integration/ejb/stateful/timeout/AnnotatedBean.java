@@ -22,23 +22,27 @@
 
 package org.jboss.as.test.integration.ejb.stateful.timeout;
 
-import javax.annotation.PreDestroy;
-import javax.ejb.Stateful;
-import javax.ejb.StatefulTimeout;
 import java.util.concurrent.TimeUnit;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.ejb.Stateful;
+import jakarta.ejb.StatefulTimeout;
 
 /**
  * stateful session bean
- *
  */
 @Stateful
 @StatefulTimeout(value = 1000, unit = TimeUnit.MILLISECONDS)
 public class AnnotatedBean {
+    static volatile boolean preDestroy;
 
-    public static volatile boolean preDestroy = false;
+    @PostConstruct
+    private void postConstruct() {
+        preDestroy = false;
+    }
 
     @PreDestroy
-    public void preDestroy() {
+    private void preDestroy() {
         preDestroy = true;
     }
 

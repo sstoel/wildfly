@@ -24,8 +24,6 @@ package org.jboss.as.ejb3.timerservice.persistence;
 import java.io.Closeable;
 import java.util.List;
 
-import javax.transaction.TransactionManager;
-
 import org.jboss.as.ejb3.timerservice.TimerImpl;
 import org.jboss.as.ejb3.timerservice.TimerServiceImpl;
 import org.jboss.msc.service.ServiceName;
@@ -38,7 +36,10 @@ public interface TimerPersistence {
     ServiceName SERVICE_NAME = ServiceName.JBOSS.append("ejb3", "timerService", "timerPersistence");
 
     /**
-     * Called when a timer is being persisted
+     * Called when a timer is being persisted.
+     * In a clustered environment, if an auto timer has already been persisted
+     * by another concurrent node, it should not be persisted again, and its
+     * state should be set to {@code CANCELED}.
      *
      * @param timer The timer
      */
@@ -54,10 +55,15 @@ public interface TimerPersistence {
     /**
      * Invoked before running a timer in order to determine if this node should run the timer.
      * @param timer The timer
-     * @param txManager ignored
      * @return true if the timer should be run
      */
-    boolean shouldRun(TimerImpl timer, @Deprecated TransactionManager txManager);
+    boolean shouldRun(TimerImpl timer);
+
+    /**
+     * Signals that the timer is being deployed and any internal structured required should be added.
+     * @param timedObjectId
+     */
+    default void timerDeployed(String timedObjectId) {}
 
     /**
      * Signals that a timer is being undeployed, and all cached data relating to this object should
@@ -95,6 +101,13 @@ public interface TimerPersistence {
          * @param timer The timer
          */
         void timerAdded(TimerImpl timer);
+
+        /**
+         * Invoked when a timer needs to be sync with the underlying store
+         * @param oldTimer The timer in Server memory
+         * @param newtimer The timer coming from the store
+         */
+        void timerSync(TimerImpl oldTimer, TimerImpl newTimer);
 
         /**
          * Invoked when a timer is removed from the underlying store

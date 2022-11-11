@@ -39,7 +39,6 @@ import org.jboss.as.ee.structure.DeploymentTypeMarker;
 import org.jboss.as.ejb3.component.EJBComponent;
 import org.jboss.as.ejb3.component.EJBComponentDescription;
 import org.jboss.as.ejb3.component.EJBViewDescription;
-import org.jboss.as.ejb3.component.MethodIntf;
 import org.jboss.as.ejb3.deployment.DeploymentModuleIdentifier;
 import org.jboss.as.ejb3.deployment.DeploymentRepository;
 import org.jboss.as.ejb3.deployment.DeploymentRepositoryService;
@@ -50,6 +49,7 @@ import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.modules.Module;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceName;
@@ -73,12 +73,12 @@ public class DeploymentRepositoryProcessor implements DeploymentUnitProcessor {
             return;
         }
         if(DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit)) {
-            //don't create this for EAR's, as they cannot hold EJB's
+            //don't create this for EAR's, as they cannot hold Jakarta Enterprise Beans's
             return;
         }
         // Note, we do not use the EEModuleDescription.getApplicationName() because that API returns the
         // module name if the top level unit isn't a .ear, which is not what we want. We really want a
-        // .ear name as application name (that's the semantic in EJB spec). So use EEModuleDescription.getEarApplicationName
+        // .ear name as application name (that's the semantic in Jakarta Enterprise Beans spec). So use EEModuleDescription.getEarApplicationName
         String applicationName = eeModuleDescription.getEarApplicationName();
         // if it's not a .ear deployment then set app name to empty string
         applicationName = applicationName == null ? "" : applicationName;
@@ -102,8 +102,8 @@ public class DeploymentRepositoryProcessor implements DeploymentUnitProcessor {
                 for (final ViewDescription view : ejbComponentDescription.getViews()) {
                     boolean remoteView = false;
                     if (view instanceof EJBViewDescription) {
-                        final MethodIntf viewType = ((EJBViewDescription) view).getMethodIntf();
-                        if (viewType == MethodIntf.HOME || viewType == MethodIntf.REMOTE) {
+                        final MethodInterfaceType viewType = ((EJBViewDescription) view).getMethodIntf();
+                        if (viewType == MethodInterfaceType.Home || viewType == MethodInterfaceType.Remote) {
                             remoteView = true;
                         }
                     }
@@ -144,10 +144,4 @@ public class DeploymentRepositoryProcessor implements DeploymentUnitProcessor {
         startBuilder.addDependency(DeploymentRepositoryService.SERVICE_NAME, DeploymentRepository.class, deploymentStart.getDeploymentRepository());
         startBuilder.install();
     }
-
-    @Override
-    public void undeploy(DeploymentUnit deploymentUnit) {
-
-    }
-
 }

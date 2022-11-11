@@ -31,8 +31,8 @@ import java.util.List;
 import java.util.Set;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.validation.ConstraintViolation;
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 
 import org.hibernate.validator.HibernateValidatorPermission;
 import org.jboss.arquillian.container.test.api.Deployment;
@@ -40,13 +40,13 @@ import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
+import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests for the integration of JPA, CDI, and Bean Validation.
+ * Tests for the integration of Jakarta Persistence, Jakarta Contexts and Dependency Injection, and Jakarta Bean Validation.
  *
  * @author Farah Juma
  */
@@ -59,7 +59,7 @@ public class BeanValidationCdiIntegrationTestCase {
     public static Archive<?> deploy() {
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class, ARCHIVE_NAME + ".jar");
         jar.addPackage(BeanValidationCdiIntegrationTestCase.class.getPackage());
-        jar.addAsManifestResource(EmptyAsset.INSTANCE, "beans.xml");
+        jar.addAsManifestResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
         jar.addAsManifestResource(BeanValidationCdiIntegrationTestCase.class.getPackage(), "persistence.xml", "persistence.xml");
         jar.addAsManifestResource(createPermissionsXmlAsset(
                 HibernateValidatorPermission.ACCESS_PRIVATE_MEMBERS

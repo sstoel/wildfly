@@ -22,19 +22,19 @@
 
 package org.wildfly.clustering.web.hotrod.sso;
 
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.infinispan.client.hotrod.RemoteCache;
-import org.wildfly.clustering.marshalling.spi.InvalidSerializedFormException;
 import org.wildfly.clustering.marshalling.spi.Marshaller;
 import org.wildfly.clustering.web.LocalContextFactory;
 import org.wildfly.clustering.web.cache.sso.AuthenticationEntry;
 import org.wildfly.clustering.web.cache.sso.CompositeSSO;
 import org.wildfly.clustering.web.cache.sso.SSOFactory;
 import org.wildfly.clustering.web.cache.sso.SessionsFactory;
-import org.wildfly.clustering.web.hotrod.Logger;
+import org.wildfly.clustering.web.hotrod.logging.Logger;
 import org.wildfly.clustering.web.sso.SSO;
 import org.wildfly.clustering.web.sso.Sessions;
 
@@ -64,10 +64,14 @@ public class HotRodSSOFactory<AV, SV, A, D, S, L> implements SSOFactory<Map.Entr
 
     @Override
     public Map.Entry<Map.Entry<A, AtomicReference<L>>, SV> createValue(String id, A authentication) {
-        AuthenticationEntry<AV, L> entry = new AuthenticationEntry<>(this.marshaller.write(authentication));
-        this.cache.put(new AuthenticationKey(id), entry);
-        SV sessions = this.sessionsFactory.createValue(id, null);
-        return new AbstractMap.SimpleImmutableEntry<>(new AbstractMap.SimpleImmutableEntry<>(authentication, entry.getLocalContext()), sessions);
+        try {
+            AuthenticationEntry<AV, L> entry = new AuthenticationEntry<>(this.marshaller.write(authentication));
+            this.cache.put(new AuthenticationKey(id), entry);
+            SV sessions = this.sessionsFactory.createValue(id, null);
+            return new AbstractMap.SimpleImmutableEntry<>(new AbstractMap.SimpleImmutableEntry<>(authentication, entry.getLocalContext()), sessions);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override
@@ -79,7 +83,7 @@ public class HotRodSSOFactory<AV, SV, A, D, S, L> implements SSOFactory<Map.Entr
                 try {
                     A authentication = this.marshaller.read(entry.getAuthentication());
                     return new AbstractMap.SimpleImmutableEntry<>(new AbstractMap.SimpleImmutableEntry<>(authentication, entry.getLocalContext()), sessions);
-                } catch (InvalidSerializedFormException e) {
+                } catch (IOException e) {
                     Logger.ROOT_LOGGER.failedToActivateAuthentication(e, id);
                     this.remove(id);
                 }

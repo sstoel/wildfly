@@ -32,9 +32,9 @@ import java.net.URL;
 import java.util.List;
 import org.jboss.logging.Logger;
 
-import javax.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
-import javax.xml.ws.Service;
+import jakarta.xml.ws.Service;
 
 import org.jboss.arquillian.container.test.api.ContainerController;
 import org.jboss.arquillian.container.test.api.Deployer;
@@ -101,7 +101,7 @@ public class ReloadWSDLPublisherTestCase {
         Service service = Service.create(wsdlURL, serviceName);
         EndpointIface proxy = service.getPort(EndpointIface.class);
         Assert.assertEquals("Hello World!", proxy.helloString("World"));
-        executeReloadAndWaitForCompletion(managementClient.getControllerClient(), 100000);
+        executeReloadAndWaitForCompletion(managementClient, 100000);
         checkWsdl(wsdlURL);
         serviceName = new QName("http://jbossws.org/basic", "POJOService");
         service = Service.create(wsdlURL, serviceName);

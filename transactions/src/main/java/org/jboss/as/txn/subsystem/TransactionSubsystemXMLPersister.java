@@ -132,7 +132,7 @@ class TransactionSubsystemXMLPersister implements XMLElementWriter<SubsystemMars
             writer.writeEndElement();
         }
 
-        if (node.hasDefined(CommonAttributes.CM_RESOURCE) && node.get(CommonAttributes.CM_RESOURCE).asList().size() > 0) {
+        if (node.hasDefined(CommonAttributes.CM_RESOURCE) && !node.get(CommonAttributes.CM_RESOURCE).asList().isEmpty()) {
             writer.writeStartElement(Element.CM_RESOURCES.getLocalName());
             for (Property cmr : node.get(CommonAttributes.CM_RESOURCE).asPropertyList()) {
                 writer.writeStartElement(CommonAttributes.CM_RESOURCE);
@@ -148,6 +148,12 @@ class TransactionSubsystemXMLPersister implements XMLElementWriter<SubsystemMars
                 }
                 writer.writeEndElement();
             }
+            writer.writeEndElement();
+        }
+
+        if (TransactionSubsystemRootResourceDefinition.STALE_TRANSACTION_TIME.isMarshallable(node)){
+            writer.writeStartElement(Element.CLIENT.getLocalName());
+            TransactionSubsystemRootResourceDefinition.STALE_TRANSACTION_TIME.marshallAsAttribute(node, writer);
             writer.writeEndElement();
         }
         writer.writeEndElement();

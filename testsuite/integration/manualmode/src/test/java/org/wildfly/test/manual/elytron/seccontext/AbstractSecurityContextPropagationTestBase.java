@@ -17,8 +17,8 @@ package org.wildfly.test.manual.elytron.seccontext;
 
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.hamcrest.CoreMatchers.allOf;
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.containsString;
@@ -27,7 +27,7 @@ import static org.hamcrest.CoreMatchers.startsWith;
 import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.createPermissionsXmlAsset;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.wildfly.test.manual.elytron.seccontext.SeccontextUtil.JAR_ENTRY_EJB;
 import static org.wildfly.test.manual.elytron.seccontext.SeccontextUtil.SERVER1;
@@ -89,9 +89,9 @@ import org.jboss.as.test.integration.domain.management.util.DomainTestUtils;
 import org.jboss.as.test.integration.management.util.CLIOpResult;
 import org.jboss.as.test.integration.management.util.CLITestUtil;
 import org.jboss.as.test.integration.management.util.MgmtOperationException;
-import org.jboss.as.test.integration.management.util.ServerReload;
 import org.jboss.as.test.integration.security.common.SecurityTestConstants;
 import org.jboss.as.test.integration.security.common.Utils;
+import org.jboss.as.test.shared.ServerReload;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
@@ -512,7 +512,7 @@ public abstract class AbstractSecurityContextPropagationTestBase {
     protected static org.hamcrest.Matcher<java.lang.String> isEjbAuthenticationError() {
         // different behavior for stateless and stateful beans
         // is reported under https://issues.jboss.org/browse/JBEAP-12439
-        return anyOf(startsWith("javax.ejb.NoSuchEJBException: EJBCLIENT000079"),
+        return anyOf(startsWith("jakarta.ejb.NoSuchEJBException: EJBCLIENT000079"),
                 startsWith("javax.naming.CommunicationException: EJBCLIENT000062"), containsString("JBREM000308"),
                 containsString("javax.security.sasl.SaslException: Authentication failed"));
     }
@@ -522,7 +522,7 @@ public abstract class AbstractSecurityContextPropagationTestBase {
     }
 
     protected static org.hamcrest.Matcher<java.lang.String> isClassNotFoundException_Server2Exception() {
-        return allOf(startsWith("javax.ejb.EJBException"),
+        return allOf(startsWith("jakarta.ejb.EJBException"),
                 containsString("ClassNotFoundException: org.wildfly.test.manual.elytron.seccontext.Server2Exception"));
     }
 
@@ -531,7 +531,7 @@ public abstract class AbstractSecurityContextPropagationTestBase {
     }
 
     protected static org.hamcrest.Matcher<java.lang.String> isEjbAccessException() {
-        return startsWith("javax.ejb.EJBAccessException");
+        return startsWith("jakarta.ejb.EJBAccessException");
     }
 
     protected String createJwtToken(String userName) {
@@ -622,7 +622,6 @@ public abstract class AbstractSecurityContextPropagationTestBase {
                     }
                     addCliCommands(cliFIle, config.getCliCommands());
                     runBatch(cliFIle);
-                    switchJGroupsToTcpping();
                     cliFIle.delete();
                     reload();
 
@@ -697,34 +696,15 @@ public abstract class AbstractSecurityContextPropagationTestBase {
          * @return true if CLI returns Success
          */
         public boolean runBatch(File batchFile) throws IOException {
-            sendLine("run-batch --file=\"" + batchFile.getAbsolutePath() + "\" -v", false);
+            for(String line : Files.readAllLines(batchFile.toPath())) {
+                sendLine(line, false);
+            }
+            //sendLine("run-batch --file=\"" + batchFile.getAbsolutePath() + "\" -v", false);
             if (consoleOut.size() <= 0) {
                 return false;
             }
             return new CLIOpResult(ModelNode.fromStream(new ByteArrayInputStream(consoleOut.toByteArray())))
                     .isIsOutcomeSuccess();
-        }
-
-        /**
-         * Switch JGroups subsystem (if present) from using UDP multicast to TCPPING discovery protocol.
-         */
-        private void switchJGroupsToTcpping() throws IOException {
-            consoleOut.reset();
-            try {
-                commandCtx.handle("if outcome==success of /subsystem=jgroups:read-resource()");
-                // TODO This command is deprecated
-                commandCtx.handle(String.format(
-                        "/subsystem=jgroups/stack=tcp/protocol=TCPPING:add(add-index=0, properties={initial_hosts=\"%1$s[7600],%1$s[9600]\",port_range=0})",
-                        Utils.stripSquareBrackets(host)));
-                commandCtx.handle("/subsystem=jgroups/stack=tcp/protocol=MPING:remove");
-                commandCtx.handle("/subsystem=jgroups/channel=ee:write-attribute(name=stack,value=tcp)");
-                commandCtx.handle("end-if");
-            } catch (CommandLineException e) {
-                LOGGER.error("Command line error occured during JGroups reconfiguration", e);
-            } finally {
-                LOGGER.debugf("Output of JGroups reconfiguration (switch to TCPPING): %s",
-                        new String(consoleOut.toByteArray(), StandardCharsets.UTF_8));
-            }
         }
 
         private void takeSnapshot() throws IOException, MgmtOperationException {
@@ -756,8 +736,7 @@ public abstract class AbstractSecurityContextPropagationTestBase {
         }
 
         private void reload() {
-            ModelNode operation = Util.createOperation("reload", null);
-            ServerReload.executeReloadAndWaitForCompletion(client, operation, (int) SECONDS.toMillis(90), host,
+            ServerReload.executeReloadAndWaitForCompletion(client, (int) SECONDS.toMillis(90), false, host,
                     getManagementPort());
         }
 

@@ -61,6 +61,9 @@ public class JspApplicationContextWrapper extends JspApplicationContextImpl {
 
     @Override
     public ELContextImpl createELContext(JspContext arg0) {
+        // Before providing any ELContext, ensure we allow any ExpressionFactoryWrappers to execute
+        getExpressionFactory();
+
         return delegate.createELContext(arg0);
     }
 
@@ -69,10 +72,11 @@ public class JspApplicationContextWrapper extends JspApplicationContextImpl {
         if (factory == null) {
             synchronized (this) {
                 if (factory == null) {
-                    factory = delegate.getExpressionFactory();
+                    ExpressionFactory tmpfactory = delegate.getExpressionFactory();
                     for (ExpressionFactoryWrapper wrapper : wrapperList) {
-                        factory = wrapper.wrap(factory, servletContext);
+                        tmpfactory = wrapper.wrap(tmpfactory, servletContext);
                     }
+                    factory = tmpfactory;
                 }
             }
         }

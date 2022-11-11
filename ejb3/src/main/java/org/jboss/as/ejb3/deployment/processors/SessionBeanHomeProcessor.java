@@ -24,9 +24,8 @@ package org.jboss.as.ejb3.deployment.processors;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
-
-import javax.ejb.EJBHome;
-import javax.ejb.Handle;
+import jakarta.ejb.EJBHome;
+import jakarta.ejb.Handle;
 
 import org.jboss.as.ee.component.ComponentConfiguration;
 import org.jboss.as.ee.component.ComponentDescription;
@@ -40,9 +39,6 @@ import org.jboss.as.ee.component.ViewService;
 import org.jboss.as.ee.component.deployers.AbstractComponentConfigProcessor;
 import org.jboss.as.ee.component.interceptors.InterceptorOrder;
 import org.jboss.as.ee.utils.ClassLoadingUtils;
-import org.jboss.as.ejb3.component.MethodIntf;
-import org.jboss.as.ejb3.logging.EjbLogger;
-import org.jboss.as.ejb3.component.EJBComponentDescription;
 import org.jboss.as.ejb3.component.EJBViewDescription;
 import org.jboss.as.ejb3.component.interceptors.EjbMetadataInterceptor;
 import org.jboss.as.ejb3.component.interceptors.HomeRemoveInterceptor;
@@ -51,11 +47,13 @@ import org.jboss.as.ejb3.component.session.InvalidRemoveExceptionMethodIntercept
 import org.jboss.as.ejb3.component.session.SessionBeanComponentDescription;
 import org.jboss.as.ejb3.component.stateful.StatefulComponentDescription;
 import org.jboss.as.ejb3.component.stateless.StatelessComponentDescription;
+import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.annotation.CompositeIndex;
 import org.jboss.invocation.ImmediateInterceptorFactory;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.msc.service.ServiceBuilder;
 
 /**
@@ -102,7 +100,18 @@ public class SessionBeanHomeProcessor extends AbstractComponentConfigProcessor {
                             throw EjbLogger.ROOT_LOGGER.invalidEjbLocalInterface(componentDescription.getComponentName());
                         }
 
-                        Method initMethod = resolveInitMethod(ejbComponentDescription, method);
+                        Method initMethod;
+                        if (ejbComponentDescription instanceof StatelessComponentDescription) {
+                            initMethod = null;
+                        } else if (ejbComponentDescription instanceof StatefulComponentDescription) {
+                            initMethod = resolveStatefulInitMethod((StatefulComponentDescription) ejbComponentDescription, method);
+                            if (initMethod == null) {
+                                continue;
+                            }
+                        } else {
+                            throw EjbLogger.ROOT_LOGGER.localHomeNotAllow(ejbComponentDescription);
+                        }
+
                         final SessionBeanHomeInterceptorFactory factory = new SessionBeanHomeInterceptorFactory(initMethod);
                         //add a dependency on the view to create
 
@@ -117,7 +126,7 @@ public class SessionBeanHomeProcessor extends AbstractComponentConfigProcessor {
                         configuration.addClientInterceptor(method, ViewDescription.CLIENT_DISPATCHER_INTERCEPTOR_FACTORY, InterceptorOrder.Client.CLIENT_DISPATCHER);
                         configuration.addViewInterceptor(method, factory, InterceptorOrder.View.HOME_METHOD_INTERCEPTOR);
 
-                    } else if (method.getName().equals("getEJBMetaData") && method.getParameterTypes().length == 0 && ((EJBViewDescription)description).getMethodIntf() == MethodIntf.HOME) {
+                    } else if (method.getName().equals("getEJBMetaData") && method.getParameterCount() == 0 && ((EJBViewDescription)description).getMethodIntf() == MethodInterfaceType.Home) {
 
                         final Class<?> ejbObjectClass;
                         try {
@@ -138,10 +147,10 @@ public class SessionBeanHomeProcessor extends AbstractComponentConfigProcessor {
                         configuration.addClientInterceptor(method, ViewDescription.CLIENT_DISPATCHER_INTERCEPTOR_FACTORY, InterceptorOrder.Client.CLIENT_DISPATCHER);
                         configuration.addViewInterceptor(method, new ImmediateInterceptorFactory(factory), InterceptorOrder.View.HOME_METHOD_INTERCEPTOR);
 
-                    } else if (method.getName().equals("remove") && method.getParameterTypes().length == 1 && method.getParameterTypes()[0] == Object.class) {
+                    } else if (method.getName().equals("remove") && method.getParameterCount() == 1 && method.getParameterTypes()[0] == Object.class) {
                         configuration.addClientInterceptor(method, ViewDescription.CLIENT_DISPATCHER_INTERCEPTOR_FACTORY, InterceptorOrder.Client.CLIENT_DISPATCHER);
                         configuration.addViewInterceptor(method, InvalidRemoveExceptionMethodInterceptor.FACTORY, InterceptorOrder.View.INVALID_METHOD_EXCEPTION);
-                    } else if (method.getName().equals("remove") && method.getParameterTypes().length == 1 && method.getParameterTypes()[0] == Handle.class) {
+                    } else if (method.getName().equals("remove") && method.getParameterCount() == 1 && method.getParameterTypes()[0] == Handle.class) {
                         configuration.addClientInterceptor(method, ViewDescription.CLIENT_DISPATCHER_INTERCEPTOR_FACTORY, InterceptorOrder.Client.CLIENT_DISPATCHER);
                         configuration.addViewInterceptor(method, HomeRemoveInterceptor.FACTORY, InterceptorOrder.View.HOME_METHOD_INTERCEPTOR);
                     }
@@ -150,17 +159,6 @@ public class SessionBeanHomeProcessor extends AbstractComponentConfigProcessor {
             }
 
         });
-    }
-
-
-    private Method resolveInitMethod(final EJBComponentDescription description, final Method method) throws DeploymentUnitProcessingException {
-        if (description instanceof StatelessComponentDescription) {
-            return null;
-        } else if (description instanceof StatefulComponentDescription) {
-            return resolveStatefulInitMethod((StatefulComponentDescription) description, method);
-        } else {
-            throw EjbLogger.ROOT_LOGGER.localHomeNotAllow(description);
-        }
     }
 
 
@@ -173,28 +171,29 @@ public class SessionBeanHomeProcessor extends AbstractComponentConfigProcessor {
         for (Map.Entry<Method, String> entry : description.getInitMethods().entrySet()) {
             String name = entry.getValue();
             Method init = entry.getKey();
-            if (name != null) {
-                if (Arrays.equals(init.getParameterTypes(), method.getParameterTypes())) {
-                    if (init.getName().equals(name)) {
-                        initMethod = init;
-                    }
-                }
+            if (name != null
+                    && Arrays.equals(init.getParameterTypes(), method.getParameterTypes())
+                    && init.getName().equals(name)) {
+                initMethod = init;
             }
         }
         //now try and resolve the init methods with no additional resolution data
         if (initMethod == null) {
             for (Map.Entry<Method, String> entry : description.getInitMethods().entrySet()) {
                 Method init = entry.getKey();
-                if (entry.getValue() == null) {
-                    if (Arrays.equals(init.getParameterTypes(), method.getParameterTypes())) {
-                        initMethod = init;
-                        break;
-                    }
+                if (entry.getValue() == null
+                        && Arrays.equals(init.getParameterTypes(), method.getParameterTypes())) {
+                    initMethod = init;
+                    break;
                 }
             }
         }
         if (initMethod == null) {
-            throw EjbLogger.ROOT_LOGGER.failToCallEjbCreateForHomeInterface(method, description.getEJBClassName());
+            for (Class<?> exceptionClass : method.getExceptionTypes()) {
+                if (jakarta.ejb.CreateException.class == exceptionClass) {
+                    throw EjbLogger.ROOT_LOGGER.failToCallEjbCreateForHomeInterface(method, description.getEJBClassName());
+                }
+            }
         }
         return initMethod;
     }

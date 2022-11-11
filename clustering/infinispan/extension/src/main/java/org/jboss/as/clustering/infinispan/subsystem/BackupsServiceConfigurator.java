@@ -22,7 +22,6 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
-import static org.jboss.as.clustering.infinispan.subsystem.BackupResourceDefinition.Attribute.ENABLED;
 import static org.jboss.as.clustering.infinispan.subsystem.BackupResourceDefinition.Attribute.FAILURE_POLICY;
 import static org.jboss.as.clustering.infinispan.subsystem.BackupResourceDefinition.Attribute.STRATEGY;
 import static org.jboss.as.clustering.infinispan.subsystem.BackupResourceDefinition.Attribute.TIMEOUT;
@@ -39,7 +38,6 @@ import org.infinispan.configuration.cache.BackupFailurePolicy;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.configuration.cache.SitesConfiguration;
 import org.infinispan.configuration.cache.SitesConfigurationBuilder;
-import org.jboss.as.clustering.dmr.ModelNodes;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
@@ -68,10 +66,9 @@ public class BackupsServiceConfigurator extends ComponentServiceConfigurator<Sit
                 ModelNode backup = property.getValue();
                 BackupConfigurationBuilder backupBuilder = builder.addBackup();
                 backupBuilder.site(siteName)
-                        .enabled(ENABLED.resolveModelAttribute(context, backup).asBoolean())
-                        .backupFailurePolicy(ModelNodes.asEnum(FAILURE_POLICY.resolveModelAttribute(context, backup), BackupFailurePolicy.class))
+                        .backupFailurePolicy(BackupFailurePolicy.valueOf(FAILURE_POLICY.resolveModelAttribute(context, backup).asString()))
                         .replicationTimeout(TIMEOUT.resolveModelAttribute(context, backup).asLong())
-                        .strategy(ModelNodes.asEnum(STRATEGY.resolveModelAttribute(context, backup), BackupStrategy.class))
+                        .strategy(BackupStrategy.valueOf(STRATEGY.resolveModelAttribute(context, backup).asString()))
                         .takeOffline()
                             .afterFailures(AFTER_FAILURES.resolveModelAttribute(context, backup).asInt())
                             .minTimeToWait(MIN_WAIT.resolveModelAttribute(context, backup).asLong())
@@ -85,10 +82,8 @@ public class BackupsServiceConfigurator extends ComponentServiceConfigurator<Sit
     @Override
     public SitesConfiguration get() {
         SitesConfigurationBuilder builder = new ConfigurationBuilder().sites();
-        builder.disableBackups(this.backups.isEmpty());
         for (Map.Entry<String, BackupConfiguration> backup : this.backups.entrySet()) {
             builder.addBackup().read(backup.getValue());
-            builder.addInUseBackupSite(backup.getKey());
         }
         return builder.create();
     }

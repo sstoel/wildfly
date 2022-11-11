@@ -23,13 +23,15 @@
 package org.jboss.as.connector.subsystems.resourceadapters;
 
 import static org.jboss.as.connector.logging.ConnectorLogger.SUBSYSTEM_RA_LOGGER;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.JNDI_NAME;
+import static org.jboss.as.connector.subsystems.common.jndi.Constants.USE_JAVA_CONTEXT;
 import static org.jboss.as.connector.subsystems.jca.Constants.DEFAULT_NAME;
 import static org.jboss.as.connector.subsystems.resourceadapters.CommonAttributes.CONNECTION_DEFINITIONS_NODE_ATTRIBUTE;
+import static org.jboss.as.connector.subsystems.resourceadapters.Constants.APPLICATION;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ARCHIVE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.AUTHENTICATION_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.AUTHENTICATION_CONTEXT_AND_APPLICATION;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.ELYTRON_ENABLED;
-import static org.jboss.as.connector.subsystems.resourceadapters.Constants.JNDINAME;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.MODULE;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_AUTHENTICATION_CONTEXT;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.RECOVERY_CREDENTIAL_REFERENCE;
@@ -39,6 +41,8 @@ import static org.jboss.as.connector.subsystems.resourceadapters.Constants.SECUR
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.SECURITY_DOMAIN_AND_APPLICATION;
 import static org.jboss.as.connector.subsystems.resourceadapters.Constants.STATISTICS_ENABLED;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
+import static org.jboss.as.controller.security.CredentialReference.handleCredentialReferenceUpdate;
+import static org.jboss.as.controller.security.CredentialReference.rollbackCredentialStoreUpdate;
 
 import org.jboss.as.connector._private.Capabilities;
 import org.jboss.as.connector.logging.ConnectorLogger;
@@ -52,9 +56,6 @@ import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.controller.security.CredentialReference;
-import org.jboss.as.core.security.ServerSecurityManager;
-import org.jboss.as.security.service.SimpleSecurityManagerService;
-import org.jboss.as.security.service.SubjectFactoryService;
 import org.jboss.dmr.ModelNode;
 import org.jboss.jca.common.api.metadata.common.TransactionSupportEnum;
 import org.jboss.jca.common.api.metadata.resourceadapter.Activation;
@@ -63,7 +64,6 @@ import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceRegistry;
 import org.jboss.msc.service.ServiceTarget;
-import org.jboss.security.SubjectFactory;
 import org.wildfly.security.auth.client.AuthenticationContext;
 
 /**
@@ -71,7 +71,17 @@ import org.wildfly.security.auth.client.AuthenticationContext;
  */
 public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
 
+    private static final ServiceName SECURITY_MANAGER_SERVICE = ServiceName.JBOSS.append("security", "simple-security-manager");
+    private static final ServiceName SUBJECT_FACTORY_SERVICE = ServiceName.JBOSS.append("security", "subject-factory");
+
     public static final ConnectionDefinitionAdd INSTANCE = new ConnectionDefinitionAdd();
+
+    @Override
+    protected void populateModel(final OperationContext context, final ModelNode operation, final Resource resource) throws OperationFailedException {
+        super.populateModel(context, operation, resource);
+        final ModelNode model = resource.getModel();
+        handleCredentialReferenceUpdate(context, model.get(RECOVERY_CREDENTIAL_REFERENCE.getName()), RECOVERY_CREDENTIAL_REFERENCE.getName());
+    }
 
     @Override
     protected void populateModel(ModelNode operation, ModelNode modelNode) throws OperationFailedException {
@@ -85,7 +95,7 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
 
         final ModelNode address = operation.require(OP_ADDR);
         PathAddress path = context.getCurrentAddress();
-        final String jndiName = JNDINAME.resolveModelAttribute(context, operation).asString();
+        final String jndiName = JNDI_NAME.resolveModelAttribute(context, operation).asString();
         final String raName = path.getParent().getLastElement().getValue();
 
         final String archiveOrModuleName;
@@ -96,30 +106,56 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
             throw ConnectorLogger.ROOT_LOGGER.archiveOrModuleRequired();
         }
         ModelNode resourceModel = resource.getModel();
+
+        // add extra security validation: authentication contexts should only be defined when Elytron Enabled is true
+        // domains/application attributes should only be defined when Elytron enabled is undefined or false (default value)
+        if (ELYTRON_ENABLED.resolveModelAttribute(context, resourceModel).asBoolean()) {
+            if (resourceModel.hasDefined(SECURITY_DOMAIN.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(SECURITY_DOMAIN.getName(), ELYTRON_ENABLED.getName());
+            else if (resourceModel.hasDefined(SECURITY_DOMAIN_AND_APPLICATION.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(SECURITY_DOMAIN_AND_APPLICATION.getName(), ELYTRON_ENABLED.getName());
+            else if (resourceModel.hasDefined(APPLICATION.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(APPLICATION.getName(), ELYTRON_ENABLED.getName());
+        } else {
+            if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(AUTHENTICATION_CONTEXT.getName(), ELYTRON_ENABLED.getName());
+            else if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName(), ELYTRON_ENABLED.getName());
+        }
+        // do the same for recovery security attributes
+        if (RECOVERY_ELYTRON_ENABLED.resolveModelAttribute(context, resourceModel).asBoolean()) {
+            if (resourceModel.hasDefined(RECOVERY_SECURITY_DOMAIN.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(RECOVERY_SECURITY_DOMAIN.getName(), RECOVERY_ELYTRON_ENABLED.getName());
+        } else {
+            if (resourceModel.hasDefined(RECOVERY_AUTHENTICATION_CONTEXT.getName()))
+                throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(RECOVERY_AUTHENTICATION_CONTEXT.getName(), RECOVERY_ELYTRON_ENABLED.getName());
+        }
+
         final boolean elytronEnabled = ELYTRON_ENABLED.resolveModelAttribute(context, resourceModel).asBoolean();
         final boolean elytronRecoveryEnabled = RECOVERY_ELYTRON_ENABLED.resolveModelAttribute(context, resourceModel).asBoolean();
         final ModelNode credentialReference = RECOVERY_CREDENTIAL_REFERENCE.resolveModelAttribute(context, resourceModel);
         // add extra security validation: authentication contexts should only be defined when Elytron Enabled is false
         // domains should only be defined when Elytron enabled is undefined or false (default value)
+        boolean hasSecurityDomain = resourceModel.hasDefined(SECURITY_DOMAIN.getName());
+        boolean hasSecurityDomainAndApp = resourceModel.hasDefined(SECURITY_DOMAIN_AND_APPLICATION.getName());
         if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT.getName()) && !elytronEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(AUTHENTICATION_CONTEXT.getName(), ELYTRON_ENABLED.getName());
         }
-        else if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName()) &&
-                !elytronEnabled) {
+        else if (resourceModel.hasDefined(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName()) && !elytronEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(AUTHENTICATION_CONTEXT_AND_APPLICATION.getName(), ELYTRON_ENABLED.getName());
         }
-        else if (resourceModel.hasDefined(SECURITY_DOMAIN.getName()) && elytronEnabled) {
+        else if (hasSecurityDomain && elytronEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(SECURITY_DOMAIN.getName(), ELYTRON_ENABLED.getName());
         }
-        else if (resourceModel.hasDefined(SECURITY_DOMAIN_AND_APPLICATION.getName()) && elytronEnabled) {
+        else if (hasSecurityDomainAndApp && elytronEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(SECURITY_DOMAIN_AND_APPLICATION.getName(), ELYTRON_ENABLED.getName());
         }
+        boolean hasRecoverySecurityDomain = resourceModel.hasDefined(RECOVERY_SECURITY_DOMAIN.getName());
         if (resourceModel.hasDefined(RECOVERY_AUTHENTICATION_CONTEXT.getName()) &&
                 !elytronRecoveryEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresTrueAttribute(RECOVERY_AUTHENTICATION_CONTEXT.getName(), RECOVERY_ELYTRON_ENABLED.getName());
         }
-        else if (resourceModel.hasDefined(RECOVERY_SECURITY_DOMAIN.getName()) &&
-                elytronRecoveryEnabled) {
+        else if (hasRecoverySecurityDomain && elytronRecoveryEnabled) {
             throw SUBSYSTEM_RA_LOGGER.attributeRequiresFalseOrUndefinedAttribute(RECOVERY_SECURITY_DOMAIN.getName(), RECOVERY_ELYTRON_ENABLED.getName());
         }
         if (raModel.get(ARCHIVE.getName()).isDefined()) {
@@ -162,20 +198,18 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
                 }
             }
 
-            if (elytronRecoveryEnabled) {
-                if (resourceModel.hasDefined(RECOVERY_AUTHENTICATION_CONTEXT.getName())) {
-                    cdServiceBuilder.requires(context.getCapabilityServiceName(
-                            Capabilities.AUTHENTICATION_CONTEXT_CAPABILITY,
-                            RECOVERY_AUTHENTICATION_CONTEXT.resolveModelAttribute(context, resourceModel).asString(),
-                            AuthenticationContext.class));
-                }
+            if (elytronRecoveryEnabled && resourceModel.hasDefined(RECOVERY_AUTHENTICATION_CONTEXT.getName())) {
+                cdServiceBuilder.requires(context.getCapabilityServiceName(Capabilities.AUTHENTICATION_CONTEXT_CAPABILITY,
+                        RECOVERY_AUTHENTICATION_CONTEXT.resolveModelAttribute(context, resourceModel).asString(),
+                        AuthenticationContext.class));
             }
 
             if (!elytronEnabled || !elytronRecoveryEnabled) {
-                cdServiceBuilder.addDependency(SubjectFactoryService.SERVICE_NAME, SubjectFactory.class,
-                        service.getSubjectFactoryInjector())
-                        .addDependency(SimpleSecurityManagerService.SERVICE_NAME,
-                                ServerSecurityManager.class, service.getServerSecurityManager());
+                if (hasSecurityDomain || hasSecurityDomainAndApp || hasRecoverySecurityDomain || RaAdd.requiresLegacySecurity(context, raModel)) {
+                    // We can't satisfy the config, so fail with a meaningful error
+                    context.setRollbackOnly();
+                    throw SUBSYSTEM_RA_LOGGER.legacySecurityNotAvailable(path.getLastElement().getValue(), path.getParent().getLastElement().getValue());
+                } // else there's no legacy security. We're not configured for elytron, but our RA's WM doesn't require legacy security nor do we.
             }
 
             if (credentialReference.isDefined()) {
@@ -198,8 +232,9 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
                 bootStrapCtxName = raxml.getBootstrapContext();
             }
 
+            final boolean useJavaContext = USE_JAVA_CONTEXT.resolveModelAttribute(context, raModel).asBoolean();
 
-            ConnectionDefinitionStatisticsService connectionDefinitionStatisticsService = new ConnectionDefinitionStatisticsService(context.getResourceRegistrationForUpdate(), jndiName, poolName, statsEnabled);
+            ConnectionDefinitionStatisticsService connectionDefinitionStatisticsService = new ConnectionDefinitionStatisticsService(context.getResourceRegistrationForUpdate(), jndiName, useJavaContext, poolName, statsEnabled);
 
             ServiceBuilder statsServiceBuilder = serviceTarget.addService(serviceName.append(ConnectorServices.STATISTICS_SUFFIX), connectionDefinitionStatisticsService);
             statsServiceBuilder.addDependency(ConnectorServices.BOOTSTRAP_CONTEXT_SERVICE.append(bootStrapCtxName), Object.class, connectionDefinitionStatisticsService.getBootstrapContextInjector())
@@ -223,6 +258,11 @@ public class ConnectionDefinitionAdd extends AbstractAddStepHandler {
         } catch (Exception e) {
             throw new OperationFailedException(e, new ModelNode().set(ConnectorLogger.ROOT_LOGGER.failedToCreate("ConnectionDefinition", operation, e.getLocalizedMessage())));
         }
+    }
+
+    @Override
+    protected void rollbackRuntime(OperationContext context, final ModelNode operation, final Resource resource) {
+        rollbackCredentialStoreUpdate(RECOVERY_CREDENTIAL_REFERENCE, context, resource);
     }
 
 

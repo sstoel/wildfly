@@ -1,9 +1,9 @@
-<subsystem xmlns="urn:jboss:domain:ejb3:5.0">
+<subsystem xmlns="urn:jboss:domain:ejb3:10.0">
     <session-bean>
         <stateless>
             <bean-instance-pool-ref pool-name="slsb-strict-max-pool"/>
         </stateless>
-        <stateful default-access-timeout="${prop.default-access-timeout:5000}" cache-ref="distributable" passivation-disabled-cache-ref="simple"/>
+        <stateful default-access-timeout="${prop.default-access-timeout:5000}" cache-ref="distributable" clustered-cache-ref="distributable" passivation-disabled-cache-ref="simple"/>
         <singleton default-access-timeout="${prop.default-access-timeout:5000}"/>
     </session-bean>
     <entity-bean>
@@ -13,10 +13,6 @@
     <mdb>
         <resource-adapter-ref resource-adapter-name="resource-adapter"/>
         <bean-instance-pool-ref pool-name="pool"/>
-        <!-- this should be rejected -->
-        <delivery-groups>
-            <delivery-group name="delivery-group-name" active="true"/>
-        </delivery-groups>
     </mdb>
 
     <!-- EJB3 pools -->
@@ -29,41 +25,28 @@
     <caches>
         <cache name="simple"/>
         <cache name="distributable" passivation-store-ref="infinispan"/>
+        <simple-cache name="simple-cache"/>
+        <distributable-cache name="distributable-cache" bean-management="default"/>
     </caches>
     <passivation-stores>
-        <!-- should be rejected -->
         <passivation-store name="infinispan" cache-container="ejb" bean-cache="default" max-size="10"/>
     </passivation-stores>
     <async thread-pool-name="default"/>
-    <timer-service thread-pool-name="default" default-data-store="file-data-store">
+    <timer-service thread-pool-name="default">
         <data-stores>
-            <!-- This will be renamed to 'file-data-store' by the test (for 6.3 and 6.4)-->
-            <file-data-store name="file-data-store-rename-to-default" path="${prop.timer-service.path:timer-service-data}" relative-to="jboss.server.data.dir"/>
-            <!-- This will be rejected, since there can only be one file-data-store (for 6.3 and 6.4)-->
-            <file-data-store name="file-data-store-rejected" path="${prop.timer-service.path:timer-service-data}" relative-to="jboss.server.data.dir"/>
-            <!-- attributes here need to be rejected (refresh interval, allow execution) -->
-            <database-data-store name="database-data-store-name" datasource-jndi-name="${prop.timer-service-database:java:global/DataSource}" database="hsql" partition="mypartition" allow-execution="true" refresh-interval="1"/>
+            <file-data-store name="file-data-store" path="${prop.timer-service.path:timer-service-data}" relative-to="jboss.server.data.dir"/>
         </data-stores>
     </timer-service>
-    <!-- the 'cluster' attribute with value other than 'ejb' should be rejected -->
-    <remote connector-ref="remoting-connector" thread-pool-name="default" cluster="not-ejb">
+    <remote connectors="http-remoting-connector" thread-pool-name="default">
         <channel-creation-options>
             <option name="READ_TIMEOUT" value="${prop.remoting-connector.read.timeout:20}" type="xnio"/>
             <option name="MAX_OUTBOUND_MESSAGES" value="1234" type="remoting"/>
         </channel-creation-options>
-        <!-- this should be rejected -->
         <profiles>
             <profile name="profile">
-                <!-- TODO Elytron - emulate old configuration using discovery -->
-                <!--<remoting-ejb-receiver name="receiver" outbound-connection-ref="connection-ref" connect-timeout="5000">
-                    <channel-creation-options>
-                        <option name="READ_TIMEOUT" value="20" type="xnio"/>
-                        <option name="MAX_OUTBOUND_MESSAGES" value="1234" type="remoting"/>
-                    </channel-creation-options>
-                </remoting-ejb-receiver>-->
+                <remote-http-connection name="connection" uri="http://localhost:8180/wildfly-services"/>
             </profile>
         </profiles>
-
     </remote>
 
     <!-- Session bean configurations -->
@@ -79,15 +62,8 @@
     <in-vm-remote-interface-invocation pass-by-value="false"/>
     <default-distinct-name value="myname"/>
     <default-security-domain value="domain"/>
-    <!-- should be rejected -->
-    <application-security-domains>
-        <application-security-domain name="domain" security-domain="ApplicationDomain" enable-jacc="true"/>
-    </application-security-domains>
-    <!-- should be rejected -->
-    <identity outflow-security-domains="ApplicationDomain"/>
-    <default-missing-method-permissions-deny-access value="true" />
-    <enable-graceful-txn-shutdown value="true" />
-    <disable-default-ejb-permissions value="true"/>
+    <default-missing-method-permissions-deny-access value="false" />
+    <disable-default-ejb-permissions value="false"/>
     <statistics enabled="${ejb.enable-statistics:true}" />
-    <log-system-exceptions value="false"/>
+    <enable-graceful-txn-shutdown value="false" />
 </subsystem>

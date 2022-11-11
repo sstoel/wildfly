@@ -25,11 +25,13 @@ import static javax.xml.stream.XMLStreamConstants.END_ELEMENT;
 import static org.jboss.as.controller.parsing.ParseUtils.requireNoNamespaceAttribute;
 import static org.jboss.as.controller.parsing.ParseUtils.unexpectedAttribute;
 import static org.jboss.as.controller.parsing.ParseUtils.unexpectedElement;
+import static org.wildfly.extension.mod_cluster.ModClusterLogger.ROOT_LOGGER;
 import static org.wildfly.extension.mod_cluster.XMLAttribute.CLASS;
 import static org.wildfly.extension.mod_cluster.XMLAttribute.TYPE;
 
-import javax.xml.stream.XMLStreamException;
 import java.util.List;
+
+import javax.xml.stream.XMLStreamException;
 
 import org.jboss.as.clustering.controller.Attribute;
 import org.jboss.as.controller.AttributeDefinition;
@@ -53,7 +55,6 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
         this.schema = schema;
     }
 
-    @SuppressWarnings("deprecation")
     @Override
     public void readElement(XMLExtendedStreamReader reader, List<ModelNode> list) throws XMLStreamException {
         ParseUtils.requireNoAttributes(reader);
@@ -84,7 +85,6 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
         }
     }
 
-    @SuppressWarnings("deprecation")
     private void parseProxy(XMLExtendedStreamReader reader, List<ModelNode> list, PathAddress parent) throws XMLStreamException {
         String name = schema.since(ModClusterSchema.MODCLUSTER_4_0) ? require(reader, XMLAttribute.NAME) : "default";
 
@@ -178,8 +178,10 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
                     break;
                 }
                 case PROXY_LIST: {
-                    // The legacy PROXY_LIST is here to support EAP 6.x slaves
-                    readAttribute(reader, i, operation, ProxyConfigurationResourceDefinition.Attribute.PROXY_LIST);
+                    if (this.schema.since(ModClusterSchema.MODCLUSTER_6_0)) {
+                        throw ParseUtils.unexpectedAttribute(reader, i);
+                    }
+                    ROOT_LOGGER.ignoredAttribute(attribute.getLocalName(), reader.getLocalName());
                     break;
                 }
                 // 1.0
@@ -267,7 +269,8 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
                     break;
                 }
                 case SSL: {
-                    this.parseSSL(reader, list, address);
+                    ROOT_LOGGER.ignoredElement(element.getLocalName());
+                    ParseUtils.requireNoContent(reader);
                     break;
                 }
                 default: {
@@ -275,53 +278,6 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
                 }
             }
         }
-    }
-
-    @SuppressWarnings("deprecation")
-    private void parseSSL(XMLExtendedStreamReader reader, List<ModelNode> list, PathAddress parent) throws XMLStreamException {
-        PathAddress address = parent.append(SSLResourceDefinition.PATH);
-        ModelNode operation = Util.createAddOperation(address);
-        list.add(operation);
-        int count = reader.getAttributeCount();
-        for (int i = 0; i < count; i++) {
-            requireNoNamespaceAttribute(reader, i);
-            XMLAttribute attribute = XMLAttribute.forName(reader.getAttributeLocalName(i));
-            switch (attribute) {
-                // toto enum-ize
-                case KEY_ALIAS: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.KEY_ALIAS);
-                    break;
-                }
-                case PASSWORD: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.PASSWORD);
-                    break;
-                }
-                case CERTIFICATE_KEY_FILE: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.CERTIFICATE_KEY_FILE);
-                    break;
-                }
-                case CIPHER_SUITE: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.CIPHER_SUITE);
-                    break;
-                }
-                case PROTOCOL: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.PROTOCOL);
-                    break;
-                }
-                case CA_CERTIFICATE_FILE: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.CA_CERTIFICATE_FILE);
-                    break;
-                }
-                case CA_REVOCATION_URL: {
-                    readAttribute(reader, i, operation, SSLResourceDefinition.Attribute.CA_REVOCATION_URL);
-                    break;
-                }
-                default: {
-                    throw unexpectedAttribute(reader, i);
-                }
-            }
-        }
-        ParseUtils.requireNoContent(reader);
     }
 
     private void parseSimpleLoadProvider(XMLExtendedStreamReader reader, List<ModelNode> list, PathAddress parent) throws XMLStreamException {
@@ -398,6 +354,11 @@ final class ModClusterSubsystemXMLReader implements XMLElementReader<List<ModelN
 
     private void parseLoadMetric(XMLExtendedStreamReader reader, List<ModelNode> list, PathAddress address) throws XMLStreamException {
         String type = require(reader, TYPE);
+        if ("mem".equalsIgnoreCase(type)) {
+            ROOT_LOGGER.ignoredElement(type);
+            ParseUtils.requireNoContent(reader);
+            return;
+        }
         PathAddress opAddress = address.append(LoadMetricResourceDefinition.pathElement(type));
         ModelNode operation = Util.createAddOperation(opAddress);
 

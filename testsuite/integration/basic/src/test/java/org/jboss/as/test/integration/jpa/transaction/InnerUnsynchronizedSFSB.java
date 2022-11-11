@@ -22,10 +22,10 @@
 
 package org.jboss.as.test.integration.jpa.transaction;
 
-import javax.ejb.Stateful;
-import javax.persistence.EntityManager;
-import javax.persistence.PersistenceContext;
-import javax.persistence.SynchronizationType;
+import jakarta.ejb.Stateful;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.SynchronizationType;
 
 /**
  * stateful session bean
@@ -41,7 +41,7 @@ public class InnerUnsynchronizedSFSB {
         return em.find(Employee.class, id);
     }
 
-    // join persistence context to jta transaction to save pending changes to database
+    // join persistence context to Jakarta Transactions transaction to save pending changes to database
     public void joinTransaction() {
         em.joinTransaction();
     }

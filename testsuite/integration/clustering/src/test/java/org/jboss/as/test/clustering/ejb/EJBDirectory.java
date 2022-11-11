@@ -22,12 +22,12 @@
 
 package org.jboss.as.test.clustering.ejb;
 
-import javax.ejb.EJBHome;
-import javax.ejb.SessionBean;
-import javax.transaction.UserTransaction;
+import jakarta.ejb.EJBHome;
+import jakarta.ejb.SessionBean;
+import jakarta.transaction.UserTransaction;
 
 /**
- * EJB lookup helper
+ * Jakarta Enterprise Beans lookup helper
  *
  * @author Paul Ferraro
  */

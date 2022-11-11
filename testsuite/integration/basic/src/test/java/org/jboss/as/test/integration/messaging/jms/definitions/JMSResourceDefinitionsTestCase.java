@@ -22,23 +22,22 @@
 
 package org.jboss.as.test.integration.messaging.jms.definitions;
 
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.ADD;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.CORE_SERVICE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.NAME;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP_ADDR;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.REMOVE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.VALUE;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.VAULT;
-import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.VAULT_OPTIONS;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.WRITE_ATTRIBUTE_OPERATION;
 import static org.jboss.shrinkwrap.api.ArchivePaths.create;
+import static org.wildfly.test.security.common.SecureExpressionUtil.getDeploymentPropertiesAsset;
+import static org.wildfly.test.security.common.SecureExpressionUtil.setupCredentialStore;
+import static org.wildfly.test.security.common.SecureExpressionUtil.setupCredentialStoreExpressions;
+import static org.wildfly.test.security.common.SecureExpressionUtil.teardownCredentialStore;
 
 import java.io.IOException;
 import java.net.SocketPermission;
 
-import javax.ejb.EJB;
-import javax.jms.JMSException;
+import jakarta.ejb.EJB;
+import jakarta.jms.JMSException;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -46,7 +45,6 @@ import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.arquillian.api.ServerSetupTask;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.OperationBuilder;
-import org.jboss.as.test.integration.security.common.VaultHandler;
 import org.jboss.as.test.shared.PermissionUtils;
 import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
@@ -54,6 +52,7 @@ import org.jboss.shrinkwrap.api.asset.EmptyAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.wildfly.test.security.common.SecureExpressionUtil;
 
 /**
  * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2013 Red Hat inc.
@@ -62,27 +61,16 @@ import org.junit.runner.RunWith;
 @ServerSetup(JMSResourceDefinitionsTestCase.StoreVaultedPropertyTask.class)
 public class JMSResourceDefinitionsTestCase {
 
-    static final String VAULT_LOCATION = JMSResourceDefinitionsTestCase.class.getResource("/").getPath() + "security/jms-vault/";
+    static final String UNIQUE_NAME = "JMSResourceDefinitionsTestCase";
+    private static final SecureExpressionUtil.SecureExpressionData USERNAME = new SecureExpressionUtil.SecureExpressionData("guest", "test.userName");
+    private static final SecureExpressionUtil.SecureExpressionData PASSWORD = new SecureExpressionUtil.SecureExpressionData("guest", "test.password");
+    static final String STORE_LOCATION = JMSResourceDefinitionsTestCase.class.getResource("/").getPath() + "security/" + UNIQUE_NAME + ".cs";
 
     static class StoreVaultedPropertyTask implements ServerSetupTask {
 
-        private VaultHandler vaultHandler;
-
         @Override
         public void setup(ManagementClient managementClient, String containerId) throws Exception {
-
-            VaultHandler.cleanFilesystem(VAULT_LOCATION, true);
-
-            // create new vault
-            vaultHandler = new VaultHandler(VAULT_LOCATION);
-            // store the destination lookup into the vault
-            String vaultedUserName = vaultHandler.addSecuredAttribute("messaging", "userName", "guest".toCharArray());
-            //System.out.println("vaultedUserName = " + vaultedUserName);
-            String vaultedPassword = vaultHandler.addSecuredAttribute("messaging", "password", "guest".toCharArray());
-            //System.out.println("vaultedPassword = " + vaultedPassword);
-
-            addVaultConfiguration(managementClient);
-
+            setupCredentialStore(managementClient, UNIQUE_NAME, STORE_LOCATION);
             // for annotation-based JMS definitions
             updatePropertyReplacement(managementClient, "annotation-property-replacement", true);
             // for deployment descriptor-based JMS definitions
@@ -91,36 +79,9 @@ public class JMSResourceDefinitionsTestCase {
 
         @Override
         public void tearDown(ManagementClient managementClient, String containerId) throws Exception {
-
-            removeVaultConfiguration(managementClient);
-            // remove temporary files
-            vaultHandler.cleanUp();
-
             updatePropertyReplacement(managementClient, "annotation-property-replacement", false);
             updatePropertyReplacement(managementClient, "spec-descriptor-property-replacement", false);
-        }
-
-
-        private void addVaultConfiguration(ManagementClient managementClient) throws IOException {
-            ModelNode op;
-            op = new ModelNode();
-            op.get(OP_ADDR).add(CORE_SERVICE, VAULT);
-            op.get(OP).set(ADD);
-            ModelNode vaultOption = op.get(VAULT_OPTIONS);
-            vaultOption.get("KEYSTORE_URL").set(vaultHandler.getKeyStore());
-            vaultOption.get("KEYSTORE_PASSWORD").set(vaultHandler.getMaskedKeyStorePassword());
-            vaultOption.get("KEYSTORE_ALIAS").set(vaultHandler.getAlias());
-            vaultOption.get("SALT").set(vaultHandler.getSalt());
-            vaultOption.get("ITERATION_COUNT").set(vaultHandler.getIterationCountAsString());
-            vaultOption.get("ENC_FILE_DIR").set(vaultHandler.getEncodedVaultFileDirectory());
-            managementClient.getControllerClient().execute(new OperationBuilder(op).build());
-        }
-
-        private void removeVaultConfiguration(ManagementClient managementClient) throws IOException {
-            ModelNode op = new ModelNode();
-            op.get(OP_ADDR).add(CORE_SERVICE, VAULT);
-            op.get(OP).set(REMOVE);
-            managementClient.getControllerClient().execute(new OperationBuilder(op).build());
+            teardownCredentialStore(managementClient, UNIQUE_NAME, STORE_LOCATION);
         }
 
         private void updatePropertyReplacement(ManagementClient managementClient, String propertyReplacement, boolean value) throws IOException {
@@ -138,16 +99,22 @@ public class JMSResourceDefinitionsTestCase {
     private MessagingBean bean;
 
     @Deployment
-    public static JavaArchive createArchive() {
+    public static JavaArchive createArchive() throws Exception {
+
+        // Create the credential expressions so we can store them in the deployment
+        setupCredentialStoreExpressions(UNIQUE_NAME, USERNAME, PASSWORD);
+
         JavaArchive archive = ShrinkWrap.create(JavaArchive.class, "JMSResourceDefinitionsTestCase.jar")
                 .addPackage(MessagingBean.class.getPackage())
+                .addClasses(SecureExpressionUtil.getDeploymentClasses())
                 .addAsManifestResource(
                         MessagingBean.class.getPackage(), "ejb-jar.xml", "ejb-jar.xml")
                 .addAsManifestResource(PermissionUtils.createPermissionsXmlAsset(
                         new SocketPermission("localhost", "resolve")), "permissions.xml")
                 .addAsManifestResource(
                         EmptyAsset.INSTANCE,
-                        create("beans.xml"));
+                        create("beans.xml"))
+                .addAsManifestResource(getDeploymentPropertiesAsset(USERNAME, PASSWORD), "jboss.properties");
         return archive;
     }
 

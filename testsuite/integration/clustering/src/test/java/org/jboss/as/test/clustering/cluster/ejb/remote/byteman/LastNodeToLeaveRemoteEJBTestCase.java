@@ -48,13 +48,11 @@ import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
 import org.junit.Assert;
-import org.junit.Assume;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import javax.ejb.EJBException;
-import javax.ejb.NoSuchEJBException;
+import jakarta.ejb.EJBException;
+import jakarta.ejb.NoSuchEJBException;
 import javax.naming.NamingException;
 
 import java.util.ArrayList;
@@ -83,7 +81,7 @@ import static org.junit.Assert.assertNull;
  * - shutdown A                                 // membership = {B}
  * - crash B                                    // membership = {B}
  * - start A                                    // membership = {A,B}
- * In this case, B is e member of the cluster (according to the DNR) but it has crashed.
+ * In this case, B is a member of the cluster (according to the DNR) but it has crashed.
  *
  * @author Richard Achmatowicz
  */
@@ -132,15 +130,9 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
         public String selectNode(String clusterName, String[] connectedNodes, String[] totalAvailableNodes) {
             Set<String> connectedNodesSet = Arrays.asList(connectedNodes).stream().collect(Collectors.toSet());
             Set<String> totalNodesSet = Arrays.asList(totalAvailableNodes).stream().collect(Collectors.toSet());
-            LOGGER.infof("Calling ClusterNodeSelector.selectNode(%s,%s,%s)", clusterName, connectedNodesSet, totalNodesSet);
+            LOGGER.debugf("Calling ClusterNodeSelector.selectNode(%s,%s,%s)", clusterName, connectedNodesSet, totalNodesSet);
             return ClusterNodeSelector.DEFAULT.selectNode(clusterName, connectedNodes, totalAvailableNodes);
         }
-    }
-
-    @BeforeClass
-    public static void beforeClass() {
-        // restrict test to run under Java < 9 until arquillian-byteman-extension supports JDK 9
-        Assume.assumeTrue(System.getProperty("java.version").startsWith("1.8"));
     }
 
     // Byteman rules to capture the DNR contents after each invocation
@@ -178,24 +170,22 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
             condition = "debug(\"returning the result\")",
             action = "return getNodeListMap();")
     })
-
     @Test
     @RunAsClient
     public void testDNRContentsAfterLastNodeToLeave() throws Exception {
+
         List<Future<?>> futures = new ArrayList<>(THREADS);
-
-        LOGGER.info("\n *** Starting test case test()\n");
-
-        LOGGER.info("*** Started nodes = " + getStartedNodes());
+        LOGGER.debugf("%n *** Starting test case test()%n");
+        LOGGER.debugf("*** Started nodes = %s", getStartedNodes());
 
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS);
         for (int i = 0; i < THREADS; ++i) {
             // start a client thread
             Runnable task = () -> {
-                LOGGER.infof("\n *** Starting test thread %s\n", Thread.currentThread().getName());
+                LOGGER.debugf("%s *** Starting test thread %s%s", Thread.currentThread().getName());
                 EJBClientContext oldContext = null;
                 try {
-                    // install the correct EJB client context
+                    // install the correct Jakarta Enterprise Beans client context
                     oldContext = EJBClientContext.getContextManager().getGlobalDefault();
                     EJBClientContext newContext = createModifiedEJBClientContext(oldContext);
                     EJBClientContext.getContextManager().setThreadDefault(newContext);
@@ -203,28 +193,28 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
                     // look up the IncrementorBean and repeatedly invoke on it
                     try (NamingEJBDirectory directory = new RemoteEJBDirectory(MODULE_NAME)) {
                         Incrementor bean = directory.lookupStateless(StatelessIncrementorBean.class, Incrementor.class);
-                        LOGGER.info("\n +++ Looked up bean for thread " + Thread.currentThread().getName() + " \n");
+                        LOGGER.debugf("%s +++ Looked up bean for thread %s%n", Thread.currentThread().getName());
 
                         while (!Thread.currentThread().isInterrupted()) {
                             try {
                                 // invoke on the incrementor bean and note where it executes
-                                LOGGER.info("\n +++ Thread " + Thread.currentThread().getName() + " invoking on bean...\n");
+                                LOGGER.debugf("%s +++ Thread %s invoking on bean...%n", Thread.currentThread().getName());
 
                                 Result<Integer> result = bean.increment();
                                 String target = result.getNode();
-                                LOGGER.info("\n +++ Thread " + Thread.currentThread().getName() + " got result " + result.getValue() + " from node " + target + "\n");
+                                LOGGER.debugf("%s +++ Thread %s got result %s from node %s%n", Thread.currentThread().getName(), result.getValue(), target);
                                 Thread.sleep(INVOCATION_WAIT);
                             } catch (InterruptedException e) {
                                 Thread.currentThread().interrupt();
                             } catch (NoSuchEJBException e) {
-                                LOGGER.info("\n +++ Got NoSuchEJBException from node, skipping...\n");
+                                LOGGER.debugf("%n +++ Got NoSuchEJBException from node, skipping...%n");
                             }
                         }
                     } catch (NamingException | EJBException e) {
-                        System.out.println("\n +++ Exception looking up bean for thread " + Thread.currentThread().getName() + " \n");
+                        LOGGER.errorf("%n +++ Exception looking up bean for thread %s%n", Thread.currentThread().getName());
                         assertNull("Cause of EJBException has not been removed", e.getCause());
                     }
-                    LOGGER.infof("\n *** Stopping test thread %s\n", Thread.currentThread().getName());
+                    LOGGER.debugf("%n *** Stopping test thread %s%n", Thread.currentThread().getName());
                 } finally {
                     if (oldContext != null) {
                         EJBClientContext.getContextManager().setThreadDefault(null);
@@ -239,27 +229,27 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
 
         // now shutdown the entire cluster then start one node back up again, to check last node behaviour
 
-        LOGGER.info("\n *** Stopping node " + NODE_3 + "\n");
+        LOGGER.debugf("%n *** Stopping node %s%n", NODE_3);
         stop(NODE_3);
-        LOGGER.info("*** Started nodes = " + getStartedNodes());
+        LOGGER.debugf("*** Started nodes = %s", getStartedNodes());
         // Let the system stabilize
         Thread.sleep(GRACE_TIME_TO_MEMBERSHIP_CHANGE);
 
-        LOGGER.info("\n *** Stopping node " + NODE_2 + "\n");
+        LOGGER.debugf("%n*** Stopping node %s%n", NODE_2);
         stop(NODE_2);
-        LOGGER.info("*** Started nodes = " + getStartedNodes());
+        LOGGER.debugf("*** Started nodes = %s", getStartedNodes());
         // Let the system stabilize
         Thread.sleep(GRACE_TIME_TO_MEMBERSHIP_CHANGE);
 
-        LOGGER.info("\n *** Stopping node " + NODE_1 + "\n");
+        LOGGER.debugf("%n *** Stopping node %s%n", NODE_1);
         stop(NODE_1);
-        LOGGER.info("*** Started nodes = " + getStartedNodes());
+        LOGGER.debugf("*** Started nodes = %s", getStartedNodes());
         // Let the system stabilize
         Thread.sleep(GRACE_TIME_TO_MEMBERSHIP_CHANGE);
 
-        LOGGER.info("\n *** Starting node " + NODE_1 + "\n");
+        LOGGER.debugf("%n *** Starting node %s%n", NODE_1);
         start(NODE_1);
-        LOGGER.info("*** Started nodes = " + getStartedNodes());
+        LOGGER.debugf("*** Started nodes = %s", getStartedNodes());
         // Let the system stabilize
         Thread.sleep(GRACE_TIME_TO_MEMBERSHIP_CHANGE);
 
@@ -276,13 +266,13 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
         // validate the test
         for (Map.Entry<String, List<List<Set<String>>>> entry: results.entrySet()) {
             String thread = entry.getKey();
-            LOGGER.infof("Collected data for thread: %s", thread);
+            LOGGER.debugf("Collected data for thread: %s", thread);
             List<List<Set<String>>> nodeEntries = entry.getValue();
             for (List<Set<String>> nodeEntry : nodeEntries) {
                 Set<String> startedNodes = nodeEntry.get(0);
                 Set<String> connectedNodes = nodeEntry.get(1);
                 Set<String> totalAvailableNodes = nodeEntry.get(2);
-                LOGGER.infof("started nodes = %s, connected nodes = %s, total available nodes = %s", startedNodes, connectedNodes, totalAvailableNodes);
+                LOGGER.debugf("started nodes = %s, connected nodes = %s, total available nodes = %s", startedNodes, connectedNodes, totalAvailableNodes);
 
                 Assert.assertTrue("Assertion violation: thread " + thread + " has stale nodes in discovered node registry(DNR): " +
                         " started = " + startedNodes + ", connected = " + connectedNodes + ", total available = " + totalAvailableNodes,
@@ -303,7 +293,7 @@ public class LastNodeToLeaveRemoteEJBTestCase extends AbstractClusteringTestCase
     }
 
     /*
-     * Method to allow determing the set of started nodes so that a Byteman rule
+     * Method to allow determining the set of started nodes so that a Byteman rule
      * can keep track of them.
      */
     private Set<String> getStartedNodes() {

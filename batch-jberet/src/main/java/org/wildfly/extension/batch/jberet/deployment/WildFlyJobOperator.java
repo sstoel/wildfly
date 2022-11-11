@@ -17,10 +17,11 @@
 package org.wildfly.extension.batch.jberet.deployment;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.batch.operations.JobOperator;
-import javax.batch.operations.NoSuchJobException;
+import jakarta.batch.operations.JobOperator;
+import jakarta.batch.operations.NoSuchJobException;
 
 /**
  * An extended version of a {@link JobOperator} for WildFly. Allows access to the job XML descriptors.
@@ -52,6 +53,14 @@ interface WildFlyJobOperator extends JobOperator {
      * @return a collection of all the jobs this operator has access to
      */
     Set<String> getAllJobNames();
+
+    /**
+     * Gets job execution ids belonging to the job identified by the {@code jobName}.
+     * @param jobName the job name identifying the job
+     * @return job execution ids belonging to the job
+     * @since 25.0.0.Beta1
+     */
+    List<Long> getJobExecutionsByJob(final String jobName);
 
     /**
      * Allows safe execution of a method catching any {@link NoSuchJobException} thrown. If the exception is thrown the

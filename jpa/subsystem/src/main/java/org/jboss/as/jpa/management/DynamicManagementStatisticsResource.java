@@ -37,7 +37,7 @@ import org.jboss.dmr.ModelNode;
 import org.jipijapa.management.spi.Statistics;
 
 /**
- * Resource representing a JPA PersistenceUnit (from a persistence.xml) deployment.
+ * Resource representing a Jakarta Persistence PersistenceUnit (from a persistence.xml) deployment.
  *
  * @author Brian Stansberry (c) 2011 Red Hat Inc.
  * @author Scott Marlow
@@ -141,7 +141,7 @@ public class DynamicManagementStatisticsResource extends PlaceholderResource.Pla
             Statistics statistics = getStatistics();
             if (statistics.getChildrenNames().contains(childType)) {
                 Statistics childStatistics = statistics.getChild(childType);
-                return childStatistics != null && childStatistics.getNames().size() > 0;
+                return childStatistics != null && !childStatistics.getNames().isEmpty();
             } else {
                 return super.hasChildren(childType);
             }

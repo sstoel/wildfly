@@ -36,25 +36,23 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-
-import javax.ejb.EJBHome;
-import javax.ejb.EJBLocalHome;
-import javax.ejb.TimerService;
-import javax.ejb.TransactionAttributeType;
-import javax.ejb.TransactionManagementType;
+import jakarta.ejb.EJBHome;
+import jakarta.ejb.EJBLocalHome;
+import jakarta.ejb.TransactionAttributeType;
+import jakarta.ejb.TransactionManagementType;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
-import javax.security.jacc.EJBRoleRefPermission;
-import javax.transaction.Status;
-import javax.transaction.SystemException;
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
-import javax.transaction.UserTransaction;
+import jakarta.security.jacc.EJBRoleRefPermission;
+import jakarta.transaction.Status;
+import jakarta.transaction.SystemException;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.TransactionSynchronizationRegistry;
+import jakarta.transaction.UserTransaction;
 
-import org.jboss.as.core.security.ServerSecurityManager;
 import org.jboss.as.ee.component.BasicComponent;
 import org.jboss.as.ee.component.ComponentView;
+import org.jboss.as.ee.component.interceptors.InvocationType;
 import org.jboss.as.ejb3.component.allowedmethods.AllowedMethodsInformation;
 import org.jboss.as.ejb3.component.interceptors.ShutDownInterceptorFactory;
 import org.jboss.as.ejb3.component.invocationmetrics.InvocationMetrics;
@@ -64,7 +62,8 @@ import org.jboss.as.ejb3.security.EJBSecurityMetaData;
 import org.jboss.as.ejb3.security.JaccInterceptor;
 import org.jboss.as.ejb3.subsystem.EJBStatistics;
 import org.jboss.as.ejb3.suspend.EJBSuspendHandlerService;
-import org.jboss.as.ejb3.timerservice.TimerServiceImpl;
+import org.jboss.as.ejb3.timerservice.spi.ManagedTimerService;
+import org.jboss.as.ejb3.timerservice.spi.ManagedTimerServiceFactory;
 import org.jboss.as.ejb3.tx.ApplicationExceptionDetails;
 import org.jboss.as.naming.ManagedReference;
 import org.jboss.as.naming.context.NamespaceContextSelector;
@@ -76,10 +75,12 @@ import org.jboss.ejb.client.EJBHomeLocator;
 import org.jboss.invocation.InterceptorContext;
 import org.jboss.invocation.InterceptorFactory;
 import org.jboss.invocation.proxy.MethodIdentifier;
+import org.jboss.metadata.ejb.spec.MethodInterfaceType;
 import org.jboss.msc.service.ServiceContainer;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.wildfly.extension.requestcontroller.ControlPoint;
+import org.wildfly.security.auth.principal.AnonymousPrincipal;
 import org.wildfly.security.auth.server.SecurityDomain;
 import org.wildfly.security.auth.server.SecurityIdentity;
 import org.wildfly.security.authz.Roles;
@@ -107,36 +108,31 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     private final ServiceName ejbObjectViewServiceName;
     private final ServiceName ejbLocalObjectViewServiceName;
 
-    private final TimerService timerService;
+    private final ManagedTimerServiceFactory timerServiceFactory;
     private final Map<Method, InterceptorFactory> timeoutInterceptors;
     private final Method timeoutMethod;
     private final String applicationName;
     private final String earApplicationName;
     private final String moduleName;
     private final String distinctName;
-    private final String policyContextID;
 
     private final InvocationMetrics invocationMetrics = new InvocationMetrics();
     private final EJBSuspendHandlerService ejbSuspendHandlerService;
     private final ShutDownInterceptorFactory shutDownInterceptorFactory;
     private final TransactionSynchronizationRegistry transactionSynchronizationRegistry;
     private final UserTransaction userTransaction;
-    private final ServerSecurityManager serverSecurityManager;
     private final ControlPoint controlPoint;
     private final AtomicBoolean exceptionLoggingEnabled;
 
-    private final PrivilegedAction<Principal> getCaller = new PrivilegedAction<Principal>() {
-        @Override
-        public Principal run() {
-            return serverSecurityManager.getCallerPrincipal();
-        }
-    };
-
     private final SecurityDomain securityDomain;
     private final boolean enableJacc;
-    private SecurityIdentity incomingRunAsIdentity;
+    private ThreadLocal<SecurityIdentity> incomingRunAsIdentity;
     private final Function<SecurityIdentity, Set<SecurityIdentity>> identityOutflowFunction;
     private final boolean securityRequired;
+    private final EJBComponentDescription componentDescription;
+    private final boolean legacyCompliantPrincipalPropagation;
+
+    private volatile ManagedTimerService timerService;
 
     /**
      * Construct a new instance.
@@ -165,14 +161,13 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         // security metadata
         this.securityMetaData = ejbComponentCreateService.getSecurityMetaData();
         this.viewServices = ejbComponentCreateService.getViewServices();
-        this.timerService = ejbComponentCreateService.getTimerService();
+        this.timerServiceFactory = ejbComponentCreateService.getTimerServiceFactory();
         this.timeoutMethod = ejbComponentCreateService.getTimeoutMethod();
         this.ejbLocalHomeViewServiceName = ejbComponentCreateService.getEjbLocalHome();
         this.ejbHomeViewServiceName = ejbComponentCreateService.getEjbHome();
         this.applicationName = ejbComponentCreateService.getApplicationName();
         this.earApplicationName = ejbComponentCreateService.getEarApplicationName();
         this.distinctName = ejbComponentCreateService.getDistinctName();
-        this.policyContextID = ejbComponentCreateService.getPolicyContextID();
         this.moduleName = ejbComponentCreateService.getModuleName();
         this.ejbObjectViewServiceName = ejbComponentCreateService.getEjbObject();
         this.ejbLocalObjectViewServiceName = ejbComponentCreateService.getEjbLocalObject();
@@ -182,15 +177,16 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         this.ejbSuspendHandlerService = ejbComponentCreateService.getEJBSuspendHandler();
         this.transactionSynchronizationRegistry = ejbComponentCreateService.getTransactionSynchronizationRegistry();
         this.userTransaction = ejbComponentCreateService.getUserTransaction();
-        this.serverSecurityManager = ejbComponentCreateService.getServerSecurityManager();
         this.controlPoint = ejbComponentCreateService.getControlPoint();
         this.exceptionLoggingEnabled = ejbComponentCreateService.getExceptionLoggingEnabled();
 
         this.securityDomain = ejbComponentCreateService.getSecurityDomain();
         this.enableJacc = ejbComponentCreateService.isEnableJacc();
-        this.incomingRunAsIdentity = null;
+        this.legacyCompliantPrincipalPropagation = ejbComponentCreateService.isLegacyCompliantPrincipalPropagation();
+        this.incomingRunAsIdentity = new ThreadLocal<>();
         this.identityOutflowFunction = ejbComponentCreateService.getIdentityOutflowFunction();
         this.securityRequired = ejbComponentCreateService.isSecurityRequired();
+        this.componentDescription = ejbComponentCreateService.getComponentDescription();
     }
 
     protected <T> T createViewInstanceProxy(final Class<T> viewInterface, final Map<Object, Object> contextData) {
@@ -259,7 +255,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         }
         // AS7-1317: examine the throws clause of the method
         // An unchecked-exception is only an application exception if annotated (or described) as such.
-        // (see EJB 3.1 FR 14.2.1)
+        // (see Enterprise Beans 3.1 FR 14.2.1)
         if (RuntimeException.class.isAssignableFrom(exceptionClass) || Error.class.isAssignableFrom(exceptionClass))
             return null;
         if (invokedMethod != null) {
@@ -276,25 +272,26 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     public Principal getCallerPrincipal() {
         if (isSecurityDomainKnown()) {
             return getCallerSecurityIdentity().getPrincipal();
-        } else if (WildFlySecurityManager.isChecking()) {
-            return WildFlySecurityManager.doUnchecked(getCaller);
-        } else {
-            return this.serverSecurityManager.getCallerPrincipal();
         }
+        return new AnonymousPrincipal();
     }
 
     public SecurityIdentity getIncomingRunAsIdentity() {
-        return incomingRunAsIdentity;
+        return incomingRunAsIdentity.get();
     }
 
     public void setIncomingRunAsIdentity(SecurityIdentity identity) {
-        this.incomingRunAsIdentity = identity;
+        if (identity == null) {
+            incomingRunAsIdentity.remove();
+        } else {
+            incomingRunAsIdentity.set(identity);
+        }
     }
 
     protected TransactionAttributeType getCurrentTransactionAttribute() {
 
         final InterceptorContext invocation = CurrentInvocationContext.get();
-        final MethodIntf methodIntf = MethodIntfHelper.of(invocation);
+        final MethodInterfaceType methodIntf = MethodIntfHelper.of(invocation);
         return getTransactionAttributeType(methodIntf, invocation.getMethod());
     }
 
@@ -350,7 +347,7 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
             }
 
             // EJBTHREE-805, consider an asynchronous rollback due to timeout
-            // This is counter to EJB 3.1 where an asynchronous call does not inherit the transaction context!
+            // This is counter to Enterprise Beans 3.1 where an asynchronous call does not inherit the transaction context!
 
             int status = tm.getStatus();
             EjbLogger.ROOT_LOGGER.tracef("Current transaction status is %d", status);
@@ -369,38 +366,34 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         }
     }
 
-    public ServerSecurityManager getSecurityManager() {
-        return this.serverSecurityManager;
+    public ManagedTimerService getTimerService() {
+        return this.timerService;
     }
 
-    public TimerService getTimerService() throws IllegalStateException {
-        return timerService;
-    }
-
-    public TransactionAttributeType getTransactionAttributeType(final MethodIntf methodIntf, final Method method) {
+    public TransactionAttributeType getTransactionAttributeType(final MethodInterfaceType methodIntf, final Method method) {
         return getTransactionAttributeType(methodIntf, MethodIdentifier.getIdentifierForMethod(method));
     }
 
-    public TransactionAttributeType getTransactionAttributeType(final MethodIntf methodIntf, final MethodIdentifier method) {
+    public TransactionAttributeType getTransactionAttributeType(final MethodInterfaceType methodIntf, final MethodIdentifier method) {
         return getTransactionAttributeType(methodIntf, method, TransactionAttributeType.REQUIRED);
     }
 
-    public TransactionAttributeType getTransactionAttributeType(final MethodIntf methodIntf, final MethodIdentifier method, TransactionAttributeType defaultType) {
+    public TransactionAttributeType getTransactionAttributeType(final MethodInterfaceType methodIntf, final MethodIdentifier method, TransactionAttributeType defaultType) {
         TransactionAttributeType txAttr = txAttrs.get(new MethodTransactionAttributeKey(methodIntf, method));
         //fall back to type bean if not found
-        if (txAttr == null && methodIntf != MethodIntf.BEAN) {
-            txAttr = txAttrs.get(new MethodTransactionAttributeKey(MethodIntf.BEAN, method));
+        if (txAttr == null && methodIntf != MethodInterfaceType.Bean) {
+            txAttr = txAttrs.get(new MethodTransactionAttributeKey(MethodInterfaceType.Bean, method));
         }
         if (txAttr == null)
             return defaultType;
         return txAttr;
     }
 
-    public boolean isTransactionAttributeTypeExplicit(final MethodIntf methodIntf, final MethodIdentifier method) {
+    public boolean isTransactionAttributeTypeExplicit(final MethodInterfaceType methodIntf, final MethodIdentifier method) {
         Boolean txAttr = txExplicitAttrs.get(new MethodTransactionAttributeKey(methodIntf, method));
         //fall back to type bean if not found
-        if (txAttr == null && methodIntf != MethodIntf.BEAN) {
-            txAttr = txExplicitAttrs.get(new MethodTransactionAttributeKey(MethodIntf.BEAN, method));
+        if (txAttr == null && methodIntf != MethodInterfaceType.Bean) {
+            txAttr = txExplicitAttrs.get(new MethodTransactionAttributeKey(MethodInterfaceType.Bean, method));
         }
         if (txAttr == null)
             return false;
@@ -420,14 +413,14 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
         return transactionSynchronizationRegistry;
     }
 
-    public int getTransactionTimeout(final MethodIntf methodIntf, final Method method) {
+    public int getTransactionTimeout(final MethodInterfaceType methodIntf, final Method method) {
         return getTransactionTimeout(methodIntf, MethodIdentifier.getIdentifierForMethod(method));
     }
 
-    public int getTransactionTimeout(final MethodIntf methodIntf, final MethodIdentifier method) {
+    public int getTransactionTimeout(final MethodInterfaceType methodIntf, final MethodIdentifier method) {
         Integer txTimeout = txTimeouts.get(new MethodTransactionAttributeKey(methodIntf, method));
-        if (txTimeout == null && methodIntf != MethodIntf.BEAN) {
-            txTimeout = txTimeouts.get(new MethodTransactionAttributeKey(MethodIntf.BEAN, method));
+        if (txTimeout == null && methodIntf != MethodInterfaceType.Bean) {
+            txTimeout = txTimeouts.get(new MethodTransactionAttributeKey(MethodInterfaceType.Bean, method));
         }
         if (txTimeout == null)
             return -1;
@@ -452,11 +445,10 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
             } else {
                 return checkCallerSecurityIdentityRole(roleName);
             }
-        } else if (WildFlySecurityManager.isChecking()) {
-            return WildFlySecurityManager.doUnchecked((PrivilegedAction<Boolean>) () -> serverSecurityManager.isCallerInRole(getComponentName(), policyContextID, securityMetaData.getSecurityRoles(), securityMetaData.getSecurityRoleLinks(), roleName));
-        } else {
-            return this.serverSecurityManager.isCallerInRole(getComponentName(), policyContextID, securityMetaData.getSecurityRoles(), securityMetaData.getSecurityRoleLinks(), roleName);
         }
+
+        // No security, no role membership.
+        return false;
     }
 
     public boolean isStatisticsEnabled() {
@@ -591,17 +583,15 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     public synchronized void init() {
         getShutDownInterceptorFactory().start();
         super.init();
-        if(this.timerService instanceof TimerServiceImpl) {
-            ((TimerServiceImpl) this.timerService).activate();
-        }
+
+        this.timerService = this.timerServiceFactory.createTimerService(this);
+        this.timerService.start();
     }
 
     @Override
     public final void stop() {
         getShutDownInterceptorFactory().shutdown();
-        if(this.timerService instanceof TimerServiceImpl) {
-            ((TimerServiceImpl) this.timerService).deactivate();
-        }
+        this.timerService.stop();
         this.done();
     }
 
@@ -626,15 +616,17 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
             return !identity.isAnonymous();
         }
         Roles roles = identity.getRoles("ejb", true);
-        if(roles.contains(roleName)) {
-            return true;
-        }
-        if(securityMetaData.getSecurityRoleLinks() != null) {
-            Collection<String> linked = securityMetaData.getSecurityRoleLinks().get(roleName);
-            if(linked != null) {
-                for (String role : roles) {
-                    if (linked.contains(role)) {
-                        return true;
+        if(roles != null) {
+            if(roles.contains(roleName)) {
+                return true;
+            }
+            if(securityMetaData.getSecurityRoleLinks() != null) {
+                Collection<String> linked = securityMetaData.getSecurityRoleLinks().get(roleName);
+                if(linked != null) {
+                    for (String role : roles) {
+                        if (linked.contains(role)) {
+                            return true;
+                        }
                     }
                 }
             }
@@ -643,17 +635,27 @@ public abstract class EJBComponent extends BasicComponent implements ServerActiv
     }
 
     private SecurityIdentity getCallerSecurityIdentity() {
-        if (incomingRunAsIdentity != null) {
-            return incomingRunAsIdentity;
-        } else if (securityRequired) {
-            return securityDomain.getCurrentSecurityIdentity();
+        InvocationType invocationType = CurrentInvocationContext.get().getPrivateData(InvocationType.class);
+        boolean isRemote = invocationType != null && invocationType.equals(InvocationType.REMOTE);
+        if (legacyCompliantPrincipalPropagation && !isRemote) {
+            return (getIncomingRunAsIdentity() == null) ? securityDomain.getCurrentSecurityIdentity() : getIncomingRunAsIdentity();
         } else {
-            // unsecured EJB
-            return securityDomain.getAnonymousSecurityIdentity();
+            if (getIncomingRunAsIdentity() != null) {
+                return getIncomingRunAsIdentity();
+            } else if (securityRequired) {
+                return securityDomain.getCurrentSecurityIdentity();
+            } else {
+                // unsecured Jakarta Enterprise Beans
+                return securityDomain.getAnonymousSecurityIdentity();
+            }
         }
     }
 
     public EJBSuspendHandlerService getEjbSuspendHandlerService() {
         return this.ejbSuspendHandlerService;
+    }
+
+    public EJBComponentDescription getComponentDescription() {
+        return componentDescription;
     }
 }

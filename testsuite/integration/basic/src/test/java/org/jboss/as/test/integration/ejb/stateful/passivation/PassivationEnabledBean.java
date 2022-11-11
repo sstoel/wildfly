@@ -22,11 +22,11 @@
 
 package org.jboss.as.test.integration.ejb.stateful.passivation;
 
-import javax.ejb.Local;
-import javax.ejb.PostActivate;
-import javax.ejb.PrePassivate;
-import javax.ejb.Remove;
-import javax.ejb.Stateful;
+import jakarta.ejb.Local;
+import jakarta.ejb.PostActivate;
+import jakarta.ejb.PrePassivate;
+import jakarta.ejb.Remove;
+import jakarta.ejb.Stateful;
 
 import org.jboss.ejb3.annotation.Cache;
 
@@ -34,7 +34,7 @@ import org.jboss.ejb3.annotation.Cache;
  * @author Jaikiran Pai
  */
 @Stateful(passivationCapable = true)
-@Cache("passivating")
+@Cache("distributable")
 @Local(Bean.class)
 public class PassivationEnabledBean implements Bean {
 

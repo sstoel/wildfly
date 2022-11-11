@@ -22,8 +22,10 @@
 
 package org.jboss.as.test.integration.weld.context.application.lifecycle;
 
-import javax.ejb.Singleton;
-import javax.ejb.Startup;
+import org.jboss.as.test.shared.TimeoutUtil;
+
+import jakarta.ejb.Singleton;
+import jakarta.ejb.Startup;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -147,7 +149,7 @@ public class TestResultsBean implements TestResults {
             throw new IllegalStateException();
         }
         try {
-            latch.await(timeout, timeUnit);
+            latch.await(TimeoutUtil.adjust(Long.valueOf(timeout).intValue()), timeUnit);
         } finally {
             latch = null;
         }

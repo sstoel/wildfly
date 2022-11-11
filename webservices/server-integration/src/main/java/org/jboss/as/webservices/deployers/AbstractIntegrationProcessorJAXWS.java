@@ -72,11 +72,6 @@ public abstract class AbstractIntegrationProcessorJAXWS implements DeploymentUni
         processAnnotation(unit, eeModuleDescription);
     }
 
-    @Override
-    public void undeploy(final DeploymentUnit unit) {
-        // does nothing
-    }
-
     protected abstract void processAnnotation(final DeploymentUnit unit, final EEModuleDescription eeModuleDescription) throws DeploymentUnitProcessingException;
 
     static ComponentDescription createComponentDescription(final DeploymentUnit unit, final String componentName, final String componentClassName, final String dependsOnEndpointClassName) {
@@ -108,7 +103,7 @@ public abstract class AbstractIntegrationProcessorJAXWS implements DeploymentUni
     }
 
     static boolean isEjb3(final ClassInfo clazz) {
-        return clazz.annotations().containsKey(STATELESS_ANNOTATION) || clazz.annotations().containsKey(SINGLETON_ANNOTATION);
+        return clazz.annotationsMap().containsKey(STATELESS_ANNOTATION) || clazz.annotationsMap().containsKey(SINGLETON_ANNOTATION);
     }
 
 }

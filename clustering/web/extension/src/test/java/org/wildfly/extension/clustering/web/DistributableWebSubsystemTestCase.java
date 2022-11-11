@@ -26,13 +26,12 @@ import java.util.EnumSet;
 
 import org.jboss.as.clustering.subsystem.AdditionalInitialization;
 import org.jboss.as.clustering.subsystem.ClusteringSubsystemTest;
-import org.jboss.dmr.ModelNode;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
-import org.wildfly.clustering.infinispan.client.InfinispanClientRequirement;
-import org.wildfly.clustering.infinispan.spi.InfinispanCacheRequirement;
-import org.wildfly.clustering.infinispan.spi.InfinispanDefaultCacheRequirement;
+import org.wildfly.clustering.infinispan.client.service.InfinispanClientRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanCacheRequirement;
+import org.wildfly.clustering.infinispan.service.InfinispanDefaultCacheRequirement;
 
 /**
  * Unit test for distributable-web subsystem.
@@ -47,13 +46,7 @@ public class DistributableWebSubsystemTestCase extends ClusteringSubsystemTest<D
     }
 
     public DistributableWebSubsystemTestCase(DistributableWebSchema schema) {
-        super(DistributableWebExtension.SUBSYSTEM_NAME, new DistributableWebExtension(), schema, DistributableWebSchema.CURRENT, "wildfly-distributable-web-%d_%d.xml", "schema/wildfly-distributable-web_%d_%d.xsd");
-    }
-
-    @Override
-    protected void validateModel(ModelNode model) {
-        System.out.println(model.toJSONString(false));
-        super.validateModel(model);
+        super(DistributableWebExtension.SUBSYSTEM_NAME, new DistributableWebExtension(), schema, "wildfly-distributable-web-%d_%d.xml", "schema/wildfly-distributable-web_%d_%d.xsd");
     }
 
     @Override
@@ -63,5 +56,10 @@ public class DistributableWebSubsystemTestCase extends ClusteringSubsystemTest<D
                 .require(InfinispanCacheRequirement.CONFIGURATION, "foo", "bar")
                 .require(InfinispanClientRequirement.REMOTE_CONTAINER, "foo")
                 ;
+    }
+
+    @Override
+    public void testSchemaOfSubsystemTemplates() throws Exception {
+        // Skip
     }
 }

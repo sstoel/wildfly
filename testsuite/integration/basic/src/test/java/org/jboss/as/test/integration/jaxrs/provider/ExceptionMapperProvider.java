@@ -21,29 +21,25 @@
  */
 package org.jboss.as.test.integration.jaxrs.provider;
 
-import javax.ejb.Singleton;
-import javax.ejb.Startup;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.ext.ExceptionMapper;
-import javax.ws.rs.ext.Provider;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ExceptionMapper;
+import jakarta.ws.rs.ext.Provider;
 
 import org.jboss.logging.Logger;
 
 /**
- * A JAX-RS test implementation for {@link ExceptionMapper}. If an Exception occurs, returns HTTP OK (200) and prints
+ * A Jakarta RESTful Web Services test implementation for {@link ExceptionMapper}. If an Exception occurs, returns HTTP OK (200) and prints
  * {@value #ERROR_MESSAGE} as the response body.
  *
  * @author Josef Cacek
  */
 @Provider
-@Startup
-@Singleton
 @Path("/")
 public class ExceptionMapperProvider implements ExceptionMapper<Exception> {
 
-    private static Logger LOGGER = Logger.getLogger(ExceptionMapperProvider.class);
+    private static final Logger LOGGER = Logger.getLogger(ExceptionMapperProvider.class);
 
     public static final String ERROR_MESSAGE = "ERROR OCCURRED";
     public static final String PATH_EXCEPTION = "/exception";
@@ -54,8 +50,10 @@ public class ExceptionMapperProvider implements ExceptionMapper<Exception> {
      * Responds {@value #ERROR_MESSAGE} to the OK (200) response.
      *
      * @param exception
+     *
      * @return
-     * @see javax.ws.rs.ext.ExceptionMapper#toResponse(java.lang.Throwable)
+     *
+     * @see jakarta.ws.rs.ext.ExceptionMapper#toResponse(java.lang.Throwable)
      */
     @Override
     public Response toResponse(Exception exception) {

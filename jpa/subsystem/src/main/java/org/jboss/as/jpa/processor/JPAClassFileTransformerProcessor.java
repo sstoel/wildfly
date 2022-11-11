@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
+ * Copyright 2021, Red Hat, Inc., and individual contributors
  * as indicated by the @author tags. See the copyright.txt file in the
  * distribution for a full listing of individual contributors.
  *
@@ -22,11 +22,6 @@
 
 package org.jboss.as.jpa.processor;
 
-import static org.jboss.as.jpa.messages.JpaLogger.ROOT_LOGGER;
-
-
-import org.jboss.as.hibernate.Hibernate51CompatibilityTransformer;
-import org.jboss.as.jpa.classloader.JPADelegatingClassFileTransformer;
 import org.jboss.as.jpa.config.Configuration;
 import org.jboss.as.jpa.config.PersistenceUnitMetadataHolder;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
@@ -34,10 +29,9 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.DeploymentUtils;
-import org.jboss.as.server.deployment.module.DelegatingClassFileTransformer;
+import org.jboss.as.server.deployment.module.DelegatingClassTransformer;
 import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jipijapa.plugin.spi.PersistenceUnitMetadata;
-import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
  * Deployment processor which ensures the persistence provider ClassFileTransformer are used.
@@ -46,17 +40,11 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  */
 public class JPAClassFileTransformerProcessor implements DeploymentUnitProcessor {
 
-    private final boolean hibernate51CompatibilityTransformer = Boolean.parseBoolean(
-            WildFlySecurityManager.getPropertyPrivileged("Hibernate51CompatibilityTransformer","false"));
-
     public JPAClassFileTransformerProcessor() {
-        if(hibernate51CompatibilityTransformer) {
-            ROOT_LOGGER.hibernate51CompatibilityTransformerEnabled();
-        }
     }
 
     /**
-     * Add dependencies for modules required for JPA deployments
+     * Add dependencies for modules required for Jakarta Persistence deployments
      */
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
@@ -68,7 +56,7 @@ public class JPAClassFileTransformerProcessor implements DeploymentUnitProcessor
         // to use ClassTransformers.  Providers that need class transformers will add them
         // during the call to CreateContainerEntityManagerFactory.
 
-        DelegatingClassFileTransformer transformer = deploymentUnit.getAttachment(DelegatingClassFileTransformer.ATTACHMENT_KEY);
+        DelegatingClassTransformer transformer = deploymentUnit.getAttachment(DelegatingClassTransformer.ATTACHMENT_KEY);
         boolean appContainsPersistenceProviderJars = false;  // remove when we revert WFLY-10520
         if ( transformer != null) {
 
@@ -79,27 +67,9 @@ public class JPAClassFileTransformerProcessor implements DeploymentUnitProcessor
                         if (Configuration.needClassFileTransformer(pu)) {
                             transformer.addTransformer(new JPADelegatingClassFileTransformer(pu));
                         }
-                        // remove this check when we revert WFLY-10520
-                        String provider = pu.getProperties().getProperty(Configuration.PROVIDER_MODULE);
-                        if (provider != null) {
-                            if (provider.equals(Configuration.PROVIDER_MODULE_APPLICATION_SUPPLIED)) {
-                                appContainsPersistenceProviderJars = true;
-                            }
-                        }
-
                     }
                 }
             }
-            // WFLY-10520 Add Hibernate ORM 5.3 compatibility transformer
-            if(!appContainsPersistenceProviderJars && hibernate51CompatibilityTransformer) {
-                transformer.addTransformer(Hibernate51CompatibilityTransformer.getInstance());
-            }
         }
-    }
-
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
     }
 }

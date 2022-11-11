@@ -21,14 +21,14 @@
  */
 package org.jboss.as.ejb3.timerservice;
 
+import static org.jboss.as.ejb3.logging.EjbLogger.EJB3_TIMER_LOGGER;
+
 import java.util.Date;
 
 import org.wildfly.security.manager.WildFlySecurityManager;
 
-import static org.jboss.as.ejb3.logging.EjbLogger.EJB3_TIMER_LOGGER;
-
 /**
- * A timer task which will be invoked at appropriate intervals based on a {@link javax.ejb.Timer}
+ * A timer task which will be invoked at appropriate intervals based on a {@link jakarta.ejb.Timer}
  * schedule.
  * <p/>
  * <p>
@@ -44,7 +44,7 @@ import static org.jboss.as.ejb3.logging.EjbLogger.EJB3_TIMER_LOGGER;
  * @author Wolf-Dieter Fink
  * @version $Revision: $
  */
-public class TimerTask<T extends TimerImpl> implements Runnable {
+public class TimerTask implements Runnable {
 
     protected final String timedObjectId;
     protected final String timerId;
@@ -61,9 +61,9 @@ public class TimerTask<T extends TimerImpl> implements Runnable {
      * Creates a {@link TimerTask} for the timer
      *
      * @param timer The timer for which this task is being created.
-     * @throws IllegalArgumentException If the passed timer is null
+     * @throws IllegalStateException If the passed timer is null
      */
-    public TimerTask(T timer) {
+    public TimerTask(TimerImpl timer) {
         if (timer == null) {
             throw EJB3_TIMER_LOGGER.timerIsNull();
         }
@@ -91,7 +91,7 @@ public class TimerTask<T extends TimerImpl> implements Runnable {
         try {
             final TimerImpl timer = timerService.getTimer(timerId);
             try {
-                if (cancelled) {
+                if (timer == null || cancelled) {
                     EJB3_TIMER_LOGGER.debugf("Timer task was cancelled for %s", timer);
                     return;
                 }
@@ -159,10 +159,15 @@ public class TimerTask<T extends TimerImpl> implements Runnable {
                         return;
                     }
 
-                    if (!timer.isActive()) {
+                    // ensure timer service is started, and the timer has not expired or been cancelled.
+                    // Execution got here after this TimerTask instance has been scheduled on TimerServiceImpl#timer,
+                    // and TimerTask instance saved in TimerServiceImpl#scheduledTimerFutures
+                    if (timer.timerState == TimerState.CANCELED || timer.timerState == TimerState.EXPIRED || !timer.timerService.isStarted()) {
                         EJB3_TIMER_LOGGER.debug("Timer is not active, skipping this scheduled execution at: " + now + "for " + timer);
                         return;
                     }
+
+                    // timer state is now either CREATED or ACTIVE
                     // set the current date as the "previous run" of the timer.
                     timer.setPreviousRun(new Date());
                     Date nextTimeout = this.calculateNextTimeout(timer);
@@ -214,7 +219,7 @@ public class TimerTask<T extends TimerImpl> implements Runnable {
     protected Date calculateNextTimeout(TimerImpl timer) {
         long intervalDuration = timer.getInterval();
         if (intervalDuration > 0) {
-            long now = new Date().getTime();
+            long now = System.currentTimeMillis();
             long nextExpiration = timer.getNextExpiration().getTime();
             // compute skipped number of interval
             int periods = (int) ((now - nextExpiration) / intervalDuration);

@@ -22,20 +22,18 @@
 
 package org.jboss.as.clustering.infinispan.subsystem;
 
+import java.util.concurrent.TimeUnit;
+
 import org.jboss.as.clustering.controller.ManagementResourceRegistration;
 import org.jboss.as.clustering.controller.ResourceDescriptor;
 import org.jboss.as.clustering.controller.SimpleResourceRegistration;
 import org.jboss.as.clustering.controller.ResourceServiceHandler;
-import org.jboss.as.clustering.controller.SimpleAliasEntry;
 import org.jboss.as.clustering.controller.SimpleResourceServiceHandler;
-import org.jboss.as.clustering.controller.transform.RequiredChildResourceDiscardPolicy;
 import org.jboss.as.controller.AttributeDefinition;
-import org.jboss.as.controller.ModelVersion;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.client.helpers.MeasurementUnit;
 import org.jboss.as.controller.registry.AttributeAccess;
-import org.jboss.as.controller.transform.description.ResourceTransformationDescriptionBuilder;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
@@ -47,12 +45,11 @@ import org.jboss.dmr.ModelType;
 public class ExpirationResourceDefinition extends ComponentResourceDefinition {
 
     static final PathElement PATH = pathElement("expiration");
-    static final PathElement LEGACY_PATH = PathElement.pathElement(PATH.getValue(), "EXPIRATION");
 
     enum Attribute implements org.jboss.as.clustering.controller.Attribute {
-        INTERVAL("interval", new ModelNode(60000L)),
-        LIFESPAN("lifespan", new ModelNode(-1L)),
-        MAX_IDLE("max-idle", new ModelNode(-1L)),
+        INTERVAL("interval", new ModelNode(TimeUnit.MINUTES.toMillis(1))),
+        LIFESPAN("lifespan", null),
+        MAX_IDLE("max-idle", null),
         ;
         private final AttributeDefinition definition;
 
@@ -72,12 +69,6 @@ public class ExpirationResourceDefinition extends ComponentResourceDefinition {
         }
     }
 
-    static void buildTransformation(ModelVersion version, ResourceTransformationDescriptionBuilder parent) {
-        if (InfinispanModel.VERSION_4_0_0.requiresTransformation(version)) {
-            parent.addChildRedirection(PATH, LEGACY_PATH, RequiredChildResourceDiscardPolicy.NEVER);
-        }
-    }
-
     ExpirationResourceDefinition() {
         super(PATH);
     }
@@ -85,7 +76,6 @@ public class ExpirationResourceDefinition extends ComponentResourceDefinition {
     @Override
     public ManagementResourceRegistration register(ManagementResourceRegistration parent) {
         ManagementResourceRegistration registration = parent.registerSubModel(this);
-        parent.registerAlias(LEGACY_PATH, new SimpleAliasEntry(registration));
 
         ResourceDescriptor descriptor = new ResourceDescriptor(this.getResourceDescriptionResolver()).addAttributes(Attribute.class);
         ResourceServiceHandler handler = new SimpleResourceServiceHandler(ExpirationServiceConfigurator::new);

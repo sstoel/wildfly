@@ -39,7 +39,7 @@ import static org.jboss.as.test.shared.integration.ejb.security.PermissionUtils.
 
 import java.io.FilePermission;
 import java.net.URL;
-import javax.ejb.EJB;
+import jakarta.ejb.EJB;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
@@ -77,7 +77,7 @@ public class URLBindingTestCase {
 
         JavaArchive jar = ShrinkWrap.create(JavaArchive.class, "URLBindingTestCaseBean.jar");
         jar.addClasses(URLBindingTestCase.class, BindingLookupBean.class);
-        jar.addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller, org.jboss.remoting3\n"), "MANIFEST.MF");
+        jar.addAsManifestResource(new StringAsset("Dependencies: org.jboss.as.controller, org.jboss.remoting\n"), "MANIFEST.MF");
         jar.addAsManifestResource(createPermissionsXmlAsset(
                 new RemotingPermission("createEndpoint"),
                 new RemotingPermission("connect"),

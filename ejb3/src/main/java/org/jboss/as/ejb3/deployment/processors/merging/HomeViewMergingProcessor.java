@@ -39,8 +39,8 @@ import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
 import org.jboss.metadata.ejb.spec.SessionBeanMetaData;
 import org.jboss.modules.Module;
 
-import javax.ejb.LocalHome;
-import javax.ejb.RemoteHome;
+import jakarta.ejb.LocalHome;
+import jakarta.ejb.RemoteHome;
 import java.lang.reflect.Method;
 import java.util.Collection;
 
@@ -105,30 +105,30 @@ public class HomeViewMergingProcessor implements DeploymentUnitProcessor {
             //we only care about annotations on the bean class itself
             if (clazz != null) {
                 final ClassAnnotationInformation<LocalHome, String> localAnnotations = clazz.getAnnotationInformation(LocalHome.class);
-                if (localAnnotations != null) {
-                    if (!localAnnotations.getClassLevelAnnotations().isEmpty()) {
-                        localHome = localAnnotations.getClassLevelAnnotations().get(0);
+                if (localAnnotations != null
+                        && !localAnnotations.getClassLevelAnnotations().isEmpty()) {
+                    localHome = localAnnotations.getClassLevelAnnotations().get(0);
 
-                        if (description.getEjbLocalView() == null) {
-                            //If the local home is specified via annotation then the corresponding business interface is implied
-                            //by the signature of the create method
-                            //See EJB 3.1 21.4.5
-                            final String localClassName = this.inferLocalInterfaceFromLocalHome(localHome, module, deploymentReflectionIndex, description);
-                            description.addEjbLocalObjectView(localClassName);
-                        }
+                    if (description.getEjbLocalView() == null) {
+                        // If the local home is specified via annotation then the corresponding business interface is implied
+                        // by the signature of the create method
+                        // See EJB 3.1 21.4.5
+                        final String localClassName = this.inferLocalInterfaceFromLocalHome(localHome, module,
+                                deploymentReflectionIndex, description);
+                        description.addEjbLocalObjectView(localClassName);
                     }
                 }
                 final ClassAnnotationInformation<RemoteHome, String> remoteAnnotations = clazz.getAnnotationInformation(RemoteHome.class);
-                if (remoteAnnotations != null) {
-                    if (!remoteAnnotations.getClassLevelAnnotations().isEmpty()) {
-                        home = remoteAnnotations.getClassLevelAnnotations().get(0);
-                        if (description.getEjbRemoteView() == null) {
-                            //If the remote home is specified via annotation then the corresponding business interface is implied
-                            //by the signature of the create method
-                            //See EJB 3.1 21.4.5
-                            final String remoteClassName = this.inferRemoteInterfaceFromHome(home, module, deploymentReflectionIndex, description);
-                            description.addEjbObjectView(remoteClassName);
-                        }
+                if (remoteAnnotations != null
+                        && !remoteAnnotations.getClassLevelAnnotations().isEmpty()) {
+                    home = remoteAnnotations.getClassLevelAnnotations().get(0);
+                    if (description.getEjbRemoteView() == null) {
+                        // If the remote home is specified via annotation then the corresponding business interface is implied
+                        // by the signature of the create method
+                        // See EJB 3.1 21.4.5
+                        final String remoteClassName = this.inferRemoteInterfaceFromHome(home, module,
+                                deploymentReflectionIndex, description);
+                        description.addEjbObjectView(remoteClassName);
                     }
                 }
             }
@@ -197,10 +197,4 @@ public class HomeViewMergingProcessor implements DeploymentUnitProcessor {
         }
         return localClass.getName();
     }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
-
-    }
-
 }

@@ -30,6 +30,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.nio.channels.ServerSocketChannel;
+import java.nio.channels.SocketChannel;
 import java.util.Map;
 
 import org.jboss.as.network.SocketBinding;
@@ -152,6 +154,20 @@ public class ManagedSocketFactory implements SocketFactory {
     }
 
     @Override
+    public SocketChannel createSocketChannel(String name) throws IOException {
+        SocketChannel channel = SocketChannel.open();
+        this.manager.getNamedRegistry().registerChannel(name, channel);
+        return channel;
+    }
+
+    @Override
+    public ServerSocketChannel createServerSocketChannel(String name) throws IOException {
+        ServerSocketChannel channel = ServerSocketChannel.open();
+        this.manager.getNamedRegistry().registerChannel(name, channel);
+        return channel;
+    }
+
+    @Override
     public void close(Socket socket) throws IOException {
         if (socket != null) {
             socket.close();
@@ -170,10 +186,5 @@ public class ManagedSocketFactory implements SocketFactory {
         if (socket != null) {
             socket.close();
         }
-    }
-
-    @Override
-    public Map<Object, String> getSockets() {
-        throw new UnsupportedOperationException();
     }
 }

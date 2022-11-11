@@ -21,8 +21,8 @@
  */
 package org.wildfly.test.integration.elytron.audit;
 
-import static javax.servlet.http.HttpServletResponse.SC_OK;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static jakarta.servlet.http.HttpServletResponse.SC_OK;
+import static jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.jboss.as.test.shared.CliUtils.asAbsolutePath;
 import static org.junit.Assert.assertTrue;
 
@@ -166,7 +166,7 @@ public class FileAuditLogTestCase extends AbstractAuditLogTestCase {
 
                 setEventListenerOfApplicationDomain(cli, NAME);
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
         @Override
@@ -176,7 +176,7 @@ public class FileAuditLogTestCase extends AbstractAuditLogTestCase {
                 auditLog.remove(cli);
                 FileUtils.deleteDirectory(WORK_DIR);
             }
-            ServerReload.reloadIfRequired(managementClient.getControllerClient());
+            ServerReload.reloadIfRequired(managementClient);
         }
 
     }

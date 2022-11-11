@@ -1,6 +1,6 @@
 /*
  * JBoss, Home of Professional Open Source
- * Copyright 2013, Red Hat Inc., and individual contributors as indicated
+ * Copyright 2021, Red Hat Inc., and individual contributors as indicated
  * by the @authors tag. See the copyright.txt in the distribution for a
  * full listing of individual contributors.
  *
@@ -48,13 +48,18 @@ import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
-import org.jboss.shrinkwrap.api.asset.EmptyAsset;
+import org.jboss.shrinkwrap.api.asset.StringAsset;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /**
- * Tests for the integration of JSF, CDI, and Bean Validation.
+ * Tests for the integration of Jakarta Server Faces, CDI, and Jakarta Bean Validation.
+ * TODO. Faces 4 does not support Faces ManagedBeans so this has been adapted
+ * to only use CDI beans. The effect is this is no longer really a test of the Faces
+ * integration with Bean Validation. It does however test CDI + BV. Presumably that's
+ * well covered elsewhere though.
+ *
  *
  * @author Farah Juma
  */
@@ -64,7 +69,7 @@ public class BeanValidationCdiIntegrationTestCase {
     @ArquillianResource
     private URL url;
 
-    private final Pattern viewStatePattern = Pattern.compile("id=\".*javax.faces.ViewState.*\" value=\"([^\"]*)\"");
+    private final Pattern viewStatePattern = Pattern.compile("id=\".*jakarta.faces.ViewState.*\" value=\"([^\"]*)\"");
     private final Pattern nameErrorPattern = Pattern.compile("<div id=\"nameError\">([^<]+)</div>");
     private final Pattern numberErrorPattern = Pattern.compile("<div id=\"numberError\">([^<]+)</div>");
 
@@ -74,7 +79,8 @@ public class BeanValidationCdiIntegrationTestCase {
         war.addPackage(BeanValidationCdiIntegrationTestCase.class.getPackage());
         war.addAsWebResource(BeanValidationCdiIntegrationTestCase.class.getPackage(), "register.xhtml", "register.xhtml");
         war.addAsWebResource(BeanValidationCdiIntegrationTestCase.class.getPackage(), "confirmation.xhtml", "confirmation.xhtml");
-        war.addAsWebInfResource(EmptyAsset.INSTANCE, "beans.xml");
+        war.addAsWebInfResource(new StringAsset("<beans bean-discovery-mode=\"all\"></beans>"), "beans.xml");
+        war.addAsWebInfResource(BeanValidationCdiIntegrationTestCase.class.getPackage(), "faces-config.xml","faces-config.xml");
         return war;
     }
 
@@ -83,10 +89,10 @@ public class BeanValidationCdiIntegrationTestCase {
         String responseString = registerTeam("Team1", 6);
 
         Matcher errorMatcher = nameErrorPattern.matcher(responseString);
-        assertTrue(!errorMatcher.find());
+        assertTrue(responseString, !errorMatcher.find());
 
         errorMatcher = numberErrorPattern.matcher(responseString);
-        assertTrue(!errorMatcher.find());
+        assertTrue(responseString, !errorMatcher.find());
     }
 
     @Test
@@ -105,8 +111,8 @@ public class BeanValidationCdiIntegrationTestCase {
             numberError = errorMatcher.group(1).trim();
         }
 
-        assertEquals("Team name must be at least 3 characters.", nameError);
-        assertEquals("Not enough people for a team.", numberError);
+        assertEquals(responseString,"Team name must be at least 3 characters.", nameError);
+        assertEquals(responseString, "Not enough people for a team.", numberError);
     }
 
     private String registerTeam(String name, int numberOfPeople) throws Exception {
@@ -120,8 +126,9 @@ public class BeanValidationCdiIntegrationTestCase {
             HttpResponse response = client.execute(getRequest);
             try {
                 String responseString = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+                assertEquals(responseString, 200, response.getStatusLine().getStatusCode());
 
-                // Get the JSF view state
+                // Get the Jakarta Server Faces view state
                 Matcher jsfViewMatcher = viewStatePattern.matcher(responseString);
                 if (jsfViewMatcher.find()) {
                     jsfViewState = jsfViewMatcher.group(1);
@@ -135,7 +142,7 @@ public class BeanValidationCdiIntegrationTestCase {
             HttpPost post = new HttpPost(requestUrl);
 
             List<NameValuePair> list = new ArrayList<NameValuePair>();
-            list.add(new BasicNameValuePair("javax.faces.ViewState", jsfViewState));
+            list.add(new BasicNameValuePair("jakarta.faces.ViewState", jsfViewState));
             list.add(new BasicNameValuePair("register", "register"));
             list.add(new BasicNameValuePair("register:inputName", name));
             list.add(new BasicNameValuePair("register:inputNumber", Integer.toString(numberOfPeople)));
@@ -145,7 +152,9 @@ public class BeanValidationCdiIntegrationTestCase {
             response = client.execute(post);
 
             try {
-                return IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+                String responseString = IOUtils.toString(response.getEntity().getContent(), StandardCharsets.UTF_8);
+                assertEquals(responseString, 200, response.getStatusLine().getStatusCode());
+                return responseString;
             } finally {
                 HttpClientUtils.closeQuietly(response);
             }

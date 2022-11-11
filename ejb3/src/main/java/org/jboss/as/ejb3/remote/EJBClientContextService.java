@@ -52,7 +52,7 @@ import org.jboss.msc.value.InjectedValue;
 import org.wildfly.security.auth.client.AuthenticationContext;
 
 /**
- * The EJB client context service.
+ * The Jakarta Enterprise Beans client context service.
  *
  * @author Stuart Douglas
  * @author <a href=mailto:tadamski@redhat.com>Tomasz Adamski</a>
@@ -86,6 +86,7 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
     private List<EJBClientCluster> clientClusters = null;
     private AuthenticationContext clustersAuthenticationContext = null;
     private List<EJBClientInterceptor> clientInterceptors = null;
+    private int defaultCompression = -1;
 
     public EJBClientContextService(final boolean makeGlobal) {
         this.makeGlobal = makeGlobal;
@@ -99,10 +100,11 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
         final EJBClientContext.Builder builder = new EJBClientContext.Builder();
 
 
-        // apply subsystem-level configuration that applies to all EJB client contexts
+        // apply subsystem-level configuration that applies to all Jakarta Enterprise Beans client contexts
         configuratorServiceInjector.getValue().accept(builder);
 
         builder.setInvocationTimeout(invocationTimeout);
+        builder.setDefaultCompression(defaultCompression);
 
         final EJBTransportProvider localTransport = localProviderInjector.getOptionalValue();
         if (localTransport != null) {
@@ -110,11 +112,18 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
         }
 
         final RemotingProfileService profileService = profileServiceInjector.getOptionalValue();
-        if (profileService != null) for (RemotingProfileService.ConnectionSpec spec : profileService.getConnectionSpecs()) {
-            final EJBClientConnection.Builder connBuilder = new EJBClientConnection.Builder();
-            connBuilder.setDestination(spec.getInjector().getValue().getDestinationUri());
-            // connBuilder.setConnectionTimeout(timeout);
-            builder.addClientConnection(connBuilder.build());
+        if (profileService != null) {
+            for (RemotingProfileService.RemotingConnectionSpec spec : profileService.getConnectionSpecs()) {
+                final EJBClientConnection.Builder connBuilder = new EJBClientConnection.Builder();
+                connBuilder.setDestination(spec.getInjector().getValue().getDestinationUri());
+                // connBuilder.setConnectionTimeout(timeout);
+                builder.addClientConnection(connBuilder.build());
+            }
+            for (RemotingProfileService.HttpConnectionSpec spec : profileService.getHttpConnectionSpecs()) {
+                final EJBClientConnection.Builder connBuilder = new EJBClientConnection.Builder();
+                connBuilder.setDestination(spec.getUri());
+                builder.addClientConnection(connBuilder.build());
+            }
         }
         if(appClientUri.getOptionalValue() != null) {
             final EJBClientConnection.Builder connBuilder = new EJBClientConnection.Builder();
@@ -136,7 +145,7 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
                     // TODO: There's a type missmatch in the 'jboss-ejb-client' component.
                     //       The EJBClientContext class and his Builder uses 'int' whereas the
                     //       EJBClientCluster class and his Builder uses 'long'
-                    int maximumConnectedClusterNodes = Long.valueOf(clientCluster.getMaximumConnectedNodes()).intValue();
+                    int maximumConnectedClusterNodes = (int) clientCluster.getMaximumConnectedNodes();
                     builder.setMaximumConnectedClusterNodes(maximumConnectedClusterNodes);
 
                     firstSelector = false;
@@ -169,6 +178,7 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
     }
 
     public void stop(final StopContext context) {
+        clientContext.close();
         clientContext = null;
         if (makeGlobal) {
             doPrivileged((PrivilegedAction<Void>) () -> {
@@ -242,6 +252,10 @@ public final class EJBClientContextService implements Service<EJBClientContextSe
 
     public void setInvocationTimeout(final long invocationTimeout) {
         this.invocationTimeout = invocationTimeout;
+    }
+
+    public void setDefaultCompression(int defaultCompression) {
+        this.defaultCompression = defaultCompression;
     }
 
     public void setDeploymentNodeSelector(final DeploymentNodeSelector deploymentNodeSelector) {

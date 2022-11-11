@@ -31,6 +31,7 @@ import javax.enterprise.inject.spi.Annotated;
 import javax.enterprise.inject.spi.InjectionPoint;
 
 import org.jboss.as.weld.logging.WeldLogger;
+import org.jboss.metadata.property.PropertyReplacer;
 import org.jboss.weld.injection.ParameterInjectionPoint;
 
 public class ResourceInjectionUtilities {
@@ -50,22 +51,22 @@ public class ResourceInjectionUtilities {
         }
     }
 
-    public static String getResourceName(InjectionPoint injectionPoint) {
+    public static String getResourceName(InjectionPoint injectionPoint, PropertyReplacer propertyReplacer) {
         Resource resource = getResourceAnnotated(injectionPoint).getAnnotation(Resource.class);
         String mappedName = resource.mappedName();
         if (!mappedName.equals("")) {
-            return mappedName;
+            return propertyReplacer == null ? mappedName : propertyReplacer.replaceProperties(mappedName);
         }
         String name = resource.name();
         if (!name.equals("")) {
+            name = propertyReplacer == null ? name : propertyReplacer.replaceProperties(name);
             //see if this is a prefixed name
             //and if so just return it
             int firstSlash = name.indexOf("/");
             int colon = name.indexOf(":");
-            if(colon != -1) {
-                if(firstSlash == -1 || colon < firstSlash) {
+            if (colon != -1
+                    && (firstSlash == -1 || colon < firstSlash)) {
                     return name;
-                }
             }
 
             return RESOURCE_LOOKUP_PREFIX + "/" + name;
@@ -87,11 +88,11 @@ public class ResourceInjectionUtilities {
 
     public static String getPropertyName(Method method) {
         String methodName = method.getName();
-        if (methodName.matches("^(get).*") && method.getParameterTypes().length == 0) {
+        if (methodName.matches("^(get).*") && method.getParameterCount() == 0) {
             return Introspector.decapitalize(methodName.substring(3));
-        } else if (methodName.matches("^(is).*") && method.getParameterTypes().length == 0) {
+        } else if (methodName.matches("^(is).*") && method.getParameterCount() == 0) {
             return Introspector.decapitalize(methodName.substring(2));
-        } else if (methodName.matches("^(set).*") && method.getParameterTypes().length == 1) {
+        } else if (methodName.matches("^(set).*") && method.getParameterCount() == 1) {
             return Introspector.decapitalize(methodName.substring(3));
         }
         return null;

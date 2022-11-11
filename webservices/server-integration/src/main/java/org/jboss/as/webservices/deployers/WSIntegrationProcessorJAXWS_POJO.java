@@ -38,8 +38,8 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import javax.jws.WebService;
-import javax.xml.ws.WebServiceProvider;
+import jakarta.jws.WebService;
+import jakarta.xml.ws.WebServiceProvider;
 
 import org.jboss.as.ee.component.ComponentDescription;
 import org.jboss.as.ee.component.EEModuleClassDescription;
@@ -189,7 +189,7 @@ public class WSIntegrationProcessorJAXWS_POJO extends AbstractIntegrationProcess
     }
 
     private boolean exclude(final DeploymentUnit unit, final EEModuleClassDescription classDescription) {
-        //exclude if it's ejb3 and jms endpoint
+        //exclude if it's Enterprise Beans 3 and Jakarta Messaging endpoint
         ClassInfo classInfo = null;
         ClassAnnotationInformation<WebService, WebServiceAnnotationInfo> annotationInfo = classDescription
                 .getAnnotationInformation(WebService.class);

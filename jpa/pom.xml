@@ -12,24 +12,52 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>18.0.0.Beta1-SNAPSHOT</version>
+        <version>28.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>wildfly-jpa-parent</artifactId>
     <packaging>pom</packaging>
     <name>WildFly: JPA</name>
+
+    <properties>
+        <!-- Default to the legacy WildFly dependency set until most child modules use standard WildFly dependencies -->
+        <dependency.management.pom.artifactId>wildfly-legacy-ee-bom</dependency.management.pom.artifactId>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>${dependency.management.pom.artifactId}</artifactId>
+                <version>${ee.maven.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <modules>
-        <module>subsystem</module>
-        <module>spi</module>
-        <module>hibernate4_1</module>
-        <module>hibernate4_3</module>
-        <module>hibernate5</module>
-        <module>hibernate5_3</module>
-        <module>hibernate5-3-legacy</module>
-        <module>hibernate5-legacy</module>
-        <module>hibernate-transformer</module>
-        <module>eclipselink</module>
-        <module>openjpa</module>
+        <module>hibernate6</module>
     </modules>
+
+    <profiles>
+        <profile>
+            <id>ee8.build.profile</id>
+            <activation>
+                <property>
+                    <name>!skip.ee8</name>
+                </property>
+            </activation>
+            <modules>
+                <!-- TODO once moved to jakarta.* move to main module set-->
+                <module>subsystem</module>
+                <!-- TODO once moved to jakarta.* move to main module set-->
+                <module>spi</module>
+                <!-- TODO once moved to jakarta.* move to main module set-->
+                <module>eclipselink</module>
+            </modules>
+        </profile>
+    </profiles>
+
 </project>

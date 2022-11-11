@@ -45,18 +45,9 @@ public class JaxrsSubsystemTestCase extends AbstractSubsystemBaseTest {
         return "schema/jboss-as-jaxrs_1_0.xsd";
     }
 
-    @Override
-    protected String[] getSubsystemTemplatePaths() throws IOException {
-        return new String[]{
-                "/subsystem-templates/jaxrs.xml"
-        };
-    }
-
     @Test
     @Override
-    public void testSchemaOfSubsystemTemplates() throws Exception {
-        super.testSchemaOfSubsystemTemplates();
+    public void testSubsystem() throws Exception {
+        standardSubsystemTest(null, false);
     }
-
-    //no point in testing 1.0.0 (current) --> 1.0.0 (all previous) for transformers
 }

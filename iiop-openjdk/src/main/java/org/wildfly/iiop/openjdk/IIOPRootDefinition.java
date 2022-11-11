@@ -22,15 +22,22 @@
 
 package org.wildfly.iiop.openjdk;
 
+import static org.wildfly.iiop.openjdk.Capabilities.IIOP_CAPABILITY;
+import static org.wildfly.iiop.openjdk.Capabilities.LEGACY_SECURITY;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.ModelVersion;
+import org.jboss.as.controller.OperationContext;
+import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PersistentResourceDefinition;
 import org.jboss.as.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.ReloadRequiredRemoveStepHandler;
+import org.jboss.as.controller.ReloadRequiredWriteAttributeHandler;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.access.constraint.SensitivityClassification;
@@ -41,6 +48,8 @@ import org.jboss.as.controller.operations.validation.IntRangeValidator;
 import org.jboss.as.controller.operations.validation.ParameterValidator;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
+import org.jboss.as.controller.registry.ManagementResourceRegistration;
+import org.jboss.as.controller.registry.Resource;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
@@ -53,7 +62,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
 
     static final ModelNode NONE = new ModelNode("none");
 
-    static final ParameterValidator SSL_CONFIG_VALIDATOR = new EnumValidator<>(SSLConfigValue.class, true, false);
+    static final ParameterValidator SSL_CONFIG_VALIDATOR = EnumValidator.create(SSLConfigValue.class);
 
     static final StringLengthValidator LENGTH_VALIDATOR = new StringLengthValidator(1, Integer.MAX_VALUE, true, false);
 
@@ -63,8 +72,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
     static final SensitiveTargetAccessConstraintDefinition IIOP_SECURITY_DEF = new SensitiveTargetAccessConstraintDefinition(
             IIOP_SECURITY);
 
-    static final ParameterValidator VALIDATOR = new EnumValidator<>(IORTransportConfigValues.class,
-            true, true);
+    static final ParameterValidator VALIDATOR = EnumValidator.create(IORTransportConfigValues.class);
 
     //ORB attributes
 
@@ -102,7 +110,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             Constants.ORB_INIT_SECURITY, ModelType.STRING, true)
             .setAttributeGroup(Constants.ORB_INIT)
             .setDefaultValue(NONE)
-            .setValidator(new EnumValidator<>(SecurityAllowedValues.class, true, false))
+            .setValidator(EnumValidator.create(SecurityAllowedValues.class))
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES).setAllowExpression(true)
             .addAccessConstraint(IIOP_SECURITY_DEF).build();
 
@@ -119,7 +127,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             Constants.ORB_INIT_TRANSACTIONS, ModelType.STRING, true)
             .setAttributeGroup(Constants.ORB_INIT)
             .setDefaultValue(NONE)
-            .setValidator(new EnumValidator<>(TransactionsAllowedValues.class, true, false))
+            .setValidator(EnumValidator.create(TransactionsAllowedValues.class))
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES).setAllowExpression(true).build();
 
     //Naming attributes
@@ -158,6 +166,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             .addAccessConstraint(IIOP_SECURITY_DEF)
             .setAlternatives(Constants.SERVER_SSL_CONTEXT, Constants.CLIENT_SSL_CONTEXT)
             .setCapabilityReference(Capabilities.LEGACY_SECURITY_DOMAIN_CAPABILITY, IIOP_CAPABILITY)
+            .setDeprecated(ModelVersion.create(3))
             .build();
 
     public static final AttributeDefinition SERVER_SSL_CONTEXT = new SimpleAttributeDefinitionBuilder(
@@ -305,7 +314,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             Constants.IOR_TRANSPORT_TRUST_IN_TARGET, ModelType.STRING, true)
             .setAttributeGroup(Constants.IOR_TRANSPORT_CONFIG)
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
-            .setValidator(new EnumValidator<>(IORTransportConfigValues.class, true, true,
+            .setValidator(new EnumValidator<>(IORTransportConfigValues.class,
                     IORTransportConfigValues.NONE, IORTransportConfigValues.SUPPORTED))
             .setAllowExpression(true)
             .setDeprecated(IIOPExtension.VERSION_1)
@@ -347,7 +356,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             .setAttributeGroup(Constants.IOR_AS_CONTEXT)
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
             .setDefaultValue(new ModelNode(AuthMethodValues.USERNAME_PASSWORD.toString()))
-            .setValidator(new EnumValidator<>(AuthMethodValues.class, true, true))
+            .setValidator(EnumValidator.create(AuthMethodValues.class))
             .setAllowExpression(true)
             .build();
 
@@ -357,6 +366,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
             .setAccessConstraints(SensitiveTargetAccessConstraintDefinition.SECURITY_REALM_REF)
             .setAllowExpression(true)
+            .setDeprecated(ModelVersion.create(3))
             .build();
 
     protected static final AttributeDefinition REQUIRED = new SimpleAttributeDefinitionBuilder(
@@ -374,7 +384,7 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
             .setAttributeGroup(Constants.IOR_SAS_CONTEXT)
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
             .setDefaultValue(NONE)
-            .setValidator(new EnumValidator<>(CallerPropagationValues.class, true, true))
+            .setValidator(EnumValidator.create(CallerPropagationValues.class))
             .setAllowExpression(true)
             .build();
 
@@ -435,8 +445,60 @@ class IIOPRootDefinition extends PersistentResourceDefinition {
     private IIOPRootDefinition() {
         super(new SimpleResourceDefinition.Parameters(IIOPExtension.PATH_SUBSYSTEM, IIOPExtension.getResourceDescriptionResolver())
                 .setAddHandler(new IIOPSubsystemAdd(ALL_ATTRIBUTES))
-                .setRemoveHandler(ReloadRequiredRemoveStepHandler.INSTANCE)
+                .setRemoveHandler(new ReloadRequiredRemoveStepHandler() {
+
+                    @Override
+                    protected void recordCapabilitiesAndRequirements(OperationContext context, ModelNode operation,
+                            Resource resource) throws OperationFailedException {
+                        super.recordCapabilitiesAndRequirements(context, operation, resource);
+                        ModelNode model = resource.getModel();
+                        String security = IIOPRootDefinition.SECURITY.resolveModelAttribute(context, model).asStringOrNull();
+                        if (SecurityAllowedValues.IDENTITY.toString().equals(security)) {
+                            context.deregisterCapabilityRequirement(LEGACY_SECURITY, Capabilities.IIOP_CAPABILITY, Constants.ORB_INIT_SECURITY);
+                        }
+                    }
+
+                })
                 .addCapabilities(IIOP_CAPABILITY));
+    }
+
+
+
+    @Override
+    public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
+        ReloadRequiredWriteAttributeHandler handler = new ReloadRequiredWriteAttributeHandler(ALL_ATTRIBUTES) {
+            @Override
+            protected void recordCapabilitiesAndRequirements(OperationContext context, AttributeDefinition attributeDefinition,
+                    ModelNode newValue, ModelNode oldValue) {
+
+                if (attributeDefinition != SECURITY) {
+                    return;
+                }
+
+                boolean oldIsLegacy;
+                boolean newIsLegacy;
+                try {
+                    // For historic reasons this attribute supports expressions so resolution is required.
+                    oldIsLegacy = SecurityAllowedValues.IDENTITY.toString().equals(IIOPRootDefinition.SECURITY.resolveValue(context, oldValue).asStringOrNull());
+                    newIsLegacy = SecurityAllowedValues.IDENTITY.toString().equals(IIOPRootDefinition.SECURITY.resolveValue(context, newValue).asStringOrNull());
+                } catch (OperationFailedException e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (oldIsLegacy && !newIsLegacy) {
+                    // Capability was registered but no longer required.
+                    context.deregisterCapabilityRequirement(LEGACY_SECURITY, Capabilities.IIOP_CAPABILITY, Constants.ORB_INIT_SECURITY);
+                } else if (!oldIsLegacy && newIsLegacy) {
+                    // Capability wasn't required but now is.
+                    context.registerAdditionalCapabilityRequirement(LEGACY_SECURITY, LEGACY_SECURITY, LEGACY_SECURITY);
+                }
+                // Other permutations mean no change in requirement.
+            }
+        };
+
+        for (AttributeDefinition attr : ALL_ATTRIBUTES) {
+            resourceRegistration.registerReadWriteAttribute(attr, null, handler);
+        }
     }
 
     @Override

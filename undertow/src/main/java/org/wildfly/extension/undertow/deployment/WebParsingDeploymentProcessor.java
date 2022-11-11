@@ -113,6 +113,10 @@ public class WebParsingDeploymentProcessor implements DeploymentUnitProcessor {
                                 validator.validate("http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd", xmlInput);
                             else if (webMetaData.getVersion() != null && webMetaData.getVersion().equals("4.0"))
                                 validator.validate("http://xmlns.jcp.org/xml/ns/javaee/web-app_4_0.xsd", xmlInput);
+                            else if (webMetaData.getVersion() != null && webMetaData.getVersion().equals("5.0"))
+                                validator.validate("https://jakarta.ee/xml/ns/jakartaee/web-app_5_0.xsd", xmlInput);
+                            else if (webMetaData.getVersion() != null && webMetaData.getVersion().equals("6.0"))
+                                validator.validate("https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd", xmlInput);
                             else
                                 validator.validate("-//Sun Microsystems, Inc.//DTD Web Application 2.2//EN", xmlInput);
                         } catch (SAXException e) {
@@ -147,9 +151,5 @@ public class WebParsingDeploymentProcessor implements DeploymentUnitProcessor {
         } finally {
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(old);
         }
-    }
-
-    @Override
-    public void undeploy(final DeploymentUnit context) {
     }
 }

@@ -28,8 +28,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.ejb.EJBException;
-import javax.transaction.Transaction;
+import jakarta.ejb.EJBException;
+import jakarta.transaction.Transaction;
 
 import org.jboss.as.ee.component.Component;
 import org.jboss.as.ee.component.ComponentInstance;
@@ -125,7 +125,7 @@ public class StatefulSessionComponentInstance extends SessionBeanComponentInstan
         super(component, preDestroyInterceptor, methodInterceptors);
 
         final SessionID existingSession = (SessionID) context.get(SessionID.class);
-        this.id = (existingSession != null) ? existingSession : component.getCache().createIdentifier();
+        this.id = (existingSession != null) ? existingSession : component.getCache().getIdentifierFactory().get();
         this.afterBegin = component.getAfterBegin();
         this.afterCompletion = component.getAfterCompletion();
         this.beforeCompletion = component.getBeforeCompletion();

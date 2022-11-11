@@ -52,6 +52,7 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.exporter.ZipExporter;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
+import org.junit.Assume;
 import org.junit.Test;
 import org.wildfly.security.auth.jaspi.Flag;
 import org.wildfly.test.security.common.AbstractElytronSetupTask;
@@ -167,6 +168,7 @@ abstract class ConfiguredJaspiTestBase extends JaspiTestBase {
 
             // Was the authType saved?
             request = new HttpGet(new URI(url.toExternalForm() + "role1?value=authType"));
+            request.addHeader("X-AUTH-TYPE", "SessionAuth");
             try (CloseableHttpResponse response = httpClient.execute(request)) {
                 int statusCode = response.getStatusLine().getStatusCode();
                 assertEquals("Unexpected status code in HTTP response.", SC_OK, statusCode);
@@ -177,6 +179,9 @@ abstract class ConfiguredJaspiTestBase extends JaspiTestBase {
 
     @Test
     public void testSuccess_EJB() throws Exception {
+
+        Assume.assumeTrue("EJB is not supported on the server; disabling ejb test aspects", ejbSupported);
+
         final HttpGet request = new HttpGet(new URI(url.toExternalForm() + "role1?action=ejb"));
 
         try (CloseableHttpClient httpClient = HttpClients.createDefault()) {

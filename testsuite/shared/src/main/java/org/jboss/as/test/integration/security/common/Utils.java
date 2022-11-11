@@ -21,6 +21,7 @@
  */
 package org.jboss.as.test.integration.security.common;
 
+import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 import static org.jboss.as.test.integration.security.common.negotiation.KerberosTestUtils.OID_KERBEROS_V5;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -55,6 +56,11 @@ import java.util.Objects;
 import java.util.Set;
 
 import javax.security.auth.Subject;
+import javax.security.auth.callback.Callback;
+import javax.security.auth.callback.CallbackHandler;
+import javax.security.auth.callback.NameCallback;
+import javax.security.auth.callback.PasswordCallback;
+import javax.security.auth.callback.UnsupportedCallbackException;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
@@ -62,9 +68,9 @@ import javax.security.auth.x500.X500Principal;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.lang.StringUtils;
-import org.apache.commons.lang.SystemUtils;
-import org.apache.commons.lang.text.StrSubstitutor;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
+import org.apache.commons.lang3.text.StrSubstitutor;
 import org.apache.directory.server.annotations.CreateTransport;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
@@ -76,6 +82,7 @@ import org.apache.http.StatusLine;
 import org.apache.http.auth.AuthSchemeProvider;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.RedirectStrategy;
@@ -110,7 +117,6 @@ import org.jboss.as.test.integration.security.common.negotiation.JBossNegotiateS
 import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.dmr.ModelNode;
 import org.jboss.logging.Logger;
-import org.jboss.security.auth.callback.UsernamePasswordHandler;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.asset.Asset;
 import org.jboss.shrinkwrap.api.asset.StringAsset;
@@ -798,6 +804,58 @@ public class Utils extends CoreUtils {
     }
 
     /**
+     * Do HTTP request using given client with BEARER_TOKEN authentication.The implementation makes 2 calls - the first without
+     * Authorization header provided (just to check response code and WWW-Authenticate header value), the second with
+     * Authorization header.
+     *
+     * @param url URL to make request to
+     * @param token bearer token
+     * @param expectedStatusCode expected status code
+     * @return response body
+     * @throws URISyntaxException
+     * @throws UnsupportedEncodingException
+     * @throws ClientProtocolException
+     */
+    public static String makeCallWithTokenAuthn(final URL url, String token, int expectedStatusCode)
+            throws URISyntaxException, IOException, ClientProtocolException, UnsupportedEncodingException {
+
+        LOGGER.trace("Requesting URL: " + url);
+
+        try (CloseableHttpClient httpClient = HttpClientBuilder.create().setRedirectStrategy(REDIRECT_STRATEGY).build()) {
+            final HttpGet httpGet = new HttpGet(url.toURI());
+            HttpResponse response = httpClient.execute(httpGet);
+            assertEquals("Unexpected HTTP response status code.", SC_UNAUTHORIZED, response.getStatusLine().getStatusCode());
+            Header[] authenticateHeaders = response.getHeaders("WWW-Authenticate");
+            assertTrue("Expected WWW-Authenticate header was not present in the HTTP response",
+                    authenticateHeaders != null && authenticateHeaders.length > 0);
+            boolean bearerAuthnHeaderFound = false;
+            for (Header header : authenticateHeaders) {
+                final String headerVal = header.getValue();
+                if (headerVal != null && headerVal.startsWith("Bearer")) {
+                    bearerAuthnHeaderFound = true;
+                    break;
+                }
+            }
+            assertTrue("WWW-Authenticate response header didn't request expected Bearer token authentication",
+                    bearerAuthnHeaderFound);
+            HttpEntity entity = response.getEntity();
+            if (entity != null) {
+                EntityUtils.consume(entity);
+            }
+
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug(String.format("HTTP response was SC_UNAUTHORIZED, let's authenticate using the token '%s'", token));
+            }
+
+            httpGet.addHeader("Authorization", "Bearer " + token);
+            response = httpClient.execute(httpGet);
+            assertEquals("Unexpected status code returned after the authentication.", expectedStatusCode,
+                    response.getStatusLine().getStatusCode());
+            return EntityUtils.toString(response.getEntity());
+        }
+    }
+
+    /**
      * Sets or removes (in case value==null) a system property. It's only a helper method, which avoids
      * {@link NullPointerException} thrown from {@link System#setProperty(String, String)} method, when the value is
      * <code>null</code>.
@@ -952,12 +1010,6 @@ public class Utils extends CoreUtils {
                 keystorePassword, null);
     }
 
-    public static String propertiesReplacer(String originalFile, File keystoreFile, File trustStoreFile,
-            String keystorePassword, String vaultConfig) {
-        return propertiesReplacer(originalFile, keystoreFile.getAbsolutePath(), trustStoreFile.getAbsolutePath(),
-                keystorePassword, vaultConfig);
-    }
-
     /**
      * Replace keystore paths and passwords variables in original configuration file with given values and set ${hostname}
      * variable from system property: node0
@@ -966,11 +1018,10 @@ public class Utils extends CoreUtils {
      * @param keystoreFile File
      * @param trustStoreFile File
      * @param keystorePassword String
-     * @param vaultConfig - path to vault settings
      * @return String content
      */
     public static String propertiesReplacer(String originalFile, String keystoreFile, String trustStoreFile,
-            String keystorePassword, String vaultConfig) {
+            String keystorePassword) {
         String hostname = getDefaultHost(false);
 
         // expand possible IPv6 address
@@ -984,11 +1035,6 @@ public class Utils extends CoreUtils {
 
         final Map<String, String> map = new HashMap<String, String>();
         String content = "";
-        if (vaultConfig == null) {
-            map.put("vaultConfig", "");
-        } else {
-            map.put("vaultConfig", vaultConfig);
-        }
         map.put("hostname", hostname);
         map.put("keystore", keystoreFile);
         map.put("truststore", trustStoreFile);
@@ -1122,13 +1168,13 @@ public class Utils extends CoreUtils {
      */
     public static LoginContext loginWithKerberos(final Krb5LoginConfiguration krb5Configuration, final String user,
             final String pass) throws LoginException {
-        LoginContext lc = new LoginContext(krb5Configuration.getName(), new UsernamePasswordHandler(user, pass));
+        LoginContext lc = new LoginContext(krb5Configuration.getName(), new UsernamePasswordCBH(user, pass.toCharArray()));
         if (IBM_JDK) {
             // workaround for IBM JDK on RHEL5 issue described in https://bugzilla.redhat.com/show_bug.cgi?id=1206177
             // The first negotiation always fail, so let's do a dummy login/logout round.
             lc.login();
             lc.logout();
-            lc = new LoginContext(krb5Configuration.getName(), new UsernamePasswordHandler(user, pass));
+            lc = new LoginContext(krb5Configuration.getName(), new UsernamePasswordCBH(user, pass.toCharArray()));
         }
         lc.login();
         return lc;
@@ -1200,5 +1246,41 @@ public class Utils extends CoreUtils {
         file.delete();
         file.mkdir();
         return file;
+    }
+
+    private static class UsernamePasswordCBH implements CallbackHandler {
+
+        /*
+         * Note: We use CallbackHandler implementations like this in test cases as test cases need to run unattended, a true
+         * CallbackHandler implementation should interact directly with the current user to prompt for the username and
+         * password.
+         *
+         * i.e. In a client app NEVER prompt for these values in advance and provide them to a CallbackHandler like this.
+         */
+
+        private final String username;
+        private final char[] password;
+
+        private UsernamePasswordCBH(final String username, final char[] password) {
+            this.username = username;
+            this.password = password;
+        }
+
+        @Override
+        public void handle(Callback[] callbacks) throws IOException, UnsupportedCallbackException {
+            for (Callback current : callbacks) {
+                if (current instanceof NameCallback) {
+                    NameCallback ncb = (NameCallback) current;
+                    ncb.setName(username);
+                } else if (current instanceof PasswordCallback) {
+                    PasswordCallback pcb = (PasswordCallback) current;
+                    pcb.setPassword(password);
+                } else {
+                    throw new UnsupportedCallbackException(current);
+                }
+            }
+
+        }
+
     }
 }

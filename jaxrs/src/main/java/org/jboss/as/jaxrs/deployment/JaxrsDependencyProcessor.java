@@ -36,25 +36,27 @@ import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.module.ModuleDependency;
 import org.jboss.as.server.deployment.module.ModuleSpecification;
 
-import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JACKSON_CORE_ASL;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JACKSON_DATATYPE_JDK8;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JACKSON_DATATYPE_JSR310;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JAXB_API;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JAXRS_API;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.JSON_API;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.MP_REST_CLIENT;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_ATOM;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CDI;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CLIENT;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CLIENT_API;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CLIENT_MICROPROFILE;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CRYPTO;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JACKSON2;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JAXB;
-import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JAXRS;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CORE;
+import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_CORE_SPI;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JSAPI;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JSON_B_PROVIDER;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_JSON_P_PROVIDER;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_MULTIPART;
 import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_VALIDATOR;
-import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_VALIDATOR_11;
-import static org.jboss.as.jaxrs.JaxrsSubsystemDefinition.RESTEASY_YAML;
 import org.jboss.as.server.deployment.module.ResourceRoot;
 import org.jboss.as.weld.WeldCapability;
 import org.jboss.modules.Module;
@@ -64,13 +66,13 @@ import org.jboss.modules.filter.PathFilters;
 import org.jboss.vfs.VirtualFile;
 
 /**
- * Deployment processor which adds a module dependencies for modules needed for JAX-RS deployments.
+ * Deployment processor which adds a module dependencies for modules needed for Jakarta RESTful Web Services deployments.
  *
  * @author Stuart Douglas
  */
 public class JaxrsDependencyProcessor implements DeploymentUnitProcessor {
 
-    private static final String CLIENT_BUILDER = "META-INF/services/javax.ws.rs.client.ClientBuilder";
+    private static final String CLIENT_BUILDER = "META-INF/services/jakarta.ws.rs.client.ClientBuilder";
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
         final ModuleSpecification moduleSpecification = deploymentUnit.getAttachment(Attachments.MODULE_SPECIFICATION);
@@ -82,21 +84,21 @@ public class JaxrsDependencyProcessor implements DeploymentUnitProcessor {
         addDependency(moduleSpecification, moduleLoader, JAXB_API, false, false);
         addDependency(moduleSpecification, moduleLoader, JSON_API, false, false);
 
-        //we need to add these from all deployments, as they could be using the JAX-RS client
+        //we need to add these from all deployments, as they could be using the Jakarta RESTful Web Services client
 
         addDependency(moduleSpecification, moduleLoader, RESTEASY_ATOM, true, false);
-        addDependency(moduleSpecification, moduleLoader, RESTEASY_VALIDATOR_11, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_VALIDATOR, true, false);
-        addDependency(moduleSpecification, moduleLoader, RESTEASY_JAXRS, true, deploymentBundlesClientBuilder);
+        addDependency(moduleSpecification, moduleLoader, RESTEASY_CLIENT, true, deploymentBundlesClientBuilder);
+        addDependency(moduleSpecification, moduleLoader, RESTEASY_CLIENT_API, true, deploymentBundlesClientBuilder);
+        addDependency(moduleSpecification, moduleLoader, RESTEASY_CORE, true, deploymentBundlesClientBuilder);
+        addDependency(moduleSpecification, moduleLoader, RESTEASY_CORE_SPI, true, deploymentBundlesClientBuilder);
+        addDependency(moduleSpecification, moduleLoader, RESTEASY_CLIENT_MICROPROFILE, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_JAXB, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_JACKSON2, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_JSON_P_PROVIDER, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_JSON_B_PROVIDER, true, false);
-        //addDependency(moduleSpecification, moduleLoader, RESTEASY_JETTISON);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_JSAPI, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_MULTIPART, true, false);
-        addDependency(moduleSpecification, moduleLoader, RESTEASY_YAML, true, false);
-        addDependency(moduleSpecification, moduleLoader, JACKSON_CORE_ASL, true, false);
         addDependency(moduleSpecification, moduleLoader, RESTEASY_CRYPTO, true, false);
         addDependency(moduleSpecification, moduleLoader, JACKSON_DATATYPE_JDK8, true, false);
         addDependency(moduleSpecification, moduleLoader, JACKSON_DATATYPE_JSR310, true, false);
@@ -107,6 +109,10 @@ public class JaxrsDependencyProcessor implements DeploymentUnitProcessor {
             if (api.isPartOfWeldDeployment(deploymentUnit)) {
                 addDependency(moduleSpecification, moduleLoader, RESTEASY_CDI, true, false);
             }
+        }
+        if (support.hasCapability("org.wildfly.microprofile.config")) {
+            addDependency(moduleSpecification, moduleLoader, MP_REST_CLIENT, true, false);
+            addDependency(moduleSpecification, moduleLoader, "org.jboss.resteasy.microprofile.config", true, false);
         }
     }
 
@@ -126,15 +132,15 @@ public class JaxrsDependencyProcessor implements DeploymentUnitProcessor {
 
     private void addDependency(ModuleSpecification moduleSpecification, ModuleLoader moduleLoader,
                                ModuleIdentifier moduleIdentifier, boolean optional, boolean deploymentBundelesClientBuilder) {
+        addDependency(moduleSpecification, moduleLoader, moduleIdentifier.toString(), optional, deploymentBundelesClientBuilder);
+    }
+
+    private void addDependency(ModuleSpecification moduleSpecification, ModuleLoader moduleLoader,
+                               String moduleIdentifier, boolean optional, boolean deploymentBundelesClientBuilder) {
         ModuleDependency dependency = new ModuleDependency(moduleLoader, moduleIdentifier, optional, false, true, false);
         if(deploymentBundelesClientBuilder) {
             dependency.addImportFilter(PathFilters.is(CLIENT_BUILDER), false);
         }
         moduleSpecification.addSystemDependency(dependency);
-    }
-
-    @Override
-    public void undeploy(DeploymentUnit context) {
-
     }
 }

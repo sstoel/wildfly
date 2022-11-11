@@ -22,6 +22,7 @@
 
 package org.jboss.as.jpa.interceptor;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,7 +46,7 @@ public class WebNonTxEmCloserAction implements SetupAction {
 
     @Override
     public void teardown(final Map<String, Object> properties) {
-        NonTxEmCloser.popCall();    // close any transactional entity managers that were created without a jta transaction.
+        NonTxEmCloser.popCall();    // close any transactional entity managers that were created without a Jakarta Transactions transaction.
     }
 
     @Override
@@ -55,6 +56,6 @@ public class WebNonTxEmCloserAction implements SetupAction {
 
     @Override
     public Set<ServiceName> dependencies() {
-        return null;
+        return Collections.emptySet();
     }
 }
