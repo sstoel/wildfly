@@ -32,11 +32,14 @@ import io.undertow.servlet.api.Deployment;
 import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
 
+import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 
 import org.jboss.as.web.common.StartupContext;
 import org.jboss.as.web.common.WebInjectionContainer;
+import org.jboss.as.web.host.ContextActivator;
 import org.jboss.msc.service.Service;
+import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.StartContext;
 import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
@@ -170,6 +173,50 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
             return deploymentManager.getDeployment();
         } else {
             return null;
+        }
+    }
+
+    /**
+     * Provides an API to start/stop the {@link UndertowDeploymentService}.
+     * This should register/deregister the web context.
+     */
+    protected static class ContextActivatorImpl implements ContextActivator {
+        private final ServiceController<UndertowDeploymentService> controller;
+        ContextActivatorImpl(ServiceController<?> controller) {
+            this.controller = (ServiceController<UndertowDeploymentService>) controller;
+        }
+        /**
+         * Start the web context synchronously.
+         * <p/>
+         * This would happen when the OSGi webapp gets explicitly started.
+         */
+        @Override
+        public synchronized boolean startContext() {
+            try {
+                UndertowDeploymentService service = controller.getValue();
+                service.startContext();
+            } catch (Exception ex) {
+                throw UndertowLogger.ROOT_LOGGER.cannotActivateContext(ex, controller.getName());
+            }
+            return true;
+        }
+        /**
+         * Stop the web context synchronously.
+         * <p/>
+         * This would happen when the OSGi webapp gets explicitly stops.
+         */
+        @Override
+        public synchronized boolean stopContext() {
+            UndertowDeploymentService service = controller.getValue();
+            service.stopContext();
+            return true;
+        }
+        @Override
+        public ServletContext getServletContext() {
+            UndertowDeploymentService service = controller.getValue();
+            DeploymentManager manager = service.deploymentManager;
+            Deployment deployment = manager != null ? manager.getDeployment() : null;
+            return deployment != null ? deployment.getServletContext() : null;
         }
     }
 

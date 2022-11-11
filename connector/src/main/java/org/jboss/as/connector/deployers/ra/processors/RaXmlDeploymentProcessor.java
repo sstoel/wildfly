@@ -25,6 +25,7 @@ package org.jboss.as.connector.deployers.ra.processors;
 import static org.jboss.as.connector.logging.ConnectorLogger.ROOT_LOGGER;
 import static org.jboss.as.server.deployment.Attachments.CAPABILITY_SERVICE_SUPPORT;
 
+import org.jboss.as.connector.logging.ConnectorLogger;
 import org.jboss.as.connector.metadata.xmldescriptors.ConnectorXmlDescriptor;
 import org.jboss.as.connector.services.resourceadapters.deployment.InactiveResourceAdapterDeploymentService;
 import org.jboss.as.connector.subsystems.resourceadapters.ResourceAdaptersService;
@@ -94,6 +95,9 @@ public class RaXmlDeploymentProcessor implements DeploymentUnitProcessor {
 
         ROOT_LOGGER.tracef("processing Raxml");
         Module module = deploymentUnit.getAttachment(Attachments.MODULE);
+
+        if (module == null)
+            throw ConnectorLogger.ROOT_LOGGER.failedToGetModuleAttachment(deploymentUnit);
 
         try {
             final ServiceTarget serviceTarget = phaseContext.getServiceTarget();

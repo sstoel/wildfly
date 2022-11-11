@@ -373,6 +373,7 @@ via the CLI one could:
         "jmx-connector-registry",
         "jmx-connector-server",
         "jndi",
+        "osgi-http",
         "remoting",
         "txn-recovery-environment",
         "txn-status-manager"

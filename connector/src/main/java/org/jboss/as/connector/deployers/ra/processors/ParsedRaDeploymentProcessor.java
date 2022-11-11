@@ -29,6 +29,8 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.jboss.as.connector.annotations.repository.jandex.JandexAnnotationRepositoryImpl;
+import org.jboss.as.connector.logging.ConnectorLogger;
+import org.jboss.as.connector.metadata.api.resourceadapter.ActivationSecurityUtil;
 import org.jboss.as.connector.metadata.deployment.ResourceAdapterDeployment;
 import org.jboss.as.connector.metadata.xmldescriptors.ConnectorXmlDescriptor;
 import org.jboss.as.connector.metadata.xmldescriptors.IronJacamarXmlDescriptor;
@@ -117,6 +119,8 @@ public class ParsedRaDeploymentProcessor implements DeploymentUnitProcessor {
                 .getAttachment(IronJacamarXmlDescriptor.ATTACHMENT_KEY);
 
         final Module module = deploymentUnit.getAttachment(Attachments.MODULE);
+        if (module == null)
+            throw ConnectorLogger.ROOT_LOGGER.failedToGetModuleAttachment(phaseContext.getDeploymentUnit());
 
         DEPLOYMENT_CONNECTOR_LOGGER.debugf("ParsedRaDeploymentProcessor: Processing=%s", deploymentUnit);
 

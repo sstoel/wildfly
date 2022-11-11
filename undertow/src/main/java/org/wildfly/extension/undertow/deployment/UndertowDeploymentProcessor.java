@@ -88,6 +88,7 @@ import org.jboss.as.web.common.SimpleWebInjectionContainer;
 import org.jboss.as.web.common.WarMetaData;
 import org.jboss.as.web.common.WebComponentDescription;
 import org.jboss.as.web.common.WebInjectionContainer;
+import org.jboss.as.web.host.ContextActivator;
 import org.jboss.as.web.session.SessionIdentifierCodec;
 import org.jboss.as.web.session.SharedSessionManagerConfig;
 import org.jboss.dmr.ModelNode;
@@ -480,7 +481,8 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor, Fun
         for (final ServiceName dependentComponent : dependentComponents) {
             udsBuilder.requires(dependentComponent);
         }
-        udsBuilder.setInstance(new UndertowDeploymentService(sConsumer, cSupplier, seSupplier, hSupplier, diSupplier, injectionContainer, true));
+        final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
+        udsBuilder.setInstance(new UndertowDeploymentService(sConsumer, cSupplier, seSupplier, hSupplier, diSupplier, injectionContainer, !isWebappBundle));
         udsBuilder.install();
 
         deploymentUnit.addToAttachmentList(Attachments.DEPLOYMENT_COMPLETE_SERVICES, deploymentServiceName);
@@ -505,6 +507,15 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor, Fun
                 jaccBuilder.requires(deploymentServiceName);
                 jaccBuilder.setInitialMode(Mode.PASSIVE).install();
             }
+        }
+
+        // OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
+        if (isWebappBundle) {
+            UndertowDeploymentService.ContextActivatorImpl activator = new UndertowDeploymentService.ContextActivatorImpl(udsBuilder.install());
+            deploymentUnit.putAttachment(ContextActivator.ATTACHMENT_KEY, activator);
+            deploymentUnit.addToAttachmentList(Attachments.BUNDLE_ACTIVE_DEPENDENCIES, deploymentServiceName);
+        } else {
+            udsBuilder.install();
         }
 
         // Process the web related mgmt information
