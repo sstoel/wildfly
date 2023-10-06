@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.connector.subsystems.datasources;
@@ -95,7 +78,7 @@ public class ModifiableDataSource extends DataSourceAbstractImpl implements Data
      * @param mcp mcp
      * @param enlistmentTrace enlistmentTrace
      * @param pool                         pool
-     * @throws org.jboss.jca.common.api.validator.ValidateException
+     * @throws ValidateException
      *          ValidateException
      */
     public ModifiableDataSource(String connectionUrl, String driverClass, String dataSourceClass, String driver,
@@ -312,87 +295,87 @@ public class ModifiableDataSource extends DataSourceAbstractImpl implements Data
         sb.append("<datasource");
 
         if (jndiName != null)
-            sb.append(" ").append(DataSource.Attribute.JNDI_NAME).append("=\"").append(jndiName).append("\"");
+            sb.append(" ").append(Attribute.JNDI_NAME).append("=\"").append(jndiName).append("\"");
 
         if (poolName != null)
-            sb.append(" ").append(DataSource.Attribute.POOL_NAME).append("=\"").append(poolName).append("\"");
+            sb.append(" ").append(Attribute.POOL_NAME).append("=\"").append(poolName).append("\"");
 
         if (enabled != null)
-            sb.append(" ").append(DataSource.Attribute.ENABLED).append("=\"").append(enabled).append("\"");
+            sb.append(" ").append(Attribute.ENABLED).append("=\"").append(enabled).append("\"");
 
         if (useJavaContext != null) {
-            sb.append(" ").append(DataSource.Attribute.USE_JAVA_CONTEXT);
+            sb.append(" ").append(Attribute.USE_JAVA_CONTEXT);
             sb.append("=\"").append(useJavaContext).append("\"");
         }
 
         if (spy)
-            sb.append(" ").append(DataSource.Attribute.SPY).append("=\"").append(spy).append("\"");
+            sb.append(" ").append(Attribute.SPY).append("=\"").append(spy).append("\"");
 
         if (useCcm)
-            sb.append(" ").append(DataSource.Attribute.USE_CCM).append("=\"").append(useCcm).append("\"");
+            sb.append(" ").append(Attribute.USE_CCM).append("=\"").append(useCcm).append("\"");
 
         if (jta)
-            sb.append(" ").append(DataSource.Attribute.JTA).append("=\"").append(jta).append("\"");
+            sb.append(" ").append(Attribute.JTA).append("=\"").append(jta).append("\"");
 
         sb.append(">");
 
         if (connectionUrl != null) {
-            sb.append("<").append(DataSource.Tag.CONNECTION_URL).append(">");
+            sb.append("<").append(Tag.CONNECTION_URL).append(">");
             sb.append(connectionUrl);
-            sb.append("</").append(DataSource.Tag.CONNECTION_URL).append(">");
+            sb.append("</").append(Tag.CONNECTION_URL).append(">");
         }
 
         if (driverClass != null) {
-            sb.append("<").append(DataSource.Tag.DRIVER_CLASS).append(">");
+            sb.append("<").append(Tag.DRIVER_CLASS).append(">");
             sb.append(driverClass);
-            sb.append("</").append(DataSource.Tag.DRIVER_CLASS).append(">");
+            sb.append("</").append(Tag.DRIVER_CLASS).append(">");
         }
 
         if (dataSourceClass != null) {
-            sb.append("<").append(DataSource.Tag.DATASOURCE_CLASS).append(">");
+            sb.append("<").append(Tag.DATASOURCE_CLASS).append(">");
             sb.append(dataSourceClass);
-            sb.append("</").append(DataSource.Tag.DATASOURCE_CLASS).append(">");
+            sb.append("</").append(Tag.DATASOURCE_CLASS).append(">");
         }
 
         if (driver != null) {
-            sb.append("<").append(DataSource.Tag.DRIVER).append(">");
+            sb.append("<").append(Tag.DRIVER).append(">");
             sb.append(driver);
-            sb.append("</").append(DataSource.Tag.DRIVER).append(">");
+            sb.append("</").append(Tag.DRIVER).append(">");
         }
 
         if (connectionProperties != null && connectionProperties.size() > 0) {
             Iterator<Map.Entry<String, String>> it = connectionProperties.entrySet().iterator();
             while (it.hasNext()) {
                 Map.Entry<String, String> entry = it.next();
-                sb.append("<").append(DataSource.Tag.CONNECTION_PROPERTY);
+                sb.append("<").append(Tag.CONNECTION_PROPERTY);
                 sb.append(" name=\"").append(entry.getKey()).append("\">");
                 sb.append(entry.getValue());
-                sb.append("</").append(DataSource.Tag.CONNECTION_PROPERTY).append(">");
+                sb.append("</").append(Tag.CONNECTION_PROPERTY).append(">");
             }
         }
 
         if (newConnectionSql != null) {
-            sb.append("<").append(DataSource.Tag.NEW_CONNECTION_SQL).append(">");
+            sb.append("<").append(Tag.NEW_CONNECTION_SQL).append(">");
             sb.append(newConnectionSql);
-            sb.append("</").append(DataSource.Tag.NEW_CONNECTION_SQL).append(">");
+            sb.append("</").append(Tag.NEW_CONNECTION_SQL).append(">");
         }
 
         if (transactionIsolation != null) {
-            sb.append("<").append(DataSource.Tag.TRANSACTION_ISOLATION).append(">");
+            sb.append("<").append(Tag.TRANSACTION_ISOLATION).append(">");
             sb.append(transactionIsolation);
-            sb.append("</").append(DataSource.Tag.TRANSACTION_ISOLATION).append(">");
+            sb.append("</").append(Tag.TRANSACTION_ISOLATION).append(">");
         }
 
         if (urlDelimiter != null) {
-            sb.append("<").append(DataSource.Tag.URL_DELIMITER).append(">");
+            sb.append("<").append(Tag.URL_DELIMITER).append(">");
             sb.append(urlDelimiter);
-            sb.append("</").append(DataSource.Tag.URL_DELIMITER).append(">");
+            sb.append("</").append(Tag.URL_DELIMITER).append(">");
         }
 
         if (urlSelectorStrategyClassName != null) {
-            sb.append("<").append(DataSource.Tag.URL_SELECTOR_STRATEGY_CLASS_NAME).append(">");
+            sb.append("<").append(Tag.URL_SELECTOR_STRATEGY_CLASS_NAME).append(">");
             sb.append(urlSelectorStrategyClassName);
-            sb.append("</").append(DataSource.Tag.URL_SELECTOR_STRATEGY_CLASS_NAME).append(">");
+            sb.append("</").append(Tag.URL_SELECTOR_STRATEGY_CLASS_NAME).append(">");
         }
 
         if (pool != null)

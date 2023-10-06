@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2008, Red Hat Middleware LLC, and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.iiop.openjdk.rmi.ir;
 
@@ -98,7 +81,7 @@ class RepositoryImpl extends ContainerImpl implements RepositoryOperations, Loca
 
     // Repository implementation -------------------------------------
 
-    public Contained lookup_id(java.lang.String search_id) {
+    public Contained lookup_id(String search_id) {
         LocalContained c = _lookup_id(search_id);
 
         if (c == null)
@@ -107,7 +90,7 @@ class RepositoryImpl extends ContainerImpl implements RepositoryOperations, Loca
         return ContainedHelper.narrow(c.getReference());
     }
 
-    public TypeCode get_canonical_typecode(org.omg.CORBA.TypeCode tc) {
+    public TypeCode get_canonical_typecode(TypeCode tc) {
         // TODO
         return null;
     }
@@ -178,7 +161,7 @@ class RepositoryImpl extends ContainerImpl implements RepositoryOperations, Loca
     Map sequenceIdMap = new HashMap();
 
 
-    LocalContained _lookup_id(java.lang.String search_id) {
+    LocalContained _lookup_id(String search_id) {
         // mapping of arrays are special
         if (search_id.startsWith("RMI:["))
             return (ValueBoxDefImpl) sequenceIdMap.get(search_id);

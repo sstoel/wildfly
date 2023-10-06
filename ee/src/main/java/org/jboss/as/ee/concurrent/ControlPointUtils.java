@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2014, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 2110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ee.concurrent;
@@ -26,9 +9,9 @@ import org.jboss.as.ee.logging.EeLogger;
 import org.wildfly.extension.requestcontroller.ControlPoint;
 import org.wildfly.extension.requestcontroller.RunResult;
 
-import javax.enterprise.concurrent.ManagedExecutorService;
-import javax.enterprise.concurrent.ManagedTask;
-import javax.enterprise.concurrent.ManagedTaskListener;
+import jakarta.enterprise.concurrent.ManagedExecutorService;
+import jakarta.enterprise.concurrent.ManagedTask;
+import jakarta.enterprise.concurrent.ManagedTaskListener;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -79,8 +62,8 @@ public class ControlPointUtils {
             throw ROOT_LOGGER.rejectedDueToMaxRequests();
         }
         try {
-            final ControlledCallable controlledCallable = new ControlledCallable(callable, controlPoint);
-            return callable instanceof ManagedTask ? new ControlledManagedCallable(controlledCallable, (ManagedTask) callable) : controlledCallable;
+            final ControlledCallable<T> controlledCallable = new ControlledCallable<>(callable, controlPoint);
+            return callable instanceof ManagedTask ? new ControlledManagedCallable<>(controlledCallable, (ManagedTask) callable) : controlledCallable;
         } catch (Exception e) {
             controlPoint.requestComplete();
             throw new RejectedExecutionException(e);
@@ -100,8 +83,8 @@ public class ControlPointUtils {
         if (controlPoint == null || callable == null) {
             return callable;
         } else {
-            final ControlledScheduledCallable controlledScheduledCallable = new ControlledScheduledCallable(callable, controlPoint);
-            return callable instanceof ManagedTask ? new ControlledManagedCallable(controlledScheduledCallable, (ManagedTask) callable) : controlledScheduledCallable;
+            final ControlledScheduledCallable<T> controlledScheduledCallable = new ControlledScheduledCallable<>(callable, controlPoint);
+            return callable instanceof ManagedTask ? new ControlledManagedCallable<>(controlledScheduledCallable, (ManagedTask) callable) : controlledScheduledCallable;
         }
     }
 
@@ -171,21 +154,31 @@ public class ControlPointUtils {
         public void run() {
             if (controlPoint == null) {
                 runnable.run();
-            } else
+            } else {
+                RuntimeException runnableException = null;
                 try {
                     if (controlPoint.beginRequest() == RunResult.RUN) {
                         try {
                             runnable.run();
+                        } catch (RuntimeException e) {
+                            runnableException = e;
+                            throw e;
                         } finally {
                             controlPoint.requestComplete();
                         }
-                        return;
                     } else {
                         throw EeLogger.ROOT_LOGGER.cannotRunScheduledTask(runnable);
                     }
-                } catch (Exception e) {
-                    EeLogger.ROOT_LOGGER.failedToRunTask(e);
+                } catch (RuntimeException re) {
+                    // WFLY-13043
+                    if (runnableException == null) {
+                        EeLogger.ROOT_LOGGER.failedToRunTask(runnable,re);
+                        return;
+                    } else {
+                        throw EeLogger.ROOT_LOGGER.failureWhileRunningTask(runnable, re);
+                    }
                 }
+            }
         }
     }
 
@@ -215,11 +208,12 @@ public class ControlPointUtils {
                         } finally {
                             controlPoint.requestComplete();
                         }
+                    } else {
+                        throw EeLogger.ROOT_LOGGER.cannotRunScheduledTask(callable);
                     }
                 } catch (Exception e) {
-                    EeLogger.ROOT_LOGGER.failedToRunTask(e);
+                    throw EeLogger.ROOT_LOGGER.failureWhileRunningTask(callable, e);
                 }
-                throw EeLogger.ROOT_LOGGER.cannotRunScheduledTask(callable);
             }
         }
     }

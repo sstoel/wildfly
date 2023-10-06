@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.connector.subsystems.resourceadapters;
@@ -192,21 +175,21 @@ public class ModifiableAdminObject implements AdminObject {
         sb.append("<admin-object");
 
         if (className != null)
-            sb.append(" ").append(AdminObject.Attribute.CLASS_NAME).append("=\"").append(className).append("\"");
+            sb.append(" ").append(Attribute.CLASS_NAME).append("=\"").append(className).append("\"");
 
         if (jndiName != null)
-            sb.append(" ").append(AdminObject.Attribute.JNDI_NAME).append("=\"").append(jndiName).append("\"");
+            sb.append(" ").append(Attribute.JNDI_NAME).append("=\"").append(jndiName).append("\"");
 
         if (enabled != null)
-            sb.append(" ").append(AdminObject.Attribute.ENABLED).append("=\"").append(enabled).append("\"");
+            sb.append(" ").append(Attribute.ENABLED).append("=\"").append(enabled).append("\"");
 
         if (useJavaContext != null) {
-            sb.append(" ").append(AdminObject.Attribute.USE_JAVA_CONTEXT);
+            sb.append(" ").append(Attribute.USE_JAVA_CONTEXT);
             sb.append("=\"").append(useJavaContext).append("\"");
         }
 
         if (poolName != null)
-            sb.append(" ").append(AdminObject.Attribute.POOL_NAME).append("=\"").append(poolName).append("\"");
+            sb.append(" ").append(Attribute.POOL_NAME).append("=\"").append(poolName).append("\"");
 
         sb.append(">");
 
@@ -215,10 +198,10 @@ public class ModifiableAdminObject implements AdminObject {
             while (it.hasNext()) {
                 Map.Entry<String, String> entry = it.next();
 
-                sb.append("<").append(AdminObject.Tag.CONFIG_PROPERTY);
+                sb.append("<").append(Tag.CONFIG_PROPERTY);
                 sb.append(" name=\"").append(entry.getKey()).append("\">");
                 sb.append(entry.getValue());
-                sb.append("</").append(AdminObject.Tag.CONFIG_PROPERTY).append(">");
+                sb.append("</").append(Tag.CONFIG_PROPERTY).append(">");
             }
         }
 

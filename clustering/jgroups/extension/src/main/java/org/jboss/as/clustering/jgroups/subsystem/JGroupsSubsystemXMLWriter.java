@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.clustering.jgroups.subsystem;
@@ -46,7 +29,7 @@ public class JGroupsSubsystemXMLWriter implements XMLElementWriter<SubsystemMars
 
     @Override
     public void writeContent(XMLExtendedStreamWriter writer, SubsystemMarshallingContext context) throws XMLStreamException {
-        context.startSubsystemElement(JGroupsSchema.CURRENT.getNamespaceUri(), false);
+        context.startSubsystemElement(JGroupsSubsystemSchema.CURRENT.getNamespace().getUri(), false);
         ModelNode model = context.getModelNode();
 
         if (model.isDefined()) {
@@ -107,7 +90,7 @@ public class JGroupsSubsystemXMLWriter implements XMLElementWriter<SubsystemMars
         writeGenericProtocolAttributes(writer, property);
         ModelNode transport = property.getValue();
         writeAttributes(writer, transport, TransportResourceDefinition.Attribute.class);
-        if (containsName(TransportRegistration.SocketTransport.class, property.getName())) {
+        if (containsName(TransportResourceRegistrar.SocketTransport.class, property.getName())) {
             writeAttributes(writer, property.getValue(), SocketTransportResourceDefinition.Attribute.class);
         }
         writeElement(writer, transport, AbstractProtocolResourceDefinition.Attribute.PROPERTIES);
@@ -131,17 +114,17 @@ public class JGroupsSubsystemXMLWriter implements XMLElementWriter<SubsystemMars
         writeGenericProtocolAttributes(writer, property);
 
         String protocol = property.getName();
-        if (containsName(ProtocolRegistration.MulticastProtocol.class, protocol)) {
+        if (containsName(ProtocolResourceRegistrar.MulticastProtocol.class, protocol)) {
             writeAttributes(writer, property.getValue(), MulticastProtocolResourceDefinition.Attribute.class);
-        } else if (containsName(ProtocolRegistration.SocketProtocol.class, protocol)) {
+        } else if (containsName(ProtocolResourceRegistrar.SocketProtocol.class, protocol)) {
             writeAttributes(writer, property.getValue(), SocketProtocolResourceDefinition.Attribute.class);
-        } else if (containsName(ProtocolRegistration.JdbcProtocol.class, protocol)) {
+        } else if (containsName(ProtocolResourceRegistrar.JdbcProtocol.class, protocol)) {
             writeAttributes(writer, property.getValue(), JDBCProtocolResourceDefinition.Attribute.class);
-        } else if (containsName(ProtocolRegistration.EncryptProtocol.class, protocol)) {
+        } else if (containsName(ProtocolResourceRegistrar.EncryptProtocol.class, protocol)) {
             writeAttributes(writer, property.getValue(), EncryptProtocolResourceDefinition.Attribute.class);
-        } else if (containsName(ProtocolRegistration.InitialHostsProtocol.class, protocol)) {
+        } else if (containsName(ProtocolResourceRegistrar.InitialHostsProtocol.class, protocol)) {
             writeAttributes(writer, property.getValue(), SocketDiscoveryProtocolResourceDefinition.Attribute.class);
-        } else if (containsName(ProtocolRegistration.AuthProtocol.class, protocol)) {
+        } else if (containsName(ProtocolResourceRegistrar.AuthProtocol.class, protocol)) {
             writeAuthToken(writer, property.getValue().get(AuthTokenResourceDefinition.WILDCARD_PATH.getKey()).asProperty());
         }
     }

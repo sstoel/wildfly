@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.extension.messaging.activemq.jms;
@@ -102,8 +85,6 @@ import org.jboss.jca.core.api.connectionmanager.ccm.CachedConnectionManager;
 import org.jboss.jca.core.api.management.ManagementRepository;
 import org.jboss.jca.core.spi.rar.ResourceAdapterRepository;
 import org.jboss.jca.core.spi.transaction.TransactionIntegration;
-import org.jboss.msc.inject.Injector;
-import org.jboss.msc.inject.MapInjector;
 import org.jboss.msc.service.Service;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceContainer;
@@ -116,7 +97,6 @@ import org.jboss.msc.service.StopContext;
 import org.jboss.msc.value.InjectedValue;
 import org.wildfly.common.function.ExceptionSupplier;
 import org.wildfly.extension.messaging.activemq.ActiveMQActivationService;
-import org.wildfly.extension.messaging.activemq.ActiveMQResourceAdapter;
 import org.wildfly.extension.messaging.activemq.MessagingServices;
 import org.wildfly.extension.messaging.activemq.broadcast.CommandDispatcherBroadcastEndpointFactory;
 import org.wildfly.extension.messaging.activemq.logging.MessagingLogger;
@@ -140,20 +120,20 @@ public class PooledConnectionFactoryService implements Service<Void> {
     public static final String CONNECTION_PARAMETERS = "connectionParameters";
     private static final String ACTIVEMQ_ACTIVATION = "org.apache.activemq.artemis.ra.inflow.ActiveMQActivationSpec";
     private static final String ACTIVEMQ_CONN_DEF = "ActiveMQConnectionDefinition";
-    private static final String ACTIVEMQ_RESOURCE_ADAPTER = ActiveMQResourceAdapter.class.getName();
+    private static final String ACTIVEMQ_RESOURCE_ADAPTER = "org.wildfly.extension.messaging.activemq.ActiveMQResourceAdapter";
     private static final String RAMANAGED_CONN_FACTORY = "org.apache.activemq.artemis.ra.ActiveMQRAManagedConnectionFactory";
     private static final String RA_CONN_FACTORY = "org.apache.activemq.artemis.ra.ActiveMQRAConnectionFactory";
     private static final String RA_CONN_FACTORY_IMPL = "org.apache.activemq.artemis.ra.ActiveMQRAConnectionFactoryImpl";
-    private static final String JMS_SESSION = "javax.jms.Session";
+    private static final String JMS_SESSION = "jakarta.jms.Session";
     private static final String ACTIVEMQ_RA_SESSION = "org.apache.activemq.artemis.ra.ActiveMQRASession";
     private static final String BASIC_PASS = "BasicPassword";
-    private static final String JMS_QUEUE = "javax.jms.Queue";
+    private static final String JMS_QUEUE = "jakarta.jms.Queue";
     private static final String STRING_TYPE = "java.lang.String";
     private static final String INTEGER_TYPE = "java.lang.Integer";
     private static final String LONG_TYPE = "java.lang.Long";
     private static final String SESSION_DEFAULT_TYPE = "SessionDefaultType";
     private static final String TRY_LOCK = "UseTryLock";
-    private static final String JMS_MESSAGE_LISTENER = "javax.jms.MessageListener";
+    private static final String JMS_MESSAGE_LISTENER = "jakarta.jms.MessageListener";
     private static final String DEFAULT_MAX_RECONNECTS = "5";
     public static final String GROUP_ADDRESS = "discoveryAddress";
     public static final String DISCOVERY_INITIAL_WAIT_TIMEOUT = "discoveryInitialWaitTimeout";
@@ -546,10 +526,10 @@ public class PooledConnectionFactoryService implements Service<Void> {
         //   <application />
         // </security>
         // => PoolStrategy.POOL_BY_CRI
-        Security security = new SecurityImpl(null, null, true, false);
+        Security security = new SecurityImpl(null, null, true);
         // register the XA Connection *without* recovery. ActiveMQ already takes care of the registration with the correct credentials
         // when its ResourceAdapter is started
-        Recovery recovery = new Recovery(new CredentialImpl(null, null, null, false, null), null, Boolean.TRUE);
+        Recovery recovery = new Recovery(new CredentialImpl(null, null, null, null), null, Boolean.TRUE);
         Validation validation = new ValidationImpl(Defaults.VALIDATE_ON_MATCH, null, null, false);
         // do no track
         return new ConnectionDefinitionImpl(Collections.<String, String>emptyMap(), RAMANAGED_CONN_FACTORY, jndiName, ACTIVEMQ_CONN_DEF, true, true, true, Defaults.SHARABLE, Defaults.ENLISTMENT, Defaults.CONNECTABLE, false, managedConnectionPoolClassName, enlistmentTrace, pool, timeOut, validation, security, recovery, isXA);
@@ -596,13 +576,4 @@ public class PooledConnectionFactoryService implements Service<Void> {
     public void stop(StopContext context) {
         // Service context takes care of this
     }
-
-    Injector<SocketBinding> getSocketBindingInjector(String name) {
-        return new MapInjector<String, SocketBinding>(socketBindings, name);
-    }
-
-    public Injector<ActiveMQServer> getActiveMQServer() {
-        return activeMQServer;
-    }
-
 }

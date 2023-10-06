@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.jpa.config;
@@ -25,7 +8,7 @@ package org.jboss.as.jpa.config;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.persistence.EntityManagerFactory;
+import jakarta.persistence.EntityManagerFactory;
 
 import org.jipijapa.plugin.spi.PersistenceUnitMetadata;
 
@@ -136,15 +119,10 @@ public class Configuration {
     public static final String JPA_DEFAULT_PERSISTENCE_UNIT = "wildfly.jpa.default-unit";
 
     /**
-     * defaults to true, if false, persistence unit will not support javax.persistence.spi.ClassTransformer Interface
+     * defaults to true, if false, persistence unit will not support jakarta.persistence.spi.ClassTransformer Interface
      * which means no application class rewriting
      */
     public static final String JPA_CONTAINER_CLASS_TRANSFORMER = "jboss.as.jpa.classtransformer";
-
-    private static final String HIBERNATE_USE_CLASS_ENHANCER = "hibernate.ejb.use_class_enhancer";
-    private static final String HIBERNATE_ENABLE_DIRTY_TRACKING = "hibernate.enhancer.enableDirtyTracking";
-    private static final String HIBERNATE_ENABLE_LAZY_INITIALIZATION = "hibernate.enhancer.enableLazyInitialization";
-    private static final String HIBERNATE_ENABLE_ASSOCIATION_MANAGEMENT = "hibernate.enhancer.enableAssociationManagement";
 
     /**
      * set to false to force a single phase persistence unit bootstrap to be used (default is true
@@ -196,6 +174,11 @@ public class Configuration {
     public static final String HIBERNATE_SEARCH_MODULE = "wildfly.jpa.hibernate.search.module";
 
     /**
+     * name of the Hibernate Search integrator adaptor module
+     */
+    public static final String HIBERNATE_SEARCH_INTEGRATOR_ADAPTOR_MODULE_NAME = "org.hibernate.search.jipijapa-hibernatesearch";
+
+    /**
      * name of the Hibernate Search module providing the ORM mapper
      */
     public static final String HIBERNATE_SEARCH_MODULE_MAPPER_ORM = "org.hibernate.search.mapper.orm";
@@ -243,6 +226,7 @@ public class Configuration {
     private static final String EE_DEFAULT_DATASOURCE = "java:comp/DefaultDataSource";
     // key = provider class name, value = module name
     private static final Map<String, String> providerClassToModuleName = new HashMap<String, String>();
+    private static final String HIBERNATE = "Hibernate";
 
     static {
         // always choose the default hibernate version for the Hibernate provider class mapping
@@ -276,32 +260,24 @@ public class Configuration {
     /**
      * Determine if class file transformer is needed for the specified persistence unit
      *
-     * if the persistence provider is Hibernate and use_class_enhancer is not true, don't need a class transformer.
-     * for other persistence providers, the transformer is assumed to be needed.
+     * for all persistence providers, the transformer is assumed to be needed unless the application indicates otherwise.
      *
      * @param pu the PU
      * @return true if class file transformer support is needed for pu
      */
     public static boolean needClassFileTransformer(PersistenceUnitMetadata pu) {
-        boolean result = true;
-        String provider = pu.getPersistenceProviderClassName();
-        if (pu.getProperties().containsKey(Configuration.JPA_CONTAINER_CLASS_TRANSFORMER)) {
-            result = Boolean.parseBoolean(pu.getProperties().getProperty(Configuration.JPA_CONTAINER_CLASS_TRANSFORMER));
-        }
-        else if (isHibernateProvider(provider)) {
-            result = (Boolean.TRUE.toString().equals(pu.getProperties().getProperty(HIBERNATE_USE_CLASS_ENHANCER))
-                    || Boolean.TRUE.toString().equals(pu.getProperties().getProperty(HIBERNATE_ENABLE_DIRTY_TRACKING))
-                    || Boolean.TRUE.toString().equals(pu.getProperties().getProperty(HIBERNATE_ENABLE_LAZY_INITIALIZATION))
-                    || Boolean.TRUE.toString().equals(pu.getProperties().getProperty(HIBERNATE_ENABLE_ASSOCIATION_MANAGEMENT)));
-        }
-        return result;
-    }
 
+        if (pu.getProperties().containsKey(Configuration.JPA_CONTAINER_CLASS_TRANSFORMER)) {
+            return Boolean.parseBoolean(pu.getProperties().getProperty(Configuration.JPA_CONTAINER_CLASS_TRANSFORMER));
+        }
+        if (isHibernateProvider(pu.getPersistenceProviderClassName())) {
+            return false;
+        }
+        return true;
+    }
     private static boolean isHibernateProvider(String provider) {
-        return provider == null ||
-                PROVIDER_CLASS_HIBERNATE.equals(provider) ||
-                PROVIDER_CLASS_HIBERNATE_OGM.equals(provider) ||
-                PROVIDER_CLASS_HIBERNATE4_1.equals(provider);
+        // If the persistence provider is not specified (null case), Hibernate ORM will be used as the persistence provider.
+        return provider == null || provider.contains(HIBERNATE);
     }
 
     // key = provider class name, value = adapter module name

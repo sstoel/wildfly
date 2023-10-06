@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.txn.logging;
@@ -26,10 +9,10 @@ import static org.jboss.logging.Logger.Level.DEBUG;
 import static org.jboss.logging.Logger.Level.ERROR;
 import static org.jboss.logging.Logger.Level.WARN;
 
-import javax.resource.spi.work.Work;
-import javax.resource.spi.work.WorkCompletedException;
-import javax.transaction.Synchronization;
-import javax.transaction.Transaction;
+import jakarta.resource.spi.work.Work;
+import jakarta.resource.spi.work.WorkCompletedException;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.Transaction;
 import javax.transaction.xa.Xid;
 import javax.xml.stream.Location;
 import javax.xml.stream.XMLStreamException;
@@ -83,7 +66,7 @@ public interface TransactionLogger extends BasicLogger {
      *
      * @param cause the reason the creation failed.
      *
-     * @return a {@link org.jboss.msc.service.StartException} initialized with the cause.
+     * @return a {@link StartException} initialized with the cause.
      */
     @Message(id = 4, value = "Create failed")
     StartException createFailed(@Cause Throwable cause);
@@ -94,7 +77,7 @@ public interface TransactionLogger extends BasicLogger {
      * @param cause       the reason the start failed.
      * @param managerName the name of the manager that didn't start.
      *
-     * @return a {@link org.jboss.msc.service.StartException} initialized with the cause and error message.
+     * @return a {@link StartException} initialized with the cause and error message.
      */
     @Message(id = 5, value = "%s manager create failed")
     StartException managerStartFailure(@Cause Throwable cause, String managerName);
@@ -104,7 +87,7 @@ public interface TransactionLogger extends BasicLogger {
      *
      * @param cause the reason the start failed.
      *
-     * @return a {@link org.jboss.msc.service.StartException} initialized with the cause and error message.
+     * @return a {@link StartException} initialized with the cause and error message.
      */
     @Message(id = 6, value = "Failed to configure object store browser bean")
     StartException objectStoreStartFailure(@Cause Throwable cause);
@@ -123,7 +106,7 @@ public interface TransactionLogger extends BasicLogger {
      *
      * @param cause the reason the start failed.
      *
-     * @return a {@link org.jboss.msc.service.StartException} initialized with the cause.
+     * @return a {@link StartException} initialized with the cause.
      */
     @Message(id = 8, value = "Start failed")
     StartException startFailure(@Cause Throwable cause);

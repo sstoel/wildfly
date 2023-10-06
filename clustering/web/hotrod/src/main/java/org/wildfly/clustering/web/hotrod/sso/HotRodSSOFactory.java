@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2018, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.clustering.web.hotrod.sso;
@@ -26,10 +9,10 @@ import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import org.infinispan.client.hotrod.RemoteCache;
 import org.wildfly.clustering.marshalling.spi.Marshaller;
-import org.wildfly.clustering.web.LocalContextFactory;
 import org.wildfly.clustering.web.cache.sso.AuthenticationEntry;
 import org.wildfly.clustering.web.cache.sso.CompositeSSO;
 import org.wildfly.clustering.web.cache.sso.SSOFactory;
@@ -46,9 +29,9 @@ public class HotRodSSOFactory<AV, SV, A, D, S, L> implements SSOFactory<Map.Entr
     private final SessionsFactory<SV, D, S> sessionsFactory;
     private final RemoteCache<AuthenticationKey, AuthenticationEntry<AV, L>> cache;
     private final Marshaller<A, AV> marshaller;
-    private final LocalContextFactory<L> localContextFactory;
+    private final Supplier<L> localContextFactory;
 
-    public HotRodSSOFactory(RemoteCache<AuthenticationKey, AuthenticationEntry<AV, L>> cache, Marshaller<A, AV> marshaller, LocalContextFactory<L> localContextFactory, SessionsFactory<SV, D, S> sessionsFactory) {
+    public HotRodSSOFactory(RemoteCache<AuthenticationKey, AuthenticationEntry<AV, L>> cache, Marshaller<A, AV> marshaller, Supplier<L> localContextFactory, SessionsFactory<SV, D, S> sessionsFactory) {
         this.cache = cache;
         this.marshaller = marshaller;
         this.localContextFactory = localContextFactory;

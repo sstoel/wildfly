@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2010, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.component.stateful;
@@ -49,12 +32,12 @@ import org.jboss.as.ee.component.interceptors.InterceptorClassDescription;
 import org.jboss.as.ee.component.interceptors.InterceptorOrder;
 import org.jboss.as.ee.component.serialization.WriteReplaceInterface;
 import org.jboss.as.ee.metadata.MetadataCompleteMarker;
-import org.jboss.as.ejb3.cache.CacheFactoryBuilder;
-import org.jboss.as.ejb3.cache.CacheFactoryBuilderServiceNameProvider;
 import org.jboss.as.ejb3.cache.CacheInfo;
 import org.jboss.as.ejb3.component.EJBViewDescription;
 import org.jboss.as.ejb3.component.interceptors.ComponentTypeIdentityInterceptorFactory;
 import org.jboss.as.ejb3.component.session.SessionBeanComponentDescription;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCacheProvider;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCacheProviderServiceNameProvider;
 import org.jboss.as.ejb3.deployment.EjbJarDescription;
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.tx.LifecycleCMTTxInterceptor;
@@ -221,11 +204,11 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
                 StatefulComponentDescription statefulDescription = (StatefulComponentDescription) description;
                 ServiceTarget target = context.getServiceTarget();
                 ServiceBuilder<?> builder = target.addService(statefulDescription.getCacheFactoryServiceName().append("installer"));
-                Supplier<CacheFactoryBuilder<SessionID, StatefulSessionComponentInstance>> cacheFactoryBuilder = builder.requires(this.getCacheFactoryBuilderRequirement(statefulDescription));
+                Supplier<StatefulSessionBeanCacheProvider<SessionID, StatefulSessionComponentInstance>> provider = builder.requires(this.getCacheFactoryBuilderRequirement(statefulDescription));
                 Service service = new ChildTargetService(new Consumer<ServiceTarget>() {
                     @Override
                     public void accept(ServiceTarget target) {
-                        cacheFactoryBuilder.get().getServiceConfigurator(unit, statefulDescription, configuration).configure(support).build(target).install();
+                        provider.get().getStatefulBeanCacheFactoryServiceConfigurator(unit, statefulDescription, configuration).configure(support).build(target).install();
                     }
                 });
                 builder.setInstance(service).install();
@@ -233,10 +216,10 @@ public class StatefulComponentDescription extends SessionBeanComponentDescriptio
 
             private ServiceName getCacheFactoryBuilderRequirement(StatefulComponentDescription description) {
                 if (!description.isPassivationApplicable()) {
-                    return CacheFactoryBuilderServiceNameProvider.DEFAULT_PASSIVATION_DISABLED_CACHE_SERVICE_NAME;
+                    return StatefulSessionBeanCacheProviderServiceNameProvider.DEFAULT_PASSIVATION_DISABLED_CACHE_SERVICE_NAME;
                 }
                 CacheInfo cache = description.getCache();
-                return (cache != null) ? new CacheFactoryBuilderServiceNameProvider(cache.getName()).getServiceName() : CacheFactoryBuilderServiceNameProvider.DEFAULT_CACHE_SERVICE_NAME;
+                return (cache != null) ? new StatefulSessionBeanCacheProviderServiceNameProvider(cache.getName()).getServiceName() : StatefulSessionBeanCacheProviderServiceNameProvider.DEFAULT_CACHE_SERVICE_NAME;
             }
         });
 

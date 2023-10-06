@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2014, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.clustering.server.infinispan.provider;
 
@@ -29,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -40,7 +24,6 @@ import java.util.concurrent.TimeUnit;
 import org.infinispan.Cache;
 import org.infinispan.commons.CacheException;
 import org.infinispan.commons.util.CloseableIterator;
-import org.infinispan.commons.util.concurrent.CompletableFutures;
 import org.infinispan.context.Flag;
 import org.infinispan.distribution.ch.ConsistentHash;
 import org.infinispan.notifications.Listener.Observation;
@@ -55,8 +38,6 @@ import org.wildfly.clustering.context.ExecutorServiceFactory;
 import org.wildfly.clustering.ee.Batch;
 import org.wildfly.clustering.ee.Batcher;
 import org.wildfly.clustering.ee.Invoker;
-import org.wildfly.clustering.ee.cache.CacheProperties;
-import org.wildfly.clustering.ee.infinispan.InfinispanCacheProperties;
 import org.wildfly.clustering.ee.infinispan.retry.RetryingInvoker;
 import org.wildfly.clustering.group.Node;
 import org.wildfly.clustering.infinispan.distribution.ConsistentHashLocality;
@@ -66,6 +47,7 @@ import org.wildfly.clustering.provider.ServiceProviderRegistration.Listener;
 import org.wildfly.clustering.provider.ServiceProviderRegistry;
 import org.wildfly.clustering.server.group.Group;
 import org.wildfly.clustering.server.infinispan.ClusteringServerLogger;
+import org.wildfly.clustering.server.infinispan.group.InfinispanAddressResolver;
 import org.wildfly.common.function.ExceptionRunnable;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
@@ -77,14 +59,13 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  * @param <T> the service identifier type
  */
 @org.infinispan.notifications.Listener(observation = Observation.POST)
-public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<T>, AutoCloseable {
+public class CacheServiceProviderRegistry<T> implements AutoCloseableServiceProviderRegistry<T> {
 
     private final Batcher<? extends Batch> batcher;
     private final ConcurrentMap<T, Map.Entry<Listener, ExecutorService>> listeners = new ConcurrentHashMap<>();
     private final Cache<T, Set<Address>> cache;
     private final Group<Address> group;
     private final Invoker invoker;
-    private final CacheProperties properties;
     private final Executor executor;
 
     public CacheServiceProviderRegistry(CacheServiceProviderRegistryConfiguration<T> config) {
@@ -94,7 +75,6 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
         this.executor = config.getBlockingManager().asExecutor(this.getClass().getName());
         this.cache.addListener(this);
         this.invoker = new RetryingInvoker(this.cache);
-        this.properties = new InfinispanCacheProperties(this.cache.getCacheConfiguration());
     }
 
     @Override
@@ -144,9 +124,9 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
         }
         this.invoker.invoke(new RegisterLocalServiceTask(service));
         return new SimpleServiceProviderRegistration<>(service, this, () -> {
-            Address localAddress = this.group.getAddress(this.group.getLocalMember());
+            Address localAddress = InfinispanAddressResolver.INSTANCE.apply(this.group.getLocalMember());
             try (Batch batch = this.batcher.createBatch()) {
-                this.cache.getAdvancedCache().withFlags(Flag.FORCE_SYNCHRONOUS, Flag.IGNORE_RETURN_VALUES).compute(service, this.properties.isTransactional() ? new CopyOnWriteAddressSetRemoveFunction(localAddress) : new ConcurrentAddressSetRemoveFunction(localAddress));
+                this.cache.getAdvancedCache().withFlags(Flag.FORCE_SYNCHRONOUS, Flag.IGNORE_RETURN_VALUES).compute(service, new AddressSetRemoveFunction(localAddress));
             } finally {
                 Map.Entry<Listener, ExecutorService> oldEntry = this.listeners.remove(service);
                 if (oldEntry != null) {
@@ -161,12 +141,12 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
 
     void registerLocal(T service) {
         try (Batch batch = this.batcher.createBatch()) {
-            this.register(this.group.getAddress(this.group.getLocalMember()), service);
+            this.register(InfinispanAddressResolver.INSTANCE.apply(this.group.getLocalMember()), service);
         }
     }
 
     void register(Address address, T service) {
-        this.cache.getAdvancedCache().withFlags(Flag.FORCE_SYNCHRONOUS, Flag.IGNORE_RETURN_VALUES).compute(service, this.properties.isTransactional() ? new CopyOnWriteAddressSetAddFunction(address) : new ConcurrentAddressSetAddFunction(address));
+        this.cache.getAdvancedCache().withFlags(Flag.FORCE_SYNCHRONOUS, Flag.IGNORE_RETURN_VALUES).compute(service, new AddressSetAddFunction(address));
     }
 
     @Override
@@ -175,7 +155,10 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
         if (addresses == null) return Collections.emptySet();
         Set<Node> members = new TreeSet<>();
         for (Address address : addresses) {
-            members.add(this.group.createNode(address));
+            Node member = this.group.createNode(address);
+            if (member != null) {
+                members.add(member);
+            }
         }
         return Collections.unmodifiableSet(members);
     }
@@ -220,13 +203,9 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
                 this.executor.execute(() -> {
                     if (!leftMembers.isEmpty()) {
                         try (Batch batch = batcher.createBatch()) {
-                            try (CloseableIterator<Map.Entry<T, Set<Address>>> entries = cache.getAdvancedCache().withFlags(Flag.FORCE_WRITE_LOCK).entrySet().iterator()) {
-                                while (entries.hasNext()) {
-                                    Map.Entry<T, Set<Address>> entry = entries.next();
-                                    Set<Address> addresses = entry.getValue();
-                                    if (addresses.removeAll(leftMembers)) {
-                                        entry.setValue(addresses);
-                                    }
+                            try (CloseableIterator<T> keys = cache.getAdvancedCache().withFlags(Flag.FORCE_WRITE_LOCK).keySet().iterator()) {
+                                while (keys.hasNext()) {
+                                    cache.getAdvancedCache().withFlags(Flag.FORCE_SYNCHRONOUS, Flag.IGNORE_RETURN_VALUES).compute(keys.next(), new AddressSetRemoveFunction(leftMembers));
                                 }
                             }
                         }
@@ -239,7 +218,7 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
                 });
             }
         }
-        return CompletableFutures.completedNull();
+        return CompletableFuture.completedStage(null);
     }
 
     @CacheEntryCreated
@@ -254,7 +233,10 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
                         entry.getValue().submit(() -> {
                             Set<Node> members = new TreeSet<>();
                             for (Address address : event.getValue()) {
-                                members.add(this.group.createNode(address));
+                                Node member = this.group.createNode(address);
+                                if (member != null) {
+                                    members.add(member);
+                                }
                             }
                             try {
                                 listener.providersChanged(members);
@@ -268,7 +250,7 @@ public class CacheServiceProviderRegistry<T> implements ServiceProviderRegistry<
                 });
             }
         }
-        return CompletableFutures.completedNull();
+        return CompletableFuture.completedStage(null);
     }
 
     private class RegisterLocalServiceTask implements ExceptionRunnable<CacheException> {

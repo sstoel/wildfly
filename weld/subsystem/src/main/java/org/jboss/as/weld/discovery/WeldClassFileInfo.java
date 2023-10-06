@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source
- * Copyright 2013, Red Hat Inc., and individual contributors as indicated
- * by the @authors tag. See the copyright.txt in the distribution for a
- * full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.weld.discovery;
 
@@ -32,8 +15,8 @@ import org.jboss.jandex.MethodInfo;
 import org.jboss.weld.resources.spi.ClassFileInfo;
 import org.jboss.weld.util.cache.ComputingCache;
 
-import javax.enterprise.inject.Vetoed;
-import javax.inject.Inject;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.inject.Inject;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -124,12 +107,6 @@ public class WeldClassFileInfo implements ClassFileInfo {
     @Override
     public boolean isVetoed() {
         return isVetoed;
-    }
-
-    // @Override unused except in a test and removed in Weld 5 so don't annotate it
-    // TODO to be removed once Weld 5 is a direct dependency of non-preview WFLY
-    public boolean isTopLevelClass() {
-        return classInfo.nestingType() == ClassInfo.NestingType.TOP_LEVEL;
     }
 
     @Override
@@ -283,11 +260,9 @@ public class WeldClassFileInfo implements ClassFileInfo {
             return true;
         }
 
-        if (fromClassInfo.interfaces() != null) {
-            for (DotName interfaceName : fromClassInfo.interfaces()) {
-                if (isAssignableTo(interfaceName, to)) {
-                    return true;
-                }
+        for (DotName interfaceName : fromClassInfo.interfaceNames()) {
+            if (isAssignableTo(interfaceName, to)) {
+                return true;
             }
         }
         return false;

@@ -1,37 +1,19 @@
 /*
- * JBoss, Home of Professional Open Source
- * Copyright 2010, Red Hat Inc., and individual contributors as indicated
- * by the @authors tag. See the copyright.txt in the distribution for a
- * full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.weld.ejb;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.security.AccessController;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.jboss.as.ee.component.ComponentView;
-import org.jboss.as.ejb3.cache.Cache;
 import org.jboss.as.ejb3.component.stateful.StatefulSessionComponent;
 import org.jboss.as.ejb3.component.stateful.StatefulSessionComponentInstance;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBean;
 import org.jboss.as.naming.ManagedReference;
 import org.jboss.as.server.CurrentServiceContainer;
 import org.jboss.as.weld._private.WeldEjbLogger;
@@ -47,14 +29,13 @@ import org.jboss.weld.ejb.api.SessionObjectReference;
  *
  * @author Stuart Douglas
  */
-public class StatefulSessionObjectReferenceImpl implements SessionObjectReference, Serializable {
-
-    private volatile boolean removed = false;
+public class StatefulSessionObjectReferenceImpl implements SessionObjectReference {
 
     private final ServiceName createServiceName;
     private final SessionID id;
     private final StatefulSessionComponent ejbComponent;
     private final Map<Class<?>, ServiceName> viewServices;
+    private volatile boolean removed = false;
 
     private transient Map<String, ManagedReference> businessInterfaceToReference;
 
@@ -124,23 +105,16 @@ public class StatefulSessionObjectReferenceImpl implements SessionObjectReferenc
 
     @Override
     public void remove() {
-        if (!isRemoved()) {
-            ejbComponent.removeSession(id);
-            removed = true;
+        try (StatefulSessionBean<SessionID, StatefulSessionComponentInstance> bean = this.ejbComponent.getCache().findStatefulSessionBean(this.id)) {
+            this.removed = true;
+            if (bean != null) {
+                bean.remove();
+            }
         }
     }
 
     @Override
     public boolean isRemoved() {
-        if (!removed) {
-            Cache<SessionID, StatefulSessionComponentInstance> cache = ejbComponent.getCache();
-            if(cache == null) {
-                return true;
-            }
-            return !cache.contains(id);
-        }
-        return true;
+        return this.removed;
     }
-
-
 }

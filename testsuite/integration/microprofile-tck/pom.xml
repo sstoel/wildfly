@@ -1,24 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ JBoss, Home of Professional Open Source.
-  ~ Copyright 2018, Red Hat, Inc., and individual contributors
-  ~ as indicated by the @author tags. See the copyright.txt file in the
-  ~ distribution for a full listing of individual contributors.
-  ~
-  ~ This is free software; you can redistribute it and/or modify it
-  ~ under the terms of the GNU Lesser General Public License as
-  ~ published by the Free Software Foundation; either version 2.1 of
-  ~ the License, or (at your option) any later version.
-  ~
-  ~ This software is distributed in the hope that it will be useful,
-  ~  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  ~ Lesser General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU Lesser General Public
-  ~ License along with this software; if not, write to the Free
-  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -28,7 +11,7 @@
     <parent>
         <groupId>org.wildfly</groupId>
         <artifactId>wildfly-ts-integ</artifactId>
-        <version>28.0.0.Beta1-SNAPSHOT</version>
+        <version>30.0.0.Final-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-integ-mp</artifactId>
@@ -53,11 +36,7 @@
         <ts.copy-wildfly.phase>generate-test-resources</ts.copy-wildfly.phase>
         <ts.microprofile-tck-provisioning.phase>none</ts.microprofile-tck-provisioning.phase>
         <ts.bootable-jar-microprofile-tck-packaging.phase>none</ts.bootable-jar-microprofile-tck-packaging.phase>
-        <!-- Child modules override these properties to control what feature packs are used
-             and what layers are provisioned if galleon provision occurs -->
-        <ts.microprofile-tck-provisioning.fp.groupId>${full.maven.groupId}</ts.microprofile-tck-provisioning.fp.groupId>
-        <ts.microprofile-tck-provisioning.fp.artifactId>wildfly-galleon-pack</ts.microprofile-tck-provisioning.fp.artifactId>
-        <ts.microprofile-tck-provisioning.fp.version>${full.maven.version}</ts.microprofile-tck-provisioning.fp.version>
+        <!-- Child modules override these properties to control what layers are provisioned if galleon provisioning occurs -->
         <ts.microprofile-tck-provisioning.base.layer>FIXME-must-override</ts.microprofile-tck-provisioning.base.layer>
         <ts.microprofile-tck-provisioning.decorator.layer>FIXME-must-override</ts.microprofile-tck-provisioning.decorator.layer>
 
@@ -69,11 +48,22 @@
         <version.fault-tolerance>${version.org.eclipse.microprofile.fault-tolerance.api}</version.fault-tolerance>
         <version.health>${version.org.eclipse.microprofile.health.api}</version.health>
         <version.jwt>${version.org.eclipse.microprofile.jwt.api}</version.jwt>
-        <version.metrics>${version.org.eclipse.microprofile.metrics.api}</version.metrics>
         <version.openapi>${version.org.eclipse.microprofile.openapi}</version.openapi>
-        <version.opentracing>${version.org.eclipse.microprofile.opentracing}</version.opentracing>
         <version.rest-client>${version.org.eclipse.microprofile.rest.client.api}</version.rest-client>
+        <version.telemetry>${version.org.eclipse.microprofile.telemetry}</version.telemetry>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.wildfly</groupId>
+                <artifactId>wildfly-standard-test-expansion-bom</artifactId>
+                <version>${ee.maven.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- TODO confirm if this is needed -->
@@ -89,12 +79,12 @@
         <module>fault-tolerance</module>
         <module>health</module>
         <module>jwt</module>
-        <module>metrics</module>
+        <module>lra</module>
         <module>openapi</module>
-        <module>opentracing</module>
         <module>rest-client</module>
         <module>reactive-messaging</module>
         <module>reactive-streams-operators</module>
+        <module>telemetry</module>
         <module>certification</module>
     </modules>
 
@@ -137,10 +127,9 @@
                             </plugin-options>
                             <feature-packs>
                                 <feature-pack>
-                                    <!-- Child modules can set properties to override what feature pack is used -->
-                                    <groupId>${ts.microprofile-tck-provisioning.fp.groupId}</groupId>
-                                    <artifactId>${ts.microprofile-tck-provisioning.fp.artifactId}</artifactId>
-                                    <version>${ts.microprofile-tck-provisioning.fp.version}</version>
+                                    <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
+                                    <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                    <version>${testsuite.full.galleon.pack.version}</version>
                                     <inherit-configs>false</inherit-configs>
                                     <inherit-packages>false</inherit-packages>
                                 </feature-pack>
@@ -185,10 +174,9 @@
                             </plugin-options>
                             <feature-packs>
                                 <feature-pack>
-                                    <!-- Child modules can set properties to override what feature pack is used -->
-                                    <groupId>${ts.microprofile-tck-provisioning.fp.groupId}</groupId>
-                                    <artifactId>${ts.microprofile-tck-provisioning.fp.artifactId}</artifactId>
-                                    <version>${ts.microprofile-tck-provisioning.fp.version}</version>
+                                    <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
+                                    <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                    <version>${testsuite.full.galleon.pack.version}</version>
                                 </feature-pack>
                             </feature-packs>
                             <layers>
@@ -265,10 +253,10 @@
 
         <!-- Test against the ee 9 feature pack -->
         <profile>
-            <id>ee9.test.profile</id>
+            <id>preview.test.profile</id>
             <activation>
                 <property>
-                    <name>ts.ee9</name>
+                    <name>ts.preview</name>
                 </property>
             </activation>
             <properties>
@@ -398,12 +386,12 @@
             </build>
         </profile>
         
-        <!-- Test against bootable jar ee9 -->
+        <!-- Test against bootable jar WildFly Preview -->
         <profile>
-            <id>bootablejar.ee9.profile</id>
+            <id>bootablejar.preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.bootable.ee9</name>
+                    <name>ts.bootable.preview</name>
                 </property>
             </activation>
             <dependencies>

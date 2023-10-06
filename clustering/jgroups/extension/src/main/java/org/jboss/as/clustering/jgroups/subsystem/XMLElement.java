@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.clustering.jgroups.subsystem;
 
@@ -132,22 +115,22 @@ public enum XMLElement {
                 return model.hasDefined(SocketProtocolResourceDefinition.Attribute.SOCKET_BINDING.getName()) ? XMLElement.SOCKET_PROTOCOL : XMLElement.PROTOCOL;
             }
         };
-        for (ProtocolRegistration.SocketProtocol protocol : EnumSet.allOf(ProtocolRegistration.SocketProtocol.class)) {
+        for (ProtocolResourceRegistrar.SocketProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.SocketProtocol.class)) {
             protocols.put(protocol.name(), function);
         }
-        for (ProtocolRegistration.MulticastProtocol protocol : EnumSet.allOf(ProtocolRegistration.MulticastProtocol.class)) {
+        for (ProtocolResourceRegistrar.MulticastProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.MulticastProtocol.class)) {
             protocols.put(protocol.name(), XMLElementFunction.SOCKET_PROTOCOL);
         }
-        for (ProtocolRegistration.JdbcProtocol protocol : EnumSet.allOf(ProtocolRegistration.JdbcProtocol.class)) {
+        for (ProtocolResourceRegistrar.JdbcProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.JdbcProtocol.class)) {
             protocols.put(protocol.name(), XMLElementFunction.JDBC_PROTOCOL);
         }
-        for (ProtocolRegistration.EncryptProtocol protocol : EnumSet.allOf(ProtocolRegistration.EncryptProtocol.class)) {
+        for (ProtocolResourceRegistrar.EncryptProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.EncryptProtocol.class)) {
             protocols.put(protocol.name(), XMLElementFunction.ENCRYPT_PROTOCOL);
         }
-        for (ProtocolRegistration.InitialHostsProtocol protocol : EnumSet.allOf(ProtocolRegistration.InitialHostsProtocol.class)) {
+        for (ProtocolResourceRegistrar.InitialHostsProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.InitialHostsProtocol.class)) {
             protocols.put(protocol.name(), XMLElementFunction.SOCKET_DISCOVERY_PROTOCOL);
         }
-        for (ProtocolRegistration.AuthProtocol protocol : EnumSet.allOf(ProtocolRegistration.AuthProtocol.class)) {
+        for (ProtocolResourceRegistrar.AuthProtocol protocol : EnumSet.allOf(ProtocolResourceRegistrar.AuthProtocol.class)) {
             protocols.put(protocol.name(), XMLElementFunction.AUTH_PROTOCOL);
         }
 

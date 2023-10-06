@@ -1,34 +1,15 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2016, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.subsystem;
 
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.jboss.as.controller.AbstractAddStepHandler;
@@ -82,11 +63,11 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
     static final SimpleAttributeDefinition SECURITY_DOMAIN = new SimpleAttributeDefinitionBuilder(EJB3SubsystemModel.SECURITY_DOMAIN, ModelType.STRING, false)
             .setValidator(new StringLengthValidator(1))
             .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
-            .setCapabilityReference(SECURITY_DOMAIN_CAPABILITY_NAME, APPLICATION_SECURITY_DOMAIN_CAPABILITY_NAME, true)
+            .setCapabilityReference(SECURITY_DOMAIN_CAPABILITY_NAME, APPLICATION_SECURITY_DOMAIN_CAPABILITY)
             .setAccessConstraints(SensitiveTargetAccessConstraintDefinition.ELYTRON_SECURITY_DOMAIN_REF)
             .build();
 
-    private static StringListAttributeDefinition REFERENCING_DEPLOYMENTS = new StringListAttributeDefinition.Builder(EJB3SubsystemModel.REFERENCING_DEPLOYMENTS)
+    private static final StringListAttributeDefinition REFERENCING_DEPLOYMENTS = new StringListAttributeDefinition.Builder(EJB3SubsystemModel.REFERENCING_DEPLOYMENTS)
             .setStorageRuntime()
             .build();
 
@@ -103,27 +84,22 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
 
     private static final AttributeDefinition[] ATTRIBUTES = new AttributeDefinition[] { SECURITY_DOMAIN, ENABLE_JACC, LEGACY_COMPLIANT_PRINCIPAL_PROPAGATION };
 
-    static final ApplicationSecurityDomainDefinition INSTANCE = new ApplicationSecurityDomainDefinition();
-
-    private static final Set<ApplicationSecurityDomainConfig> knownApplicationSecurityDomains = Collections.synchronizedSet(new HashSet<>());
-
     private static final AttachmentKey<KnownDeploymentsApi> KNOWN_DEPLOYMENTS_KEY = AttachmentKey.create(KnownDeploymentsApi.class);
 
-    private ApplicationSecurityDomainDefinition() {
+    ApplicationSecurityDomainDefinition(Set<ApplicationSecurityDomainConfig> knownApplicationSecurityDomains) {
         this(new Parameters(PathElement.pathElement(EJB3SubsystemModel.APPLICATION_SECURITY_DOMAIN), EJB3Extension.getResourceDescriptionResolver(EJB3SubsystemModel.APPLICATION_SECURITY_DOMAIN))
                 .setCapabilities(APPLICATION_SECURITY_DOMAIN_CAPABILITY)
                 .addAccessConstraints(new SensitiveTargetAccessConstraintDefinition(new SensitivityClassification(EJB3Extension.SUBSYSTEM_NAME, EJB3SubsystemModel.APPLICATION_SECURITY_DOMAIN, false, false, false)),
                         new ApplicationTypeAccessConstraintDefinition(new ApplicationTypeConfig(EJB3Extension.SUBSYSTEM_NAME, EJB3SubsystemModel.APPLICATION_SECURITY_DOMAIN)))
-                , new AddHandler());
+                , new AddHandler(knownApplicationSecurityDomains));
     }
 
-    private ApplicationSecurityDomainDefinition(Parameters parameters, AbstractAddStepHandler add) {
+    private ApplicationSecurityDomainDefinition(Parameters parameters, AddHandler add) {
         super(parameters.setAddHandler(add).setRemoveHandler(new RemoveHandler(add)));
     }
 
     @Override
     public void registerAttributes(ManagementResourceRegistration resourceRegistration) {
-        knownApplicationSecurityDomains.clear();
         ReloadRequiredWriteAttributeHandler handler = new ReloadRequiredWriteAttributeHandler(ATTRIBUTES);
         for (AttributeDefinition attribute: ATTRIBUTES) {
             resourceRegistration.registerReadWriteAttribute(attribute,  null, handler);
@@ -134,9 +110,11 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
     }
 
     private static class AddHandler extends AbstractAddStepHandler {
+        private final Set<ApplicationSecurityDomainConfig> knownApplicationSecurityDomains;
 
-        private AddHandler() {
+        private AddHandler(Set<ApplicationSecurityDomainConfig> knownApplicationSecurityDomains) {
             super(ATTRIBUTES);
+            this.knownApplicationSecurityDomains = knownApplicationSecurityDomains;
         }
 
         @Override
@@ -164,7 +142,7 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
                 legacyCompliantPrincipalPropagation = LEGACY_COMPLIANT_PRINCIPAL_PROPAGATION.resolveModelAttribute(context, model).asBoolean();
             }
 
-            knownApplicationSecurityDomains.add(new ApplicationSecurityDomainConfig(context.getCurrentAddressValue(), enableJacc, legacyCompliantPrincipalPropagation));
+            this.knownApplicationSecurityDomains.add(new ApplicationSecurityDomainConfig(context.getCurrentAddressValue(), enableJacc, legacyCompliantPrincipalPropagation));
         }
 
         @Override
@@ -197,24 +175,18 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
     }
 
     private static class RemoveHandler extends ServiceRemoveStepHandler {
+        private final Set<ApplicationSecurityDomainConfig> knownApplicationSecurityDomains;
 
-        protected RemoveHandler(AbstractAddStepHandler addOperation) {
+        protected RemoveHandler(AddHandler addOperation) {
             super(addOperation);
+            this.knownApplicationSecurityDomains = addOperation.knownApplicationSecurityDomains;
         }
 
         @Override
         protected void performRemove(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
             super.performRemove(context, operation, model);
-            HashSet<ApplicationSecurityDomainConfig> applicationSecurityDomainConfigs;
-            synchronized (knownApplicationSecurityDomains) {
-                applicationSecurityDomainConfigs = new HashSet<>(knownApplicationSecurityDomains);
-            }
-            for (ApplicationSecurityDomainConfig domain : applicationSecurityDomainConfigs) {
-                if (domain.isSameDomain(context.getCurrentAddressValue())) {
-                    knownApplicationSecurityDomains.remove(domain);
-                }
-            }
-
+            String name = context.getCurrentAddressValue();
+            this.knownApplicationSecurityDomains.removeIf(domain -> domain.isSameDomain(name));
         }
 
         @Override
@@ -256,18 +228,5 @@ public class ApplicationSecurityDomainDefinition extends SimpleResourceDefinitio
         void setApplicationSecurityDomainService(final ApplicationSecurityDomainService service) {
             this.service = service;
         }
-    }
-
-    Function<String, ApplicationSecurityDomainConfig> getKnownSecurityDomainFunction() {
-        return name -> {
-            synchronized (knownApplicationSecurityDomains) {
-                for (ApplicationSecurityDomainConfig applicationSecurityDomainConfig : knownApplicationSecurityDomains) {
-                    if (applicationSecurityDomainConfig.isSameDomain(name)) {
-                        return applicationSecurityDomainConfig;
-                    }
-                }
-            }
-            return null;
-        };
     }
 }

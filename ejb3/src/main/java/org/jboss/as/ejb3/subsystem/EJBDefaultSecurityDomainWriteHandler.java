@@ -1,33 +1,17 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.subsystem;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.jboss.as.controller.AbstractWriteAttributeHandler;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
-import org.jboss.as.ejb3.deployment.processors.EJBDefaultSecurityDomainProcessor;
 import org.jboss.dmr.ModelNode;
 
 /**
@@ -38,12 +22,12 @@ import org.jboss.dmr.ModelNode;
 class EJBDefaultSecurityDomainWriteHandler extends AbstractWriteAttributeHandler<Void> {
 
     private final AttributeDefinition attributeDefinition;
-    private final EJBDefaultSecurityDomainProcessor ejbDefaultSecurityDomainProcessor;
+    private final AtomicReference<String> defaultSecurityDomainName;
 
-    EJBDefaultSecurityDomainWriteHandler(final AttributeDefinition attributeDefinition, final EJBDefaultSecurityDomainProcessor ejbDefaultSecurityDomainProcessor) {
+    EJBDefaultSecurityDomainWriteHandler(final AttributeDefinition attributeDefinition, final AtomicReference<String> defaultSecurityDomainName) {
         super(attributeDefinition);
         this.attributeDefinition = attributeDefinition;
-        this.ejbDefaultSecurityDomainProcessor = ejbDefaultSecurityDomainProcessor;
+        this.defaultSecurityDomainName = defaultSecurityDomainName;
     }
 
     @Override
@@ -65,12 +49,9 @@ class EJBDefaultSecurityDomainWriteHandler extends AbstractWriteAttributeHandler
 
     private void updateDefaultSecurityDomainDeploymentProcessor(final OperationContext context, final ModelNode model) throws OperationFailedException {
 
-        if (this.ejbDefaultSecurityDomainProcessor == null) {
-            return;
-        }
         final ModelNode defaultSecurityDomainModelNode = this.attributeDefinition.resolveModelAttribute(context, model);
         final String defaultSecurityDomainName = defaultSecurityDomainModelNode.isDefined() ? defaultSecurityDomainModelNode.asString() : null;
-        this.ejbDefaultSecurityDomainProcessor.setDefaultSecurityDomainName(defaultSecurityDomainName);
+        this.defaultSecurityDomainName.set(defaultSecurityDomainName);
     }
 
 }

@@ -1,26 +1,6 @@
 /*
- * Copyright (c) 1999, 2005, Oracle and/or its affiliates. All rights reserved.
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.  Oracle designates this
- * particular file as subject to the "Classpath" exception as provided
- * by Oracle in the LICENSE file that accompanied this code.
- *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
- * or visit www.oracle.com if you need additional information or have any
- * questions.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.iiop.openjdk.naming.jndi;
@@ -98,7 +78,7 @@ public final class ExceptionMapper {
                 ne.setResolvedObj(ctx);
             }
 
-            ne.setRemainingName(org.wildfly.iiop.openjdk.naming.jndi.CNNameParser.cosNameToName(rest));
+            ne.setRemainingName(CNNameParser.cosNameToName(rest));
 
         } else if (e instanceof InvalidName) {
             ne = new InvalidNameException();
@@ -135,7 +115,7 @@ public final class ExceptionMapper {
             } else {
                 // Due to 1.2/1.3 bug that always returns single-item 'rest'
                 NamingException ne = new NameNotFoundException();
-                ne.setRemainingName(org.wildfly.iiop.openjdk.naming.jndi.CNNameParser.cosNameToName(rest));
+                ne.setRemainingName(CNNameParser.cosNameToName(rest));
                 ne.setRootCause(e);
                 throw ne;
             }
@@ -175,12 +155,12 @@ public final class ExceptionMapper {
         CannotProceedException cpe = new CannotProceedException();
         cpe.setRootCause(e);
         if (rest != null && rest.length > 0) {
-            cpe.setRemainingName(org.wildfly.iiop.openjdk.naming.jndi.CNNameParser.cosNameToName(rest));
+            cpe.setRemainingName(CNNameParser.cosNameToName(rest));
         }
         cpe.setEnvironment(ctx._env);
 
         // Lookup resolved name to get resolved object
-        final java.lang.Object resolvedObj =
+        final Object resolvedObj =
                 (resolvedName != null) ? ctx.callResolve(resolvedName) : ctx;
 
         if (resolvedObj instanceof javax.naming.Context) {
@@ -188,7 +168,7 @@ public final class ExceptionMapper {
             // try getting its nns dynamically by constructing
             // a Reference containing obj.
             RefAddr addr = new RefAddr("nns") {
-                public java.lang.Object getContent() {
+                public Object getContent() {
                     return resolvedObj;
                 }
 
@@ -209,8 +189,8 @@ public final class ExceptionMapper {
         } else {
             // Not a context, use object factory to transform object.
 
-            Name cname = org.wildfly.iiop.openjdk.naming.jndi.CNNameParser.cosNameToName(resolvedName);
-            java.lang.Object resolvedObj2;
+            Name cname = CNNameParser.cosNameToName(resolvedName);
+            Object resolvedObj2;
             try {
                 resolvedObj2 = NamingManager.getObjectInstance(resolvedObj,
                         cname, ctx, ctx._env);
@@ -231,9 +211,9 @@ public final class ExceptionMapper {
                 cpe.setAltName(cname);
 
                 // Create nns reference
-                final java.lang.Object rf2 = resolvedObj2;
+                final Object rf2 = resolvedObj2;
                 RefAddr addr = new RefAddr("nns") {
-                    public java.lang.Object getContent() {
+                    public Object getContent() {
                         return rf2;
                     }
 

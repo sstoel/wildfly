@@ -1,25 +1,6 @@
 /*
- *
- *  JBoss, Home of Professional Open Source.
- *  Copyright 2013, Red Hat, Inc., and individual contributors
- *  as indicated by the @author tags. See the copyright.txt file in the
- *  distribution for a full listing of individual contributors.
- *
- *  This is free software; you can redistribute it and/or modify it
- *  under the terms of the GNU Lesser General Public License as
- *  published by the Free Software Foundation; either version 2.1 of
- *  the License, or (at your option) any later version.
- *
- *  This software is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this software; if not, write to the Free
- *  Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- *  02110-1301 USA, or see the FSF site: http://www.fsf.org.
- * /
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.security;
@@ -42,7 +23,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
-import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
 
 import org.jboss.as.controller.ListAttributeDefinition;
@@ -58,7 +38,6 @@ import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.controller.operations.validation.EnumValidator;
 import org.jboss.as.controller.operations.validation.ModelTypeValidator;
 import org.jboss.as.controller.operations.validation.ParameterValidator;
-import org.jboss.as.controller.operations.validation.ParametersOfValidator;
 import org.jboss.as.controller.operations.validation.ParametersValidator;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.Resource;
@@ -129,7 +108,7 @@ class LegacySupport {
         }
 
         @Override
-        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) throws XMLStreamException {
+        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) {
             throw SecurityLogger.ROOT_LOGGER.unsupportedOperation();
         }
 
@@ -213,7 +192,7 @@ class LegacySupport {
 
 
         @Override
-        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) throws XMLStreamException {
+        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) {
             throw SecurityLogger.ROOT_LOGGER.unsupportedOperation();
         }
 
@@ -292,7 +271,7 @@ class LegacySupport {
         }
 
         @Override
-        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) throws XMLStreamException {
+        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) {
             throw SecurityLogger.ROOT_LOGGER.unsupportedOperation();
         }
 
@@ -362,7 +341,7 @@ class LegacySupport {
 
 
         @Override
-        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) throws XMLStreamException {
+        public void marshallAsElement(ModelNode resourceModel, final boolean marshalDefault, XMLStreamWriter writer) {
             throw SecurityLogger.ROOT_LOGGER.unsupportedOperation();
         }
 
@@ -388,7 +367,7 @@ class LegacySupport {
      */
 
     static class LegacyModulesAttributeReader implements OperationStepHandler {
-        private String newKeyName;
+        private final String newKeyName;
 
         LegacyModulesAttributeReader(String newKeyName) {
             this.newKeyName = newKeyName;
@@ -410,7 +389,7 @@ class LegacySupport {
     }
 
     static class LegacyModulesAttributeWriter implements OperationStepHandler {
-        private String newKeyName;
+        private final String newKeyName;
 
         LegacyModulesAttributeWriter(String newKeyName) {
             this.newKeyName = newKeyName;
@@ -422,7 +401,7 @@ class LegacySupport {
             OperationStepHandler addHandler = context.getResourceRegistration().getSubModel(PathAddress.EMPTY_ADDRESS.append(newKeyName)).getOperationHandler(PathAddress.EMPTY_ADDRESS, "add");
             ModelNode value = operation.get(VALUE);
             if (value.isDefined()) {
-                List<ModelNode> modules = new ArrayList<ModelNode>(value.asList());
+                List<ModelNode> modules = new ArrayList<>(value.asList());
                 Collections.reverse(modules); //need to reverse it to make sure they are added in proper order
                 for (ModelNode module : modules) {
                     ModelNode addModuleOp = module.clone();
@@ -444,8 +423,8 @@ class LegacySupport {
     }
 
     static class LegacyModulesConverter implements OperationStepHandler {
-        private String newKeyName;
-        private ListAttributeDefinition oldAttribute;
+        private final String newKeyName;
+        private final ListAttributeDefinition oldAttribute;
 
         LegacyModulesConverter(String newKeyName, ListAttributeDefinition oldAttribute) {
             this.newKeyName = newKeyName;
@@ -462,7 +441,7 @@ class LegacySupport {
             Resource existing = context.readResource(PathAddress.EMPTY_ADDRESS);
             OperationStepHandler addHandler = context.getResourceRegistration().getSubModel(PathAddress.EMPTY_ADDRESS.append(newKeyName)).getOperationHandler(PathAddress.EMPTY_ADDRESS, "add");
             oldAttribute.validateOperation(operation);
-            List<ModelNode> modules = new ArrayList<ModelNode>(operation.get(oldAttribute.getName()).asList());
+            List<ModelNode> modules = new ArrayList<>(operation.get(oldAttribute.getName()).asList());
             Collections.reverse(modules); //need to reverse it to make sure they are added in proper order
             for (ModelNode module : modules) {
                 ModelNode addModuleOp = module.clone();
@@ -505,6 +484,25 @@ class LegacySupport {
         public ListAttributeDefinition build() {
             // This should not be called. We only use this class to carry properties to the AD constructors
             throw new UnsupportedOperationException();
+        }
+    }
+
+    private static class ParametersOfValidator implements ParameterValidator {
+        private final ParametersValidator delegate;
+
+        private ParametersOfValidator(final ParametersValidator delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void validateParameter(String parameterName, ModelNode value) throws OperationFailedException {
+            try {
+                delegate.validate(value);
+            } catch (OperationFailedException e) {
+                final ModelNode failureDescription = new ModelNode().add(SecurityLogger.ROOT_LOGGER.validationFailed(parameterName));
+                failureDescription.add(e.getFailureDescription());
+                throw new OperationFailedException(e.getMessage(), e.getCause(), failureDescription);
+            }
         }
     }
 }

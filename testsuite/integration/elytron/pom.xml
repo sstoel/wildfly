@@ -1,25 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <!--
-  ~ JBoss, Home of Professional Open Source.
-  ~ Copyright 2017, Red Hat, Inc., and individual contributors
-  ~ as indicated by the @author tags. See the copyright.txt file in the
-  ~ distribution for a full listing of individual contributors.
-  ~
-  ~ This is free software; you can redistribute it and/or modify it
-  ~ under the terms of the GNU Lesser General Public License as
-  ~ published by the Free Software Foundation; either version 2.1 of
-  ~ the License, or (at your option) any later version.
-  ~
-  ~ This software is distributed in the hope that it will be useful,
-  ~ but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  ~ Lesser General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU Lesser General Public
-  ~ License along with this software; if not, write to the Free
-  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
   -->
 
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -34,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>28.0.0.Beta1-SNAPSHOT</version>
+        <version>30.0.0.Final-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -138,11 +121,6 @@
         <dependency>
             <groupId>org.jboss</groupId>
             <artifactId>jboss-ejb-client</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>xom</groupId>
-            <artifactId>xom</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- This is not ideal, however the BatchPermission is used which does indicate this might be an issue -->
@@ -269,11 +247,6 @@
             <artifactId>wildfly-cli</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.wildfly.core</groupId>
-            <artifactId>wildfly-elytron-integration</artifactId>
-            <scope>test</scope>
-        </dependency>
         <!-- Required for Java 11 -->
         <dependency>
             <groupId>org.wildfly.arquillian</groupId>
@@ -290,7 +263,7 @@
         </dependency>
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-client-api</artifactId>
+            <artifactId>resteasy-client</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -380,8 +353,8 @@
              which is part of wildfly-testsuite-shared module, contains implementation of BouncyCastle provider based
              on older version of BouncyCastle. -->
         <dependency>
-            <groupId>${project.groupId}</groupId>
-            <artifactId>${wildfly-testsuite-shared.artifactId}</artifactId>
+            <groupId>${ee.maven.groupId}</groupId>
+            <artifactId>wildfly-testsuite-shared</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -583,10 +556,11 @@
                                             <version>${testsuite.ee.galleon.pack.version}</version>
                                             <excluded-packages>
                                                 <name>product.conf</name>
-                                                <name>docs</name>
-                                                <name>docs.licenses.merge</name>
                                             </excluded-packages>
                                             <inherit-configs>false</inherit-configs>
+                                            <!-- We must provision all packages, the test executes a CLI script
+                                                 that adds the embedded broker that requires some modules -->
+                                            <inherit-packages>true</inherit-packages>
                                             <included-configs>
                                                 <config>
                                                     <model>standalone</model>
@@ -602,6 +576,7 @@
                                     <plugin-options>
                                         <jboss-maven-dist/>
                                         <jboss-fork-embedded>${galleon.fork.embedded}</jboss-fork-embedded>
+                                        <optional-packages>passive+</optional-packages>
                                     </plugin-options>
                                 </configuration>
                             </execution>
@@ -666,7 +641,6 @@
                         <configuration>
                             <offline>true</offline>
                             <scripts>
-                                <script>enable-elytron.cli</script>
                                 <script>modify-elytron-config.cli</script>
                             </scripts>
                             <jboss-home>${wildfly.dir}</jboss-home>
@@ -761,17 +735,6 @@
                                 </configuration>
                             </execution>
                         </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.wildfly.plugins</groupId>
-                        <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
-                        <configuration>
-                            <!-- Disable the standard enable-elytron.cli script as it's  already provisioned -->
-                            <scripts combine.children="override">
-                                <script>modify-elytron-config.cli</script>
-                            </scripts>
-                        </configuration>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -994,10 +957,10 @@
 
         <!-- Test against WildFly Preview dist -->
         <profile>
-            <id>ee9.profile</id>
+            <id>preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.ee9</name>
+                    <name>ts.preview</name>
                 </property>
             </activation>
             <properties>
@@ -1010,6 +973,10 @@
                         <artifactId>wildfly-maven-plugin</artifactId>
                         <version>${version.org.wildfly.plugin}</version>
                         <configuration>
+                            <scripts combine.children="override">
+                                <script>enable-embedded-messaging.cli</script>
+                                <script>modify-elytron-config.cli</script>
+                            </scripts>
                             <system-properties>
                                 <maven.repo.local>${settings.localRepository}</maven.repo.local>
                             </system-properties>

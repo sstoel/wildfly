@@ -1,25 +1,6 @@
 /*
- *
- *  JBoss, Home of Professional Open Source.
- *  Copyright 2012, Red Hat, Inc., and individual contributors
- *  as indicated by the @author tags. See the copyright.txt file in the
- *  distribution for a full listing of individual contributors.
- *
- *  This is free software; you can redistribute it and/or modify it
- *  under the terms of the GNU Lesser General Public License as
- *  published by the Free Software Foundation; either version 2.1 of
- *  the License, or (at your option) any later version.
- *
- *  This software is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this software; if not, write to the Free
- *  Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- *  02110-1301 USA, or see the FSF site: http://www.fsf.org.
- * /
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.connector.subsystems.datasources;
@@ -37,7 +18,7 @@ import static org.jboss.as.connector.subsystems.datasources.Constants.XA_DATASOU
 import static org.jboss.as.connector.subsystems.datasources.Constants.XA_DATASOURCE_ATTRIBUTE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.XA_DATASOURCE_PROPERTIES_ATTRIBUTES;
 
-import java.util.List;
+import org.jboss.as.connector._private.Capabilities;
 import org.jboss.as.connector.subsystems.common.pool.PoolConfigurationRWHandler;
 import org.jboss.as.connector.subsystems.common.pool.PoolOperations;
 import org.jboss.as.controller.PathElement;
@@ -47,8 +28,8 @@ import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.access.constraint.ApplicationTypeConfig;
-import org.jboss.as.controller.access.management.AccessConstraintDefinition;
 import org.jboss.as.controller.access.management.ApplicationTypeAccessConstraintDefinition;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 
@@ -64,21 +45,24 @@ public class XaDataSourceDefinition extends SimpleResourceDefinition {
     private final boolean registerRuntimeOnly;
     private final boolean deployed;
 
-    private final List<AccessConstraintDefinition> accessConstraints;
-
     private XaDataSourceDefinition(final boolean registerRuntimeOnly, final boolean deployed) {
-        super(PATH_XA_DATASOURCE,
-                DataSourcesExtension.getResourceDescriptionResolver(XA_DATASOURCE),
-                deployed ? null : XaDataSourceAdd.INSTANCE,
-                deployed ? null : DataSourceRemove.XA_INSTANCE);
+        super(new Parameters(PATH_XA_DATASOURCE, DataSourcesExtension.getResourceDescriptionResolver(XA_DATASOURCE))
+                .setAddHandler(deployed ? null : XaDataSourceAdd.INSTANCE)
+                .setRemoveHandler(deployed ? null : DataSourceRemove.XA_INSTANCE)
+                .setAccessConstraints(new ApplicationTypeAccessConstraintDefinition(new ApplicationTypeConfig(DataSourcesExtension.SUBSYSTEM_NAME, XA_DATASOURCE)))
+                .setCapabilities(getCapabilities(deployed))
+        );
         this.registerRuntimeOnly = registerRuntimeOnly;
         this.deployed = deployed;
-        ApplicationTypeConfig atc = new ApplicationTypeConfig(DataSourcesExtension.SUBSYSTEM_NAME, XA_DATASOURCE);
-        accessConstraints = new ApplicationTypeAccessConstraintDefinition(atc).wrapAsList();
     }
 
     public static XaDataSourceDefinition createInstance(final boolean registerRuntimeOnly, final boolean deployed) {
         return new XaDataSourceDefinition(registerRuntimeOnly, deployed);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static RuntimeCapability[] getCapabilities(boolean deployed) {
+        return deployed ? new RuntimeCapability[0] : new RuntimeCapability[] {Capabilities.DATA_SOURCE_CAPABILITY};
     }
 
     @Override
@@ -97,14 +81,6 @@ public class XaDataSourceDefinition extends SimpleResourceDefinition {
             resourceRegistration.registerOperationHandler(FLUSH_GRACEFULLY_CONNECTION, PoolOperations.FlushGracefullyConnectionInPool.DS_INSTANCE);
             resourceRegistration.registerOperationHandler(TEST_CONNECTION, PoolOperations.TestConnectionInPool.DS_INSTANCE);
         }
-    }
-
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        super.registerCapabilities(resourceRegistration);
-
-        if (!deployed)
-            resourceRegistration.registerCapability(org.jboss.as.connector._private.Capabilities.DATA_SOURCE_CAPABILITY);
     }
 
     @Override
@@ -145,15 +121,6 @@ public class XaDataSourceDefinition extends SimpleResourceDefinition {
 
     @Override
     public void registerChildren(ManagementResourceRegistration resourceRegistration) {
-        if (deployed) {
-            resourceRegistration.registerSubModel(XaDataSourcePropertyDefinition.DEPLOYED_INSTANCE);
-        } else {
-            resourceRegistration.registerSubModel(XaDataSourcePropertyDefinition.INSTANCE);
-        }
-    }
-
-    @Override
-    public List<AccessConstraintDefinition> getAccessConstraints() {
-        return accessConstraints;
+        resourceRegistration.registerSubModel(new XaDataSourcePropertyDefinition(this.deployed));
     }
 }

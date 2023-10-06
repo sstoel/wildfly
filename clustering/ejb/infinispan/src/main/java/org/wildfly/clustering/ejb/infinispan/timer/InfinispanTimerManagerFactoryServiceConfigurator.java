@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2021, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.clustering.ejb.infinispan.timer;
@@ -47,10 +30,10 @@ import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
-import org.wildfly.clustering.ejb.BeanConfiguration;
 import org.wildfly.clustering.ejb.timer.TimerManagerFactory;
 import org.wildfly.clustering.ejb.timer.TimerManagerFactoryConfiguration;
 import org.wildfly.clustering.ejb.timer.TimerRegistry;
+import org.wildfly.clustering.ejb.timer.TimerServiceConfiguration;
 import org.wildfly.clustering.infinispan.affinity.KeyAffinityServiceFactory;
 import org.wildfly.clustering.infinispan.container.DataContainerConfigurationBuilder;
 import org.wildfly.clustering.infinispan.service.CacheServiceConfigurator;
@@ -88,7 +71,7 @@ public class InfinispanTimerManagerFactoryServiceConfigurator<I, C> extends Simp
     private volatile Supplier<Cache> cache;
 
     public InfinispanTimerManagerFactoryServiceConfigurator(InfinispanTimerManagementConfiguration configuration, TimerManagerFactoryConfiguration<I> factoryConfiguration) {
-        super(ServiceName.JBOSS.append("clustering", "timer").append(factoryConfiguration.getBeanConfiguration().getName()));
+        super(ServiceName.JBOSS.append("clustering", "timer").append(factoryConfiguration.getTimerServiceConfiguration().getName()));
         this.configuration = configuration;
         this.factoryConfiguration = factoryConfiguration;
         this.persistent = factoryConfiguration.isPersistent();
@@ -103,7 +86,7 @@ public class InfinispanTimerManagerFactoryServiceConfigurator<I, C> extends Simp
     public ServiceConfigurator configure(CapabilityServiceSupport support) {
         String containerName = this.configuration.getContainerName();
         String cacheName = this.configuration.getCacheName();
-        String beanName = this.factoryConfiguration.getBeanConfiguration().getName();
+        String beanName = this.factoryConfiguration.getTimerServiceConfiguration().getName();
 
         ServiceName cacheServiceName = InfinispanCacheRequirement.CACHE.getServiceName(support, containerName, beanName);
         this.dependenciesConfigurator = new CompositeServiceConfigurator(cacheServiceName);
@@ -154,8 +137,8 @@ public class InfinispanTimerManagerFactoryServiceConfigurator<I, C> extends Simp
     }
 
     @Override
-    public BeanConfiguration getBeanConfiguration() {
-        return this.factoryConfiguration.getBeanConfiguration();
+    public TimerServiceConfiguration getTimerServiceConfiguration() {
+        return this.factoryConfiguration.getTimerServiceConfiguration();
     }
 
     @Override
@@ -165,7 +148,7 @@ public class InfinispanTimerManagerFactoryServiceConfigurator<I, C> extends Simp
 
     @Override
     public ByteBufferMarshaller getMarshaller() {
-        return this.configuration.getMarshallerFactory().apply(this.factoryConfiguration.getBeanConfiguration().getModule());
+        return this.configuration.getMarshallerFactory().apply(this.factoryConfiguration.getTimerServiceConfiguration().getModule());
     }
 
     @Override

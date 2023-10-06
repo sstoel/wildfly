@@ -1,25 +1,6 @@
 /*
- *
- *  JBoss, Home of Professional Open Source.
- *  Copyright 2012, Red Hat, Inc., and individual contributors
- *  as indicated by the @author tags. See the copyright.txt file in the
- *  distribution for a full listing of individual contributors.
- *
- *  This is free software; you can redistribute it and/or modify it
- *  under the terms of the GNU Lesser General Public License as
- *  published by the Free Software Foundation; either version 2.1 of
- *  the License, or (at your option) any later version.
- *
- *  This software is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- *  Lesser General Public License for more details.
- *
- *  You should have received a copy of the GNU Lesser General Public
- *  License along with this software; if not, write to the Free
- *  Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- *  02110-1301 USA, or see the FSF site: http://www.fsf.org.
- * /
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.connector.subsystems.datasources;
@@ -39,8 +20,6 @@ import static org.jboss.as.connector.subsystems.datasources.Constants.FLUSH_INVA
 import static org.jboss.as.connector.subsystems.datasources.Constants.RECOVERY_CREDENTIAL_REFERENCE;
 import static org.jboss.as.connector.subsystems.datasources.Constants.TEST_CONNECTION;
 
-import java.util.List;
-
 import org.jboss.as.connector._private.Capabilities;
 import org.jboss.as.connector.subsystems.common.pool.PoolConfigurationRWHandler;
 import org.jboss.as.connector.subsystems.common.pool.PoolOperations;
@@ -51,8 +30,8 @@ import org.jboss.as.controller.SimpleAttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.SimpleResourceDefinition;
 import org.jboss.as.controller.access.constraint.ApplicationTypeConfig;
-import org.jboss.as.controller.access.management.AccessConstraintDefinition;
 import org.jboss.as.controller.access.management.ApplicationTypeAccessConstraintDefinition;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.controller.security.CredentialReferenceWriteAttributeHandler;
@@ -66,21 +45,26 @@ public class DataSourceDefinition extends SimpleResourceDefinition {
     private final boolean registerRuntimeOnly;
     private final boolean deployed;
 
-    private final List<AccessConstraintDefinition> accessConstraints;
-
     private DataSourceDefinition(final boolean registerRuntimeOnly, final boolean deployed) {
-        super(PATH_DATASOURCE,
-                DataSourcesExtension.getResourceDescriptionResolver(DATA_SOURCE),
-                deployed ? null : DataSourceAdd.INSTANCE,
-                deployed ? null : DataSourceRemove.INSTANCE);
+        super(new Parameters(PATH_DATASOURCE, DataSourcesExtension.getResourceDescriptionResolver(DATA_SOURCE))
+                .setAddHandler(deployed ? null : DataSourceAdd.INSTANCE)
+                .setRemoveHandler(deployed ? null : DataSourceRemove.INSTANCE)
+                .setAccessConstraints(
+                        new ApplicationTypeAccessConstraintDefinition(
+                                new ApplicationTypeConfig(DataSourcesExtension.SUBSYSTEM_NAME, DATA_SOURCE)))
+                .setCapabilities(getCapabilities(deployed))
+        );
         this.registerRuntimeOnly = registerRuntimeOnly;
         this.deployed = deployed;
-        ApplicationTypeConfig atc = new ApplicationTypeConfig(DataSourcesExtension.SUBSYSTEM_NAME, DATA_SOURCE);
-        accessConstraints = new ApplicationTypeAccessConstraintDefinition(atc).wrapAsList();
     }
 
     public static DataSourceDefinition createInstance(final boolean registerRuntimeOnly, final boolean deployed) {
         return new DataSourceDefinition(registerRuntimeOnly, deployed);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static RuntimeCapability[] getCapabilities(boolean deployed) {
+        return deployed ? new RuntimeCapability[0] : new RuntimeCapability[] {Capabilities.DATA_SOURCE_CAPABILITY};
     }
 
     @Override
@@ -100,13 +84,6 @@ public class DataSourceDefinition extends SimpleResourceDefinition {
             resourceRegistration.registerOperationHandler(FLUSH_GRACEFULLY_CONNECTION, PoolOperations.FlushGracefullyConnectionInPool.DS_INSTANCE);
             resourceRegistration.registerOperationHandler(TEST_CONNECTION, PoolOperations.TestConnectionInPool.DS_INSTANCE);
         }
-    }
-
-    @Override
-    public void registerCapabilities(ManagementResourceRegistration resourceRegistration) {
-        super.registerCapabilities(resourceRegistration);
-        if (!deployed)
-            resourceRegistration.registerCapability(Capabilities.DATA_SOURCE_CAPABILITY);
     }
 
     @Override
@@ -150,15 +127,6 @@ public class DataSourceDefinition extends SimpleResourceDefinition {
 
     @Override
     public void registerChildren(ManagementResourceRegistration resourceRegistration) {
-        if (deployed) {
-            resourceRegistration.registerSubModel(ConnectionPropertyDefinition.DEPLOYED_INSTANCE);
-        } else {
-            resourceRegistration.registerSubModel(ConnectionPropertyDefinition.INSTANCE);
-        }
-    }
-
-    @Override
-    public List<AccessConstraintDefinition> getAccessConstraints() {
-        return accessConstraints;
+        resourceRegistration.registerSubModel(new ConnectionPropertyDefinition(this.deployed));
     }
 }

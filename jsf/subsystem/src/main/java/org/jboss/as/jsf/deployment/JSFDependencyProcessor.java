@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source
- * Copyright 2021, Red Hat Inc., and individual contributors as indicated
- * by the @authors tag. See the copyright.txt in the distribution for a
- * full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.jsf.deployment;
 
@@ -52,7 +35,7 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
 
     private static final ModuleIdentifier JSF_SUBSYSTEM = ModuleIdentifier.create("org.jboss.as.jsf");
     // We use . instead of / on this stream as a workaround to get it transformed correctly by Batavia into a Jakarta namespace
-    private static final String JAVAX_FACES_EVENT_NAMEDEVENT_class = "/javax.faces.event.NamedEvent".replaceAll("\\.", "/") + ".class";
+    private static final String JAVAX_FACES_EVENT_NAMEDEVENT_class = "/jakarta.faces.event.NamedEvent".replaceAll("\\.", "/") + ".class";
 
     private JSFModuleIdFactory moduleIdFactory = JSFModuleIdFactory.getInstance();
 
@@ -70,7 +53,7 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
             if (jsfVersion.equals(defaultJsfVersion) && !moduleIdFactory.isValidJSFSlot(jsfVersion)) {
                 throw JSFLogger.ROOT_LOGGER.invalidDefaultJSFImpl(defaultJsfVersion);
             }
-            addJSFAPI(JsfVersionMarker.JSF_2_0, moduleSpecification, moduleLoader);
+            addJSFAPI(JsfVersionMarker.JSF_4_0, moduleSpecification, moduleLoader);
             return;
         }
         if (!DeploymentTypeMarker.isType(DeploymentType.WAR, deploymentUnit) && !DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit)) {
@@ -153,7 +136,7 @@ public class JSFDependencyProcessor implements DeploymentUnitProcessor {
 
     private boolean isJSF12(ModuleDependency moduleDependency, String identifier) throws ModuleLoadException {
 
-        // The class javax.faces.event.NamedEvent was introduced in JSF 2.0
+        // The class jakarta.faces.event.NamedEvent was introduced in JSF 2.0
         return (moduleDependency.getModuleLoader().loadModule(identifier)
                 .getClassLoader().getResource(JAVAX_FACES_EVENT_NAMEDEVENT_class) == null);
     }

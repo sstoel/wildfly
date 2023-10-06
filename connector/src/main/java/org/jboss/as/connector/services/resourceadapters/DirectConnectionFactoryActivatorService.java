@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2012, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.connector.services.resourceadapters;
@@ -29,7 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.resource.spi.TransactionSupport;
+import jakarta.resource.spi.TransactionSupport;
 
 import org.jboss.as.connector.logging.ConnectorLogger;
 import org.jboss.as.connector.metadata.api.common.Security;
@@ -58,16 +41,17 @@ import org.jboss.jca.core.spi.transaction.TransactionIntegration;
 import org.jboss.modules.Module;
 import org.jboss.msc.inject.Injector;
 import org.jboss.msc.service.ServiceName;
+import org.jboss.msc.service.StartException;
 import org.jboss.msc.value.InjectedValue;
 
-public class DirectConnectionFactoryActivatorService implements org.jboss.msc.service.Service<org.jboss.as.naming.deployment.ContextNames.BindInfo> {
+public class DirectConnectionFactoryActivatorService implements org.jboss.msc.service.Service<ContextNames.BindInfo> {
 
     private static final ServiceName SECURITY_MANAGER_SERVICE = ServiceName.JBOSS.append("security", "simple-security-manager");
     private static final ServiceName SUBJECT_FACTORY_SERVICE = ServiceName.JBOSS.append("security", "subject-factory");
 
 
-    public static final org.jboss.msc.service.ServiceName SERVICE_NAME_BASE =
-            org.jboss.msc.service.ServiceName.JBOSS.append("connector").append("direct-connection-factory-activator");
+    public static final ServiceName SERVICE_NAME_BASE =
+            ServiceName.JBOSS.append("connector").append("direct-connection-factory-activator");
 
     protected final InjectedValue<AS7MetadataRepository> mdr = new InjectedValue<AS7MetadataRepository>();
 
@@ -145,7 +129,6 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
             Map<String, String> mcfConfigProperties = new HashMap<String, String>();
             String securitySetting = null;
             String securitySettingDomain = null;
-            boolean elytronEnabled = false;
 
             if (properties != null) {
                 for (Map.Entry<String,String> prop : properties.entrySet()) {
@@ -153,13 +136,10 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
                     String value = prop.getValue();
                     if (key.equals("ironjacamar.security")) {
                         securitySetting = value;
-                    } else if (key.equals("ironjacamar.security.elytron") && value.equals("true")) {
-                        elytronEnabled = true;
                     } else if (key.equals("ironjacamar.security.elytron-authentication-context")) {
                         securitySettingDomain = value;
-                        elytronEnabled = true;
                     } else if (key.equals("ironjacamar.security.domain")) {
-                        securitySettingDomain = value;
+                        throw new StartException(SUBSYSTEM_RA_LOGGER.legacySecurityNotSupported());
                     } else {
                         if (key.startsWith("ra.")) {
                             raConfigProperties.put(key.substring(3), value);
@@ -185,14 +165,12 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
 
             Security security = null;
             if (securitySetting != null) {
-                if ("".equals(securitySetting)) {
-                    security = new SecurityImpl(null, null, false, false);
-                } else if ("application".equals(securitySetting)) {
-                    security = new SecurityImpl(null, null, true, false);
+                if ("".equals(securitySetting) || ("application".equals(securitySetting))) {
+                    throw new StartException(SUBSYSTEM_RA_LOGGER.legacySecurityNotSupported());
                 } else if ("domain".equals(securitySetting) && securitySettingDomain != null) {
-                    security = new SecurityImpl(securitySettingDomain, null, false, elytronEnabled);
+                    security = new SecurityImpl(securitySettingDomain, null, false);
                 } else if ("domain-and-application".equals(securitySetting) && securitySettingDomain != null) {
-                    security = new SecurityImpl(null, securitySettingDomain, false, elytronEnabled);
+                    security = new SecurityImpl(null, securitySettingDomain, false);
                 }
             }
 
@@ -234,7 +212,7 @@ public class DirectConnectionFactoryActivatorService implements org.jboss.msc.se
             activator.setCreateBinderService(false);
             activator.setBindInfo(bindInfo);
             org.jboss.msc.service.ServiceTarget serviceTarget = context.getChildTarget();
-            org.jboss.msc.service.ServiceName activatorServiceName = ConnectorServices.RESOURCE_ADAPTER_ACTIVATOR_SERVICE.append(serviceName);
+            ServiceName activatorServiceName = ConnectorServices.RESOURCE_ADAPTER_ACTIVATOR_SERVICE.append(serviceName);
             org.jboss.msc.service.ServiceBuilder connectionFactoryServiceBuilder = serviceTarget
                     .addService(activatorServiceName, activator)
                     .addDependency(ConnectorServices.IRONJACAMAR_MDR, AS7MetadataRepository.class,

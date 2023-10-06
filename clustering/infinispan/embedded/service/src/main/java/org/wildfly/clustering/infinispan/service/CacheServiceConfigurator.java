@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.clustering.infinispan.service;
 
@@ -58,17 +41,11 @@ public class CacheServiceConfigurator<K, V> extends SimpleServiceNameProvider im
 
     private volatile SupplierDependency<EmbeddedCacheManager> container;
     private volatile Dependency configuration;
-    private volatile Dependency dependency;
 
     public CacheServiceConfigurator(ServiceName name, String containerName, String cacheName) {
         super(name);
         this.containerName = containerName;
         this.cacheName = cacheName;
-    }
-
-    public CacheServiceConfigurator<K, V> require(Dependency dependency) {
-        this.dependency = dependency;
-        return this;
     }
 
     @Override
@@ -93,7 +70,7 @@ public class CacheServiceConfigurator<K, V> extends SimpleServiceNameProvider im
     @Override
     public final ServiceBuilder<?> build(ServiceTarget target) {
         ServiceBuilder<?> builder = new AsyncServiceConfigurator(this.getServiceName()).build(target);
-        Consumer<Cache<K, V>> cache = new CompositeDependency(this.configuration, this.container, this.dependency).register(builder).provides(this.getServiceName());
+        Consumer<Cache<K, V>> cache = new CompositeDependency(this.configuration, this.container).register(builder).provides(this.getServiceName());
         Service service = new FunctionalService<>(cache, ManagedCache::new, this, this);
         return builder.setInstance(service).setInitialMode(ServiceController.Mode.ON_DEMAND);
     }

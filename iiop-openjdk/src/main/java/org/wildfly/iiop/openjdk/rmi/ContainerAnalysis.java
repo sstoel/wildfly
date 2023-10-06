@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2006, Red Hat Middleware LLC, and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.iiop.openjdk.rmi;
 
@@ -169,7 +152,7 @@ public abstract class ContainerAnalysis  extends ClassAnalysis {
     protected ContainerAnalysis(Class cls) {
         super(cls);
 
-        if (cls == java.lang.Object.class || cls == java.io.Serializable.class || cls == java.io.Externalizable.class)
+        if (cls == Object.class || cls == Serializable.class || cls == Externalizable.class)
             throw IIOPLogger.ROOT_LOGGER.cannotAnalyzeSpecialClass(cls.getName());
 
         this.cls = cls;
@@ -369,10 +352,10 @@ public abstract class ContainerAnalysis  extends ClassAnalysis {
             if (intfs[i] == java.rmi.Remote.class)
                 continue;
             // Ignore java.io.Serializable
-            if (intfs[i] == java.io.Serializable.class)
+            if (intfs[i] == Serializable.class)
                 continue;
             // Ignore java.io.Externalizable
-            if (intfs[i] == java.io.Externalizable.class)
+            if (intfs[i] == Externalizable.class)
                 continue;
             if (!RmiIdlUtil.isAbstractValueType(intfs[i])) {
                 a.add(InterfaceAnalysis.getInterfaceAnalysis(intfs[i]));
@@ -512,7 +495,7 @@ public abstract class ContainerAnalysis  extends ClassAnalysis {
             Class type = fields[i].getType();
 
             // Only map primitives and java.lang.String
-            if (!type.isPrimitive() && type != java.lang.String.class) {
+            if (!type.isPrimitive() && type != String.class) {
                 // It is an RMI/IIOP violation for interfaces.
                 if (cls.isInterface())
                     throw IIOPLogger.ROOT_LOGGER.badRMIIIOPConstantType(fields[i].getName(), cls.getName(), "1.2.3");

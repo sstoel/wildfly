@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2013, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.txn.service;
@@ -29,12 +12,12 @@ import org.jboss.msc.service.StartException;
 import org.jboss.msc.service.StopContext;
 
 /**
- * Allows enabling/disabling access to the {@link javax.transaction.UserTransaction} at runtime. Typically, components (like the
+ * Allows enabling/disabling access to the {@link jakarta.transaction.UserTransaction} at runtime. Typically, components (like the
  * Jakarta Enterprise Beans component), at runtime, based on a certain criteria decide whether or not access to the
- * {@link javax.transaction.UserTransaction} is allowed during an invocation associated with a thread. The
+ * {@link jakarta.transaction.UserTransaction} is allowed during an invocation associated with a thread. The
  * {@link UserTransactionService} and the {@link UserTransactionBindingService} which are responsible for handing out the
- * {@link javax.transaction.UserTransaction} use this service to decide whether or not they should hand out the
- * {@link javax.transaction.UserTransaction}
+ * {@link jakarta.transaction.UserTransaction} use this service to decide whether or not they should hand out the
+ * {@link jakarta.transaction.UserTransaction}
  *
  * @author Jaikiran Pai
  * @author Eduardo Martins

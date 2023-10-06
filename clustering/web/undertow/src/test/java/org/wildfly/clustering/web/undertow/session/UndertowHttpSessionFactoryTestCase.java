@@ -1,3 +1,8 @@
+/*
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 package org.wildfly.clustering.web.undertow.session;
 
 import static org.junit.Assert.assertEquals;
@@ -82,7 +87,7 @@ public class UndertowHttpSessionFactoryTestCase {
         Duration interval = Duration.of(100L, ChronoUnit.SECONDS);
 
         when(session.getMetaData()).thenReturn(metaData);
-        when(metaData.getMaxInactiveInterval()).thenReturn(interval);
+        when(metaData.getTimeout()).thenReturn(interval);
 
         int result = this.factory.createHttpSession(session, context).getMaxInactiveInterval();
 

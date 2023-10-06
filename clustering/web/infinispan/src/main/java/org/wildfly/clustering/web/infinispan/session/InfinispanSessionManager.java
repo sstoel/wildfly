@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2013, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.clustering.web.infinispan.session;
 
@@ -41,16 +24,17 @@ import org.wildfly.clustering.ee.Scheduler;
 import org.wildfly.clustering.ee.cache.CacheProperties;
 import org.wildfly.clustering.ee.cache.IdentifierFactory;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
+import org.wildfly.clustering.ee.expiration.Expiration;
+import org.wildfly.clustering.ee.expiration.ExpirationMetaData;
 import org.wildfly.clustering.infinispan.distribution.CacheLocality;
 import org.wildfly.clustering.infinispan.distribution.Locality;
 import org.wildfly.clustering.web.cache.session.SessionFactory;
 import org.wildfly.clustering.web.cache.session.SimpleImmutableSession;
 import org.wildfly.clustering.web.cache.session.ValidSession;
 import org.wildfly.clustering.web.infinispan.logging.InfinispanWebLogger;
+import org.wildfly.clustering.web.infinispan.session.metadata.SessionMetaDataKeyFilter;
 import org.wildfly.clustering.web.session.ImmutableSession;
 import org.wildfly.clustering.web.session.Session;
-import org.wildfly.clustering.web.session.SessionExpirationListener;
-import org.wildfly.clustering.web.session.SessionExpirationMetaData;
 import org.wildfly.clustering.web.session.SessionManager;
 
 /**
@@ -63,19 +47,19 @@ import org.wildfly.clustering.web.session.SessionManager;
  */
 public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<LC, TransactionBatch> {
 
-    private final SessionExpirationListener expirationListener;
+    private final Consumer<ImmutableSession> expirationListener;
     private final Batcher<TransactionBatch> batcher;
     private final Cache<Key<String>, ?> cache;
     private final CacheProperties properties;
     private final SessionFactory<SC, MV, AV, LC> factory;
     private final IdentifierFactory<String> identifierFactory;
-    private final Scheduler<String, SessionExpirationMetaData> expirationScheduler;
+    private final Scheduler<String, ExpirationMetaData> expirationScheduler;
     private final SC context;
     private final Runnable startTask;
     private final Consumer<ImmutableSession> closeTask;
     private final Registrar<SessionManager<LC, TransactionBatch>> registrar;
+    private final Expiration expiration;
 
-    private volatile Duration defaultMaxInactiveInterval = Duration.ofMinutes(30L);
     private volatile Registration registration;
 
     public InfinispanSessionManager(SessionFactory<SC, MV, AV, LC> factory, InfinispanSessionManagerConfiguration<SC, LC> configuration) {
@@ -89,11 +73,12 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
         this.context = configuration.getServletContext();
         this.registrar = configuration.getRegistrar();
         this.startTask = configuration.getStartTask();
+        this.expiration = configuration;
         this.closeTask = new Consumer<>() {
             @Override
             public void accept(ImmutableSession session) {
                 if (session.isValid()) {
-                    configuration.getExpirationScheduler().schedule(session.getId(), new SimpleSessionExpirationMetaData(session.getMetaData()));
+                    configuration.getExpirationScheduler().schedule(session.getId(), session.getMetaData());
                 }
             }
         };
@@ -113,7 +98,7 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
             // Don't passivate sessions on stop if we will purge the store on startup
             if (persistence.passivation() && !persistence.stores().stream().allMatch(StoreConfiguration::purgeOnStartup)) {
                 try (Stream<Key<String>> stream = this.cache.getAdvancedCache().withFlags(Flag.CACHE_MODE_LOCAL, Flag.SKIP_CACHE_LOAD, Flag.SKIP_LOCKING).keySet().stream()) {
-                    stream.filter(SessionCreationMetaDataKeyFilter.INSTANCE).forEach(this.cache::evict);
+                    stream.filter(SessionMetaDataKeyFilter.INSTANCE).forEach(this.cache::evict);
                 }
             }
         }
@@ -132,16 +117,6 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
     }
 
     @Override
-    public Duration getDefaultMaxInactiveInterval() {
-        return this.defaultMaxInactiveInterval;
-    }
-
-    @Override
-    public void setDefaultMaxInactiveInterval(Duration duration) {
-        this.defaultMaxInactiveInterval = duration;
-    }
-
-    @Override
     public Supplier<String> getIdentifierFactory() {
         return this.identifierFactory;
     }
@@ -156,7 +131,7 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
         ImmutableSession session = this.factory.createImmutableSession(id, value);
         if (session.getMetaData().isExpired()) {
             InfinispanWebLogger.ROOT_LOGGER.tracef("Session %s was found, but has expired", id);
-            this.expirationListener.sessionExpired(session);
+            this.expirationListener.accept(session);
             this.factory.remove(id);
             return null;
         }
@@ -167,10 +142,9 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
 
     @Override
     public Session<LC> createSession(String id) {
-        Map.Entry<MV, AV> entry = this.factory.createValue(id, null);
+        Map.Entry<MV, AV> entry = this.factory.createValue(id, this.expiration.getTimeout());
         if (entry == null) return null;
         Session<LC> session = this.factory.createSession(id, entry, this.context);
-        session.getMetaData().setMaxInactiveInterval(this.defaultMaxInactiveInterval);
         return new ValidSession<>(session, this.closeTask);
     }
 
@@ -195,7 +169,7 @@ public class InfinispanSessionManager<SC, MV, AV, LC> implements SessionManager<
     private Set<String> getSessions(Flag... flags) {
         Locality locality = new CacheLocality(this.cache);
         try (Stream<Key<String>> keys = this.cache.getAdvancedCache().withFlags(flags).keySet().stream()) {
-            return keys.filter(SessionCreationMetaDataKeyFilter.INSTANCE.and(key -> locality.isLocal(key))).map(key -> key.getId()).collect(Collectors.toSet());
+            return keys.filter(SessionMetaDataKeyFilter.INSTANCE.and(key -> locality.isLocal(key))).map(key -> key.getId()).collect(Collectors.toSet());
         }
     }
 

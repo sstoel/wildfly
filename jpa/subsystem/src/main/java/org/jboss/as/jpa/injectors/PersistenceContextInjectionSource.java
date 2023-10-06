@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.jpa.injectors;
@@ -27,12 +10,12 @@ import static org.jboss.as.jpa.messages.JpaLogger.ROOT_LOGGER;
 import java.lang.reflect.Proxy;
 import java.util.Map;
 
-import javax.persistence.EntityManager;
-import javax.persistence.EntityManagerFactory;
-import javax.persistence.PersistenceContextType;
-import javax.persistence.SynchronizationType;
-import javax.transaction.TransactionManager;
-import javax.transaction.TransactionSynchronizationRegistry;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityManagerFactory;
+import jakarta.persistence.PersistenceContextType;
+import jakarta.persistence.SynchronizationType;
+import jakarta.transaction.TransactionManager;
+import jakarta.transaction.TransactionSynchronizationRegistry;
 
 import org.jboss.as.ee.component.InjectionSource;
 import org.jboss.as.jpa.config.ExtendedPersistenceInheritance;
@@ -79,7 +62,7 @@ public class PersistenceContextInjectionSource extends InjectionSource {
      * @param puServiceName     represents the deployed persistence.xml that we are going to use.
      * @param serviceRegistry    The MSC service registry which will be used to find the PersistenceContext service
      * @param scopedPuName      the fully scoped reference to the persistence.xml
-     * @param injectionTypeName is normally "javax.persistence.EntityManager" but could be a different target class
+     * @param injectionTypeName is normally "jakarta.persistence.EntityManager" but could be a different target class
      *                          for example "org.hibernate.Session" in which case, EntityManager.unwrap(org.hibernate.Session.class is called)
      * @param pu
      * @param jpaDeploymentSettings Optional {@link JPADeploymentSettings} applicable for the persistence context
@@ -122,7 +105,7 @@ public class PersistenceContextInjectionSource extends InjectionSource {
         private final PersistenceUnitMetadata pu;
         private final JPADeploymentSettings jpaDeploymentSettings;
 
-        private static final String ENTITY_MANAGER_CLASS = "javax.persistence.EntityManager";
+        private static final String ENTITY_MANAGER_CLASS = "jakarta.persistence.EntityManager";
 
         public PersistenceContextJndiInjectable(
             final ServiceName puServiceName,

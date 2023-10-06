@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2008, Red Hat Middleware LLC, and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.iiop.openjdk.rmi.ir;
 
@@ -55,27 +38,27 @@ abstract class ContainedImpl extends IRObjectImpl implements LocalContained {
             this.absolute_name = "::" + name;
     }
 
-    public java.lang.String id() {
+    public String id() {
         return id;
     }
 
-    public void id(java.lang.String id) {
+    public void id(String id) {
         throw IIOPLogger.ROOT_LOGGER.cannotChangeRMIIIOPMapping();
     }
 
-    public java.lang.String name() {
+    public String name() {
         return name;
     }
 
-    public void name(java.lang.String name) {
+    public void name(String name) {
         throw IIOPLogger.ROOT_LOGGER.cannotChangeRMIIIOPMapping();
     }
 
-    public java.lang.String version() {
+    public String version() {
         return version;
     }
 
-    public void version(java.lang.String version) {
+    public void version(String version) {
         throw IIOPLogger.ROOT_LOGGER.cannotChangeRMIIIOPMapping();
     }
 
@@ -83,7 +66,7 @@ abstract class ContainedImpl extends IRObjectImpl implements LocalContained {
         return ContainerHelper.narrow(defined_in.getReference());
     }
 
-    public java.lang.String absolute_name() {
+    public String absolute_name() {
         return absolute_name;
     }
 

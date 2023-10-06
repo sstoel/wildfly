@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2013, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.clustering.web.hotrod.session;
 
@@ -32,13 +15,13 @@ import org.wildfly.clustering.Registrar;
 import org.wildfly.clustering.Registration;
 import org.wildfly.clustering.ee.Batcher;
 import org.wildfly.clustering.ee.cache.tx.TransactionBatch;
+import org.wildfly.clustering.ee.expiration.Expiration;
 import org.wildfly.clustering.web.cache.session.SessionFactory;
 import org.wildfly.clustering.web.cache.session.SimpleImmutableSession;
 import org.wildfly.clustering.web.cache.session.ValidSession;
 import org.wildfly.clustering.web.hotrod.logging.Logger;
 import org.wildfly.clustering.web.session.ImmutableSession;
 import org.wildfly.clustering.web.session.Session;
-import org.wildfly.clustering.web.session.SessionExpirationListener;
 import org.wildfly.clustering.web.session.SessionManager;
 import org.wildfly.common.function.Functions;
 
@@ -51,31 +34,32 @@ import org.wildfly.common.function.Functions;
  * @author Paul Ferraro
  */
 public class HotRodSessionManager<SC, MV, AV, LC> implements SessionManager<LC, TransactionBatch> {
-    private final Registrar<SessionExpirationListener> registrar;
-    private final SessionExpirationListener expirationListener;
+    private final Registrar<Consumer<ImmutableSession>> expirationListenerRegistrar;
+    private final Consumer<ImmutableSession> expirationListener;
     private final SessionFactory<SC, MV, AV, LC> factory;
     private final Supplier<String> identifierFactory;
     private final SC context;
     private final Batcher<TransactionBatch> batcher;
     private final Duration stopTimeout;
     private final Consumer<ImmutableSession> closeTask = Functions.discardingConsumer();
+    private final Expiration expiration;
 
-    private volatile Duration defaultMaxInactiveInterval = Duration.ofMinutes(30L);
     private volatile Registration expirationListenerRegistration;
 
     public HotRodSessionManager(SessionFactory<SC, MV, AV, LC> factory, HotRodSessionManagerConfiguration<SC> configuration) {
         this.factory = factory;
-        this.registrar = configuration.getExpirationListenerRegistrar();
+        this.expirationListenerRegistrar = configuration.getExpirationListenerRegistrar();
         this.expirationListener = configuration.getExpirationListener();
         this.context = configuration.getServletContext();
         this.identifierFactory = configuration.getIdentifierFactory();
         this.batcher = configuration.getBatcher();
         this.stopTimeout = configuration.getStopTimeout();
+        this.expiration = configuration;
     }
 
     @Override
     public void start() {
-        this.expirationListenerRegistration = this.registrar.register(this.expirationListener);
+        this.expirationListenerRegistration = this.expirationListenerRegistrar.register(this.expirationListener);
     }
 
     @Override
@@ -96,16 +80,6 @@ public class HotRodSessionManager<SC, MV, AV, LC> implements SessionManager<LC, 
     }
 
     @Override
-    public Duration getDefaultMaxInactiveInterval() {
-        return this.defaultMaxInactiveInterval;
-    }
-
-    @Override
-    public void setDefaultMaxInactiveInterval(Duration duration) {
-        this.defaultMaxInactiveInterval = duration;
-    }
-
-    @Override
     public Supplier<String> getIdentifierFactory() {
         return this.identifierFactory;
     }
@@ -120,7 +94,7 @@ public class HotRodSessionManager<SC, MV, AV, LC> implements SessionManager<LC, 
         ImmutableSession session = this.factory.createImmutableSession(id, entry);
         if (session.getMetaData().isExpired()) {
             Logger.ROOT_LOGGER.tracef("Session %s was found, but has expired", id);
-            this.expirationListener.sessionExpired(session);
+            this.expirationListener.accept(session);
             this.factory.remove(id);
             return null;
         }
@@ -129,10 +103,9 @@ public class HotRodSessionManager<SC, MV, AV, LC> implements SessionManager<LC, 
 
     @Override
     public Session<LC> createSession(String id) {
-        Map.Entry<MV, AV> entry = this.factory.createValue(id, null);
+        Map.Entry<MV, AV> entry = this.factory.createValue(id, this.expiration.getTimeout());
         if (entry == null) return null;
         Session<LC> session = this.factory.createSession(id, entry, this.context);
-        session.getMetaData().setMaxInactiveInterval(this.defaultMaxInactiveInterval);
         return new ValidSession<>(session, this.closeTask);
     }
 

@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright (c) 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.ejb3.deployment.processors;
 
@@ -28,6 +11,7 @@ import java.io.Externalizable;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -42,10 +26,10 @@ class ViewInterfaces {
      */
     static Set<Class<?>> getPotentialViewInterfaces(Class<?> beanClass) {
         Class<?>[] interfaces = beanClass.getInterfaces();
-        if (interfaces == null) {
+        if (interfaces.length == 0) {
             return Collections.emptySet();
         }
-        final Set<Class<?>> potentialBusinessInterfaces = new HashSet<Class<?>>();
+        final Set<Class<?>> potentialBusinessInterfaces = new HashSet<>();
         for (Class<?> klass : interfaces) {
             // Enterprise Beans 3.1 FR 4.9.7 bullet 5.3
             if (klass.equals(Serializable.class) ||
@@ -66,11 +50,11 @@ class ViewInterfaces {
      * @return A collection of all potential view interfaces
      */
     static Set<DotName> getPotentialViewInterfaces(ClassInfo beanClass) {
-        DotName[] interfaces = beanClass.interfaces();
-        if (interfaces == null) {
+        List<DotName> interfaces = beanClass.interfaceNames();
+        if (interfaces.isEmpty()) {
             return Collections.emptySet();
         }
-        final Set<DotName> names = new HashSet<DotName>();
+        final Set<DotName> names = new HashSet<>();
         for (DotName dotName : interfaces) {
             String name = dotName.toString();
             // Enterprise Beans 3.1 FR 4.9.7 bullet 5.3

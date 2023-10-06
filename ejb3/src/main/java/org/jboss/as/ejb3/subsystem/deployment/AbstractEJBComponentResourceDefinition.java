@@ -1,30 +1,21 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.subsystem.deployment;
 
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.CALENDAR_TIMER;
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.INFO;
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.NEXT_TIMEOUT;
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.PERSISTENT;
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.SCHEDULE;
+import static org.jboss.as.ejb3.subsystem.deployment.TimerResourceDefinition.TIME_REMAINING;
+
 import java.util.Map;
 
 import org.jboss.as.controller.AttributeDefinition;
+import org.jboss.as.controller.ObjectListAttributeDefinition;
 import org.jboss.as.controller.ObjectMapAttributeDefinition;
 import org.jboss.as.controller.ObjectTypeAttributeDefinition;
 import org.jboss.as.controller.OperationContext;
@@ -39,9 +30,12 @@ import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.ejb3.component.EJBComponent;
 import org.jboss.as.ejb3.component.invocationmetrics.InvocationMetrics;
 import org.jboss.as.ejb3.component.stateful.StatefulSessionComponent;
+import org.jboss.as.ejb3.component.stateful.StatefulSessionComponentInstance;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCache;
 import org.jboss.as.ejb3.subsystem.EJB3Extension;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
+import org.jboss.ejb.client.SessionID;
 
 /**
  * Base class for {@link org.jboss.as.controller.ResourceDefinition}s describing runtime {@link EJBComponent}s.
@@ -154,6 +148,15 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
     public static final SimpleAttributeDefinition POOL_MAX_SIZE = new SimpleAttributeDefinitionBuilder("pool-max-size", ModelType.INT, false)
             .setFlags(AttributeAccess.Flag.STORAGE_RUNTIME).build();
 
+    static final ObjectTypeAttributeDefinition TIMER = new ObjectTypeAttributeDefinition.Builder("timer",
+            TIME_REMAINING, NEXT_TIMEOUT, CALENDAR_TIMER, PERSISTENT, INFO, new ObjectTypeAttributeDefinition.Builder(SCHEDULE.getName(), SCHEDULE.getValueTypes()).setSuffix("schedule").build())
+            .setStorageRuntime()
+            .build();
+
+    static final ObjectListAttributeDefinition TIMERS = new ObjectListAttributeDefinition.Builder("timers", TIMER)
+            .setStorageRuntime()
+            .build();
+
     final EJBComponentType componentType;
 
     public AbstractEJBComponentResourceDefinition(final EJBComponentType componentType) {
@@ -179,7 +182,7 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
         }
 
         if (componentType.hasTimer()) {
-            resourceRegistration.registerReadOnlyAttribute(TimerAttributeDefinition.INSTANCE, handler);
+            resourceRegistration.registerReadOnlyAttribute(TIMERS, handler);
             resourceRegistration.registerReadOnlyAttribute(TIMEOUT_METHOD, handler);
         }
 
@@ -196,19 +199,22 @@ public abstract class AbstractEJBComponentResourceDefinition extends SimpleResou
             resourceRegistration.registerMetric(CACHE_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
                 protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
-                    context.getResult().set(((StatefulSessionComponent) component).getCache().getCacheSize());
+                    StatefulSessionBeanCache<SessionID, StatefulSessionComponentInstance> cache = ((StatefulSessionComponent) component).getCache();
+                    context.getResult().set(cache.getActiveCount());
                 }
             });
             resourceRegistration.registerMetric(PASSIVATED_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
                 protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
-                    context.getResult().set(((StatefulSessionComponent) component).getCache().getPassivatedCount());
+                    StatefulSessionBeanCache<SessionID, StatefulSessionComponentInstance> cache = ((StatefulSessionComponent) component).getCache();
+                    context.getResult().set(cache.getPassiveCount());
                 }
             });
             resourceRegistration.registerMetric(TOTAL_SIZE, new AbstractRuntimeMetricsHandler() {
                 @Override
                 protected void executeReadMetricStep(final OperationContext context, final ModelNode operation, final EJBComponent component) {
-                    context.getResult().set(((StatefulSessionComponent) component).getCache().getTotalSize());
+                    StatefulSessionBeanCache<SessionID, StatefulSessionComponentInstance> cache = ((StatefulSessionComponent) component).getCache();
+                    context.getResult().set(cache.getActiveCount() + cache.getPassiveCount());
                 }
             });
         }

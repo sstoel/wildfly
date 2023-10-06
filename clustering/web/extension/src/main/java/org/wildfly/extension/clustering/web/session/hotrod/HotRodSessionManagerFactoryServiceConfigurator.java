@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2018, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.extension.clustering.web.session.hotrod;
@@ -27,8 +10,10 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 
 import org.infinispan.client.hotrod.DefaultTemplate;
+import org.infinispan.client.hotrod.Flag;
 import org.infinispan.client.hotrod.RemoteCache;
 import org.infinispan.client.hotrod.configuration.NearCacheMode;
+import org.infinispan.client.hotrod.configuration.RemoteCacheConfiguration;
 import org.infinispan.client.hotrod.configuration.RemoteCacheConfigurationBuilder;
 import org.infinispan.client.hotrod.configuration.TransactionMode;
 import org.jboss.as.clustering.controller.CapabilityServiceConfigurator;
@@ -49,7 +34,6 @@ import org.wildfly.clustering.service.ServiceConfigurator;
 import org.wildfly.clustering.service.ServiceSupplierDependency;
 import org.wildfly.clustering.service.SimpleServiceNameProvider;
 import org.wildfly.clustering.service.SupplierDependency;
-import org.wildfly.clustering.web.LocalContextFactory;
 import org.wildfly.clustering.web.hotrod.session.HotRodSessionManagerFactory;
 import org.wildfly.clustering.web.hotrod.session.HotRodSessionManagerFactoryConfiguration;
 import org.wildfly.clustering.web.hotrod.session.SessionManagerNearCacheFactory;
@@ -84,14 +68,16 @@ public class HotRodSessionManagerFactoryServiceConfigurator<S, SC, AL, LC>  exte
     @Override
     public ServiceConfigurator configure(CapabilityServiceSupport support) {
         Integer maxActiveSessions = this.getMaxActiveSessions();
-        NearCacheMode mode = (maxActiveSessions == null) || (maxActiveSessions == 0) ? NearCacheMode.DISABLED : NearCacheMode.INVALIDATED;
+        NearCacheMode mode = (maxActiveSessions != null) && (maxActiveSessions > 0) ? NearCacheMode.INVALIDATED : NearCacheMode.DISABLED;
         String configurationName = this.configuration.getConfigurationName();
         String templateName = (configurationName != null) ? configurationName : DefaultTemplate.DIST_SYNC.getTemplateName();
-        SessionAttributePersistenceStrategy strategy = this.getAttributePersistenceStrategy();
         this.cacheConfigurator = new RemoteCacheServiceConfigurator<>(this.getServiceName().append("cache"), this.configuration.getContainerName(), this.getDeploymentName(), new Consumer<RemoteCacheConfigurationBuilder>() {
             @Override
             public void accept(RemoteCacheConfigurationBuilder builder) {
-                builder.forceReturnValues(false).nearCacheMode(mode).templateName(templateName).transactionMode(TransactionMode.NONE).nearCacheFactory(new SessionManagerNearCacheFactory(maxActiveSessions, strategy));
+                builder.forceReturnValues(false).nearCacheMode(mode).templateName(templateName).transactionMode(TransactionMode.NONE);
+                if (mode.invalidated()) {
+                    builder.nearCacheFactory(new SessionManagerNearCacheFactory(maxActiveSessions));
+                }
             }
         }).configure(support);
         this.cache = new ServiceSupplierDependency<>(this.cacheConfigurator.getServiceName());
@@ -129,7 +115,7 @@ public class HotRodSessionManagerFactoryServiceConfigurator<S, SC, AL, LC>  exte
     }
 
     @Override
-    public LocalContextFactory<LC> getLocalContextFactory() {
+    public Supplier<LC> getLocalContextFactory() {
         return this.factoryConfiguration.getLocalContextFactory();
     }
 
@@ -150,11 +136,19 @@ public class HotRodSessionManagerFactoryServiceConfigurator<S, SC, AL, LC>  exte
 
     @Override
     public <K, V> RemoteCache<K, V> getCache() {
-        return this.cache.get();
+        RemoteCache<K, V> cache = this.cache.get();
+        RemoteCacheConfiguration configuration = cache.getRemoteCacheContainer().getConfiguration().remoteCaches().get(cache.getName());
+        // Disable cache operation client events if near cache is disabled
+        return configuration.nearCacheMode().enabled() ? cache : cache.withFlags(Flag.SKIP_LISTENER_NOTIFICATION);
     }
 
     @Override
     public SpecificationProvider<S, SC, AL> getSpecificationProvider() {
         return this.factoryConfiguration.getSpecificationProvider();
+    }
+
+    @Override
+    public int getExpirationThreadPoolSize() {
+        return this.configuration.getExpirationThreadPoolSize();
     }
 }

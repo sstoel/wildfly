@@ -1,25 +1,7 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
-
 package org.wildfly.extension.messaging.activemq.jms;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.OP;
@@ -39,18 +21,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.json.Json;
-import javax.json.JsonArray;
-import javax.json.JsonArrayBuilder;
-import javax.json.JsonObject;
-import javax.json.JsonObjectBuilder;
-import javax.json.JsonReader;
-import javax.json.JsonValue;
+import jakarta.json.Json;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonArrayBuilder;
+import jakarta.json.JsonObject;
+import jakarta.json.JsonObjectBuilder;
+import jakarta.json.JsonReader;
+import jakarta.json.JsonValue;
 
 import org.apache.activemq.artemis.api.core.management.ActiveMQServerControl;
 import org.apache.activemq.artemis.api.core.management.QueueControl;
 import org.apache.activemq.artemis.api.core.management.ResourceNames;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
+import org.apache.activemq.artemis.core.server.ServerProducer;
 import org.apache.activemq.artemis.core.server.ServerSession;
 import org.jboss.as.controller.AbstractRuntimeOnlyHandler;
 import org.jboss.as.controller.AttributeDefinition;
@@ -123,8 +106,7 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
 
                 final JsonArrayBuilder enrichedConnections = Json.createArrayBuilder();
                 try (
-                        JsonReader reader = Json.createReader(new StringReader(json));
-                ) {
+                        JsonReader reader = Json.createReader(new StringReader(json));) {
                     final JsonArray connections = reader.readArray();
 
                     for (int i = 0; i < connections.size(); i++) {
@@ -143,8 +125,7 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
 
                 final JsonArrayBuilder enrichedConsumers = Json.createArrayBuilder();
                 try (
-                        JsonReader reader = Json.createReader(new StringReader(json));
-                ) {
+                        JsonReader reader = Json.createReader(new StringReader(json));) {
                     final JsonArray consumers = reader.readArray();
 
                     for (int i = 0; i < consumers.size(); i++) {
@@ -162,8 +143,7 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
 
                 final JsonArrayBuilder enrichedConsumers = Json.createArrayBuilder();
                 try (
-                        JsonReader reader = Json.createReader(new StringReader(json));
-                ) {
+                        JsonReader reader = Json.createReader(new StringReader(json));) {
                     final JsonArray consumers = reader.readArray();
 
                     for (int i = 0; i < consumers.size(); i++) {
@@ -187,8 +167,12 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
                 // Artemis no longer defines the method. Its implementation from Artemis 1.5 has been inlined:
                 ServerSession session = server.getSessionByID(sessionID);
                 if (session != null) {
-                    String messageID = session.getLastSentMessageID(addressName);
-                    context.getResult().set(messageID);
+                    for (ServerProducer producer : session.getServerProducers()) {
+                        if (addressName.equals(producer.getAddress())) {
+                            context.getResult().set(producer.getLastProducedMessageID().toString());
+                            break;
+                        }
+                    }
                 }
             } else if (GET_SESSION_CREATION_TIME.equals(operationName)) {
                 String sessionID = SESSION_ID.resolveModelAttribute(context, operation).asString();
@@ -223,7 +207,11 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
         JsonObjectBuilder enrichedConsumer = Json.createObjectBuilder();
 
         for (Map.Entry<String, JsonValue> entry : originalConsumer.entrySet()) {
-            enrichedConsumer.add(entry.getKey(), entry.getValue());
+            if("lastProducedMessageID".equals(entry.getKey())) {
+                enrichedConsumer.add("lastUUIDSent", entry.getValue());
+            } else {
+                enrichedConsumer.add(entry.getKey(), entry.getValue());
+            }
         }
         String queueName = originalConsumer.getString("queueName");
         final QueueControl queueControl = QueueControl.class.cast(server.getManagementService().getResource(ResourceNames.QUEUE + queueName));
@@ -335,18 +323,17 @@ public class JMSServerControlHandler extends AbstractRuntimeOnlyHandler {
         if (session == null) {
             return new String[0];
         }
-        String[] addresses = session.getTargetAddresses();
         Map<String, QueueControl> allDests = new HashMap<>();
 
         Object[] queueControls = server.getManagementService().getResources(QueueControl.class);
         for (Object queue : queueControls) {
-            QueueControl queueControl = (QueueControl)queue;
+            QueueControl queueControl = (QueueControl) queue;
             allDests.put(queueControl.getAddress(), queueControl);
         }
 
         List<String> destinations = new ArrayList<>();
-        for (String addresse : addresses) {
-            QueueControl control = allDests.get(addresse);
+        for (ServerProducer producer : session.getServerProducers()) {
+            QueueControl control = allDests.get(producer.getAddress());
             if (control != null) {
                 destinations.add(control.getAddress());
             }

@@ -1,20 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source
- * Copyright 2021 Red Hat Inc. and/or its affiliates and other contributors
- * as indicated by the @author tags. All rights reserved.
- * See the copyright.txt in the distribution for a
- * full listing of individual contributors.
- *
- * This copyrighted material is made available to anyone wishing to use,
- * modify, copy, or redistribute it subject to the terms and conditions
- * of the GNU Lesser General Public License, v. 2.1.
- * This program is distributed in the hope that it will be useful, but WITHOUT A
- * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
- * PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
- * You should have received a copy of the GNU Lesser General Public License,
- * v.2.1 along with this distribution; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
- * MA  02110-1301, USA.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.jsf.injection;
@@ -23,16 +9,16 @@ import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.faces.bean.ManagedBean;
-import javax.faces.component.FacesComponent;
-import javax.faces.component.behavior.FacesBehavior;
-import javax.faces.context.ExternalContext;
-import javax.faces.convert.FacesConverter;
-import javax.faces.event.NamedEvent;
-import javax.faces.render.FacesBehaviorRenderer;
-import javax.faces.render.FacesRenderer;
-import javax.faces.validator.FacesValidator;
-import javax.servlet.ServletContext;
+
+import jakarta.faces.component.FacesComponent;
+import jakarta.faces.component.behavior.FacesBehavior;
+import jakarta.faces.context.ExternalContext;
+import jakarta.faces.convert.FacesConverter;
+import jakarta.faces.event.NamedEvent;
+import jakarta.faces.render.FacesBehaviorRenderer;
+import jakarta.faces.render.FacesRenderer;
+import jakarta.faces.validator.FacesValidator;
+import jakarta.servlet.ServletContext;
 
 /**
  * This class retrieves the annotation map from application scope.  This map was placed there by the JSFAnnotationProcessor
@@ -65,7 +51,6 @@ public class AnnotationMap {
             stringToAnnoMap.put(FacesConverter.class.getName(), FacesConverter.class);
             stringToAnnoMap.put(FacesValidator.class.getName(), FacesValidator.class);
             stringToAnnoMap.put(FacesRenderer.class.getName(), FacesRenderer.class);
-            stringToAnnoMap.put(ManagedBean.class.getName(), ManagedBean.class);
             stringToAnnoMap.put(NamedEvent.class.getName(), NamedEvent.class);
             stringToAnnoMap.put(FacesBehavior.class.getName(), FacesBehavior.class);
             stringToAnnoMap.put(FacesBehaviorRenderer.class.getName(), FacesBehaviorRenderer.class);
@@ -73,7 +58,7 @@ public class AnnotationMap {
             // Put Jakarta Server Faces 2.2+ annotations below this line if any new ones are to be scanned.
             // Load the class to avoid a NoClassDefFoundError if it is not present in the impl
             ClassLoader loader = AnnotationMap.class.getClassLoader();
-            addAnnotationIfPresent(loader, "javax.faces.view.facelets.FaceletsResourceResolver");
+            addAnnotationIfPresent(loader, "jakarta.faces.view.facelets.FaceletsResourceResolver");
         } catch (Exception e) {
             // Ignore.  Whatever classes are available have been loaded into the map.
         }

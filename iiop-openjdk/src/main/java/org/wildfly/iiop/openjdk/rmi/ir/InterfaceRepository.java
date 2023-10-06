@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2008, Red Hat Middleware LLC, and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.iiop.openjdk.rmi.ir;
 
@@ -245,11 +228,11 @@ public class InterfaceRepository {
         TypeCode ret = (TypeCode) typeCodeMap.get(cls);
 
         if (ret == null) {
-            if (cls == java.lang.String.class)
+            if (cls == String.class)
                 ret = getJavaLangString().type();
-            else if (cls == java.lang.Object.class)
+            else if (cls == Object.class)
                 ret = getJavaLang_Object().type();
-            else if (cls == java.lang.Class.class)
+            else if (cls == Class.class)
                 ret = getJavaxRmiCORBAClassDesc().type();
             else if (cls == java.io.Serializable.class)
                 ret = getJavaIoSerializable().type();
@@ -717,11 +700,11 @@ public class InterfaceRepository {
         } else {
             typeCode = getTypeCode(compType); // map the component type.
 
-            if (compType == java.lang.String.class)
+            if (compType == String.class)
                 typeName = getJavaLangString().name();
-            else if (compType == java.lang.Object.class)
+            else if (compType == Object.class)
                 typeName = getJavaLang_Object().name();
-            else if (compType == java.lang.Class.class)
+            else if (compType == Class.class)
                 typeName = getJavaxRmiCORBAClassDesc().name();
             else if (compType == java.io.Serializable.class)
                 typeName = getJavaIoSerializable().name();

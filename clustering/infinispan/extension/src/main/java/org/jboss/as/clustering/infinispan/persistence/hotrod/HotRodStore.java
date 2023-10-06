@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2018, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.clustering.infinispan.persistence.hotrod;
@@ -30,17 +13,21 @@ import java.util.Set;
 import java.util.PrimitiveIterator;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import io.reactivex.rxjava3.core.Completable;
 import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 
 import org.infinispan.Cache;
+import org.infinispan.client.hotrod.DataFormat;
 import org.infinispan.client.hotrod.DefaultTemplate;
 import org.infinispan.client.hotrod.Flag;
 import org.infinispan.client.hotrod.RemoteCache;
@@ -48,10 +35,10 @@ import org.infinispan.client.hotrod.configuration.NearCacheMode;
 import org.infinispan.client.hotrod.configuration.RemoteCacheConfigurationBuilder;
 import org.infinispan.client.hotrod.configuration.TransactionMode;
 import org.infinispan.commons.configuration.ConfiguredBy;
+import org.infinispan.commons.dataconversion.MediaType;
 import org.infinispan.commons.io.ByteBuffer;
 import org.infinispan.commons.util.IntSet;
 import org.infinispan.commons.util.IntSets;
-import org.infinispan.commons.util.concurrent.CompletableFutures;
 import org.infinispan.marshall.persistence.PersistenceMarshaller;
 import org.infinispan.metadata.Metadata;
 import org.infinispan.persistence.spi.InitializationContext;
@@ -77,10 +64,12 @@ import org.wildfly.common.function.Functions;
 @ConfiguredBy(HotRodStoreConfiguration.class)
 public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
     private static final Set<Characteristic> CHARACTERISTICS = EnumSet.of(Characteristic.SHAREABLE, Characteristic.BULK_READ, Characteristic.EXPIRATION, Characteristic.SEGMENTABLE);
+    private static final DataFormat BINARY_DATA_FORMAT = DataFormat.builder().keyType(MediaType.APPLICATION_OCTET_STREAM).valueType(MediaType.APPLICATION_OCTET_STREAM).build();
 
     private volatile RemoteCacheContainer container;
     private volatile AtomicReferenceArray<RemoteCache<ByteBuffer, ByteBuffer>> caches;
     private volatile BlockingManager blockingManager;
+    private volatile Executor executor;
     private volatile PersistenceMarshaller marshaller;
     private volatile MarshallableEntryFactory<K,V> entryFactory;
     private volatile int batchSize;
@@ -98,6 +87,7 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
         this.container = configuration.remoteCacheContainer();
         this.cacheName = cache.getName();
         this.blockingManager = context.getBlockingManager();
+        this.executor = context.getNonBlockingExecutor();
         this.batchSize = configuration.maxBatchSize();
         this.marshaller = context.getPersistenceMarshaller();
         this.entryFactory = context.getMarshallableEntryFactory();
@@ -118,12 +108,12 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
             this.container.getConfiguration().addRemoteCache(this.segmentCacheName(i), configurator);
         }
         // When unshared, add/removeSegments(...) will be triggered as needed.
-        return configuration.shared() ? this.addSegments(IntSets.immutableRangeSet(this.segments)) : CompletableFutures.completedNull();
+        return configuration.shared() ? this.addSegments(IntSets.immutableRangeSet(this.segments)) : CompletableFuture.completedStage(null);
     }
 
     @Override
     public CompletionStage<Void> stop() {
-        CompletableFuture<Void> result = CompletableFutures.completedNull();
+        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
         for (int i = 0; i < this.caches.length(); ++i) {
             RemoteCache<ByteBuffer, ByteBuffer> cache = this.caches.get(i);
             if (cache != null) {
@@ -160,34 +150,37 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
     @Override
     public CompletionStage<MarshallableEntry<K, V>> load(int segment, Object key) {
         RemoteCache<ByteBuffer, ByteBuffer> cache = this.segmentCache(segment);
-        if (cache == null) return CompletableFutures.completedNull();
+        if (cache == null) return CompletableFuture.completedStage(null);
         try {
-            return cache.getAsync(this.marshalKey(key)).thenApply(value -> (value != null) ? this.entryFactory.create(key, this.unmarshalValue(value)) : null);
+            return cache.getAsync(this.marshalKey(key))
+                    .thenApplyAsync(value -> (value != null) ? this.entryFactory.create(key, this.unmarshalValue(value)) : null, this.executor);
         } catch (PersistenceException e) {
-            return CompletableFutures.completedExceptionFuture(e);
+            return CompletableFuture.failedStage(e);
         }
     }
 
     @Override
     public CompletionStage<Void> write(int segment, MarshallableEntry<? extends K, ? extends V> entry) {
         RemoteCache<ByteBuffer, ByteBuffer> cache = this.segmentCache(segment);
-        if (cache == null) return CompletableFutures.completedNull();
+        if (cache == null) return CompletableFuture.completedStage(null);
         Metadata metadata = entry.getMetadata();
         try {
-            return cache.putAsync(entry.getKeyBytes(), this.marshalValue(entry.getMarshalledValue()), metadata.lifespan(), TimeUnit.MILLISECONDS, metadata.maxIdle(), TimeUnit.MILLISECONDS).thenAccept(Functions.discardingConsumer());
+            return cache.putAsync(entry.getKeyBytes(), this.marshalValue(entry.getMarshalledValue()), metadata.lifespan(), TimeUnit.MILLISECONDS, metadata.maxIdle(), TimeUnit.MILLISECONDS)
+                    .thenAcceptAsync(Functions.discardingConsumer(), this.executor);
         } catch (PersistenceException e) {
-            return CompletableFutures.completedExceptionFuture(e);
+            return CompletableFuture.failedStage(e);
         }
     }
 
     @Override
     public CompletionStage<Boolean> delete(int segment, Object key) {
         RemoteCache<ByteBuffer, ByteBuffer> cache = this.segmentCache(segment);
-        if (cache == null) return CompletableFutures.completedNull();
+        if (cache == null) return CompletableFuture.completedStage(null);
         try {
-            return cache.withFlags(Flag.FORCE_RETURN_VALUE).removeAsync(this.marshalKey(key)).thenApply(Objects::nonNull);
+            return cache.withFlags(Flag.FORCE_RETURN_VALUE).removeAsync(this.marshalKey(key))
+                    .thenApplyAsync(Objects::nonNull, this.executor);
         } catch (PersistenceException e) {
-            return CompletableFutures.completedExceptionFuture(e);
+            return CompletableFuture.failedStage(e);
         }
     }
 
@@ -199,7 +192,9 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
         Completable writeCompletable = Flowable.fromPublisher(writePublisher)
                 .flatMap(sp -> Flowable.fromPublisher(sp).map(entry -> Map.entry(entry, sp.getSegment())), publisherCount)
                 .flatMapCompletable(this::write, false, this.batchSize);
-        return removeCompletable.mergeWith(writeCompletable).toCompletionStage(null);
+        return removeCompletable.mergeWith(writeCompletable)
+                .observeOn(Schedulers.from(this.executor))
+                .toCompletionStage(null);
     }
 
     private Completable write(Map.Entry<MarshallableEntry<K, V>, Integer> entry) {
@@ -223,9 +218,9 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
                 }
             }
             Stream<K> filteredKeys = (filter != null) ? keys.filter(filter) : keys;
-            return Flowable.fromPublisher(this.blockingManager.blockingPublisher(Flowable.defer(() -> Flowable.fromStream(filteredKeys).doFinally(filteredKeys::close))));
+            return Flowable.fromStream(filteredKeys).observeOn(Schedulers.from(this.executor)).doFinally(filteredKeys::close);
         } catch (PersistenceException e) {
-            return Flowable.fromCompletionStage(CompletableFutures.completedExceptionFuture(e));
+            return Flowable.fromCompletionStage(CompletableFuture.failedStage(e));
         }
     }
 
@@ -246,19 +241,19 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
                 }
             }
             Stream<MarshallableEntry<K, V>> filteredEntries = (filter != null) ? entries.filter(entry -> filter.test(entry.getKey())) : entries;
-            return Flowable.fromPublisher(this.blockingManager.blockingPublisher(Flowable.defer(() -> Flowable.fromStream(filteredEntries).doFinally(filteredEntries::close))));
+            return Flowable.fromStream(filteredEntries).observeOn(Schedulers.from(this.executor)).doFinally(filteredEntries::close);
         } catch (PersistenceException e) {
-            return Flowable.fromCompletionStage(CompletableFutures.completedExceptionFuture(e));
+            return Flowable.fromCompletionStage(CompletableFuture.failedStage(e));
         }
     }
 
     @Override
     public CompletionStage<Void> clear() {
-        CompletableFuture<Void> result = CompletableFutures.completedNull();
+        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
         for (int i = 0; i < this.caches.length(); ++i) {
             RemoteCache<ByteBuffer, ByteBuffer> cache = this.caches.get(i);
             if (cache != null) {
-                result = CompletableFuture.allOf(result, cache.clearAsync());
+                result = CompletableFuture.allOf(result, cache.clearAsync().thenApplyAsync(Function.identity(), this.executor));
             }
         }
         return result;
@@ -267,17 +262,17 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
     @Override
     public CompletionStage<Boolean> containsKey(int segment, Object key) {
         RemoteCache<ByteBuffer, ByteBuffer> cache = this.segmentCache(segment);
-        if (cache == null) return CompletableFutures.completedFalse();
+        if (cache == null) return CompletableFuture.completedStage(false);
         try {
-            return cache.containsKeyAsync(this.marshalKey(key));
+            return cache.containsKeyAsync(this.marshalKey(key)).thenApplyAsync(Function.identity(), this.executor);
         } catch (PersistenceException e) {
-            return CompletableFutures.completedExceptionFuture(e);
+            return CompletableFuture.failedStage(e);
         }
     }
 
     @Override
     public CompletionStage<Boolean> isAvailable() {
-        return this.container.isAvailable();
+        return this.container.isAvailable().thenApplyAsync(Function.identity(), this.executor);
     }
 
     @Override
@@ -287,14 +282,14 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
         while (iterator.hasNext()) {
             int segment = iterator.nextInt();
             RemoteCache<ByteBuffer, ByteBuffer> cache = this.caches.get(segment);
-            result = result.thenCombine(cache.sizeAsync(), Long::sum);
+            result = result.thenCombineAsync(cache.sizeAsync(), Long::sum, this.executor);
         }
         return result;
     }
 
     @Override
     public CompletionStage<Void> addSegments(IntSet segments) {
-        CompletableFuture<Void> result = CompletableFutures.completedNull();
+        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
         PrimitiveIterator.OfInt iterator = segments.iterator();
         while (iterator.hasNext()) {
             int segment = iterator.nextInt();
@@ -310,7 +305,7 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
 
                 cache.start();
 
-                this.caches.set(index, cache);
+                this.caches.set(index, cache.withFlags(Flag.SKIP_LISTENER_NOTIFICATION).withDataFormat(BINARY_DATA_FORMAT));
             }, "hotrod-store-add-segments").toCompletableFuture());
         }
         return result;
@@ -318,14 +313,14 @@ public class HotRodStore<K, V> implements NonBlockingStore<K, V> {
 
     @Override
     public CompletionStage<Void> removeSegments(IntSet segments) {
-        CompletableFuture<Void> result = CompletableFutures.completedNull();
+        CompletableFuture<Void> result = CompletableFuture.completedFuture(null);
         PrimitiveIterator.OfInt iterator = segments.iterator();
         while (iterator.hasNext()) {
             int segment = iterator.nextInt();
             RemoteCache<ByteBuffer, ByteBuffer> cache = this.caches.get(segment);
             if (cache != null) {
                 this.caches.set(segment, null);
-                result = CompletableFuture.allOf(result, cache.clearAsync().thenRun(cache::stop).toCompletableFuture());
+                result = CompletableFuture.allOf(result, this.blockingManager.thenRunBlocking(cache.clearAsync().thenAcceptAsync(Functions.discardingConsumer(), this.executor), cache::stop, "hotrod-store-remove-segments").toCompletableFuture());
             }
         }
         return result;

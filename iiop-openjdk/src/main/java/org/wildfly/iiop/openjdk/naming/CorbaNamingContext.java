@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.iiop.openjdk.naming;
@@ -114,7 +97,7 @@ public class CorbaNamingContext extends NamingContextExtPOA implements Serializa
      * @param orb     a reference to the running {@code ORB} instance.
      * @param rootPoa a reference to the root {@code POA}.
      */
-    public static void init(org.omg.CORBA.ORB orb, org.omg.PortableServer.POA rootPoa) {
+    public static void init(ORB orb, POA rootPoa) {
         CorbaNamingContext.orb = orb;
         CorbaNamingContext.rootPoa = rootPoa;
 

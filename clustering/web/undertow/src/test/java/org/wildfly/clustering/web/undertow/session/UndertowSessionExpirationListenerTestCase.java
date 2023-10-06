@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2013, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.clustering.web.undertow.session;
 
@@ -32,6 +15,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import io.undertow.server.session.Session;
 import io.undertow.server.session.SessionListener;
@@ -45,7 +29,6 @@ import org.wildfly.clustering.ee.Recordable;
 import org.wildfly.clustering.web.session.ImmutableSession;
 import org.wildfly.clustering.web.session.ImmutableSessionAttributes;
 import org.wildfly.clustering.web.session.ImmutableSessionMetaData;
-import org.wildfly.clustering.web.session.SessionExpirationListener;
 import org.wildfly.clustering.web.session.SessionManager;
 
 public class UndertowSessionExpirationListenerTestCase {
@@ -68,7 +51,7 @@ public class UndertowSessionExpirationListenerTestCase {
         SessionListeners listeners = new SessionListeners();
         listeners.addSessionListener(listener);
 
-        SessionExpirationListener expirationListener = new UndertowSessionExpirationListener(deployment, listeners, recorder);
+        Consumer<ImmutableSession> expirationListener = new UndertowSessionExpirationListener(deployment, listeners, recorder);
 
         when(deployment.getSessionManager()).thenReturn(manager);
         when(manager.getSessionManager()).thenReturn(delegateManager);
@@ -80,9 +63,9 @@ public class UndertowSessionExpirationListenerTestCase {
         when(session.getMetaData()).thenReturn(metaData);
         when(metaData.getCreationTime()).thenReturn(Instant.now());
         when(metaData.getLastAccessStartTime()).thenReturn(Instant.now());
-        when(metaData.getMaxInactiveInterval()).thenReturn(Duration.ZERO);
+        when(metaData.getTimeout()).thenReturn(Duration.ZERO);
 
-        expirationListener.sessionExpired(session);
+        expirationListener.accept(session);
 
         verify(recorder).record(metaData);
         verify(batcher).suspendBatch();

@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<!--
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
 <!-- $Id $ -->
 
 <connector xmlns="http://java.sun.com/xml/ns/javaee"
@@ -31,7 +36,7 @@
              <config-property-value>JEFF</config-property-value>
           </config-property>
 
-            <connectionfactory-interface>javax.resource.spi.ManagedConnection</connectionfactory-interface>
+            <connectionfactory-interface>jakarta.resource.spi.ManagedConnection</connectionfactory-interface>
             <connectionfactory-impl-class>org.jboss.jca.test.deployers.spec.rars.ra16annoadminobj.TestManagedConnection</connectionfactory-impl-class>
             <connection-interface>org.jboss.jca.test.deployers.spec.rars.TestConnectionInterface</connection-interface>
             <connection-impl-class>org.jboss.jca.test.deployers.spec.rars.TestConnection</connection-impl-class>

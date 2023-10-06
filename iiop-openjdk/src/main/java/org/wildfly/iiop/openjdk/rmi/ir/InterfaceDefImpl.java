@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2008, Red Hat Middleware LLC, and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.wildfly.iiop.openjdk.rmi.ir;
 
@@ -114,7 +97,7 @@ class InterfaceDefImpl
 
     public IRObject getReference() {
         if (ref == null) {
-            ref = org.omg.CORBA.InterfaceDefHelper.narrow(
+            ref = InterfaceDefHelper.narrow(
                     servantToReference(new InterfaceDefPOATie(this)));
         }
         return ref;
@@ -237,7 +220,7 @@ class InterfaceDefImpl
         return base_interfaces_ref;
     }
 
-    public void base_interfaces(org.omg.CORBA.InterfaceDef[] arg) {
+    public void base_interfaces(InterfaceDef[] arg) {
         throw IIOPLogger.ROOT_LOGGER.cannotChangeRMIIIOPMapping();
     }
 
@@ -249,7 +232,7 @@ class InterfaceDefImpl
         throw IIOPLogger.ROOT_LOGGER.cannotChangeRMIIIOPMapping();
     }
 
-    public boolean is_a(java.lang.String interface_id) {
+    public boolean is_a(String interface_id) {
         // TODO
         return false;
     }
@@ -312,7 +295,7 @@ class InterfaceDefImpl
         if (defined_in instanceof org.omg.CORBA.ContainedOperations)
             defined_in_id = ((org.omg.CORBA.ContainedOperations) defined_in).id();
 
-        org.omg.CORBA.InterfaceDescription md =
+        InterfaceDescription md =
                 new InterfaceDescription(name, id, defined_in_id, version,
                         base_interfaces, false);
 

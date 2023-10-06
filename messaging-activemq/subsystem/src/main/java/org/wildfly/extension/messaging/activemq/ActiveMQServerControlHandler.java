@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.extension.messaging.activemq;
@@ -47,6 +30,7 @@ import org.jboss.as.controller.RunningMode;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.descriptions.ResourceDescriptionResolver;
+import org.jboss.as.controller.operations.validation.StringAllowedValuesValidator;
 import org.jboss.as.controller.operations.validation.StringLengthValidator;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelNode;
@@ -62,7 +46,10 @@ import org.wildfly.extension.messaging.activemq.logging.MessagingLogger;
  */
 public class ActiveMQServerControlHandler extends AbstractRuntimeOnlyHandler {
 
+    private static final String[] ALLOWED_RUNTIME_JOURNAL_TYPE = {"ASYNCIO", "NIO", "DATABASE", "NONE"};
+
     static final ActiveMQServerControlHandler INSTANCE = new ActiveMQServerControlHandler();
+
 
     public static final AttributeDefinition ACTIVE = create("active", BOOLEAN)
             .setStorageRuntime()
@@ -73,7 +60,7 @@ public class ActiveMQServerControlHandler extends AbstractRuntimeOnlyHandler {
 
     public static final AttributeDefinition RUNTIME_JOURNAL_TYPE = create("runtime-journal-type", STRING)
             .setStorageRuntime()
-            .setAllowedValues("ASYNCIO", "NIO", "DATABASE", "NONE")
+            .setValidator(new StringAllowedValuesValidator(ALLOWED_RUNTIME_JOURNAL_TYPE))
             .build();
 
     public static final AttributeDefinition VERSION = new SimpleAttributeDefinitionBuilder(CommonAttributes.VERSION, ModelType.STRING,
@@ -199,6 +186,7 @@ public class ActiveMQServerControlHandler extends AbstractRuntimeOnlyHandler {
                 reportListOfStrings(context, list);
             } else if (LIST_PRODUCERS_INFO_AS_JSON.equals(operationName)) {
                 String json = serverControl.listProducersInfoAsJSON();
+                json = json.replace("lastProducedMessageID", "lastUUIDSent");
                 context.getResult().set(json);
             } else if (LIST_SESSIONS.equals(operationName)) {
                 String connectionID = CONNECTION_ID.resolveModelAttribute(context, operation).asString();
@@ -341,7 +329,10 @@ public class ActiveMQServerControlHandler extends AbstractRuntimeOnlyHandler {
                         SecurityRoleDefinition.DELETE_DURABLE_QUEUE,
                         SecurityRoleDefinition.CREATE_NON_DURABLE_QUEUE,
                         SecurityRoleDefinition.DELETE_NON_DURABLE_QUEUE,
-                        SecurityRoleDefinition.MANAGE)
+                        SecurityRoleDefinition.MANAGE,
+                        SecurityRoleDefinition.BROWSE,
+                        SecurityRoleDefinition.CREATE_ADDRESS,
+                        SecurityRoleDefinition.DELETE_ADDRESS)
                 .build(),
                 this);
     }

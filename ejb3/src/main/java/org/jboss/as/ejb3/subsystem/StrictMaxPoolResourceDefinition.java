@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.subsystem;
@@ -100,7 +83,6 @@ public class StrictMaxPoolResourceDefinition extends SimpleResourceDefinition {
 
     private static final AttributeDefinition[] ATTRIBUTES = new AttributeDefinition[] { MAX_POOL_SIZE, DERIVE_SIZE, INSTANCE_ACQUISITION_TIMEOUT, INSTANCE_ACQUISITION_TIMEOUT_UNIT };
     private static final StrictMaxPoolAdd ADD_HANDLER = new StrictMaxPoolAdd(ATTRIBUTES);
-    public static final StrictMaxPoolResourceDefinition INSTANCE = new StrictMaxPoolResourceDefinition();
 
     private static final String NONE_VALUE = "none";
     private static final String FROM_WORKER_POOLS_VALUE = "from-worker-pools";
@@ -148,10 +130,10 @@ public class StrictMaxPoolResourceDefinition extends SimpleResourceDefinition {
         return Derive.NONE;
     }
 
-    private StrictMaxPoolResourceDefinition() {
-        super(new SimpleResourceDefinition.Parameters(EJB3SubsystemModel.STRICT_MAX_BEAN_INSTANCE_POOL_PATH, EJB3Extension.getResourceDescriptionResolver(EJB3SubsystemModel.STRICT_MAX_BEAN_INSTANCE_POOL))
+    StrictMaxPoolResourceDefinition() {
+        super(new Parameters(EJB3SubsystemModel.STRICT_MAX_BEAN_INSTANCE_POOL_PATH, EJB3Extension.getResourceDescriptionResolver(EJB3SubsystemModel.STRICT_MAX_BEAN_INSTANCE_POOL))
                 .setAddHandler(ADD_HANDLER)
-                .setRemoveHandler(new ServiceRemoveStepHandler(null, ADD_HANDLER, STRICT_MAX_POOL_CONFIG_CAPABILITY))
+                .setRemoveHandler(new ServiceRemoveStepHandler(null, ADD_HANDLER))
                 .setAddRestartLevel(OperationEntry.Flag.RESTART_NONE)
                 .setRemoveRestartLevel(OperationEntry.Flag.RESTART_RESOURCE_SERVICES)
                 .setCapabilities(STRICT_MAX_POOL_CONFIG_CAPABILITY));

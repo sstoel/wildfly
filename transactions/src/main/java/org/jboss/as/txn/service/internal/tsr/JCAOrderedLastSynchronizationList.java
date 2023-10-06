@@ -1,32 +1,15 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2015, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.txn.service.internal.tsr;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.transaction.Status;
-import javax.transaction.Synchronization;
-import javax.transaction.SystemException;
+import jakarta.transaction.Status;
+import jakarta.transaction.Synchronization;
+import jakarta.transaction.SystemException;
 
 import org.jboss.as.txn.logging.TransactionLogger;
 import org.wildfly.transaction.client.ContextTransactionManager;
@@ -43,7 +26,7 @@ import org.wildfly.transaction.client.ContextTransactionSynchronizationRegistry;
  * 2. During afterCompletion the Jakarta Connectors synchronizations should be called last as that allows Jakarta Connectors to detect connection leaks from
  * frameworks that have not closed the Jakarta Connectors managed resources. This is described in (for example)
  * http://docs.oracle.com/javaee/5/api/javax/transaction/TransactionSynchronizationRegistry
- * .html#registerInterposedSynchronization(javax.transaction.Synchronization) where it says that during afterCompletion
+ * .html#registerInterposedSynchronization(jakarta.transaction.Synchronization) where it says that during afterCompletion
  * "Resources can be closed but no transactional work can be performed with them"
  */
 public class JCAOrderedLastSynchronizationList implements Synchronization {
@@ -63,8 +46,8 @@ public class JCAOrderedLastSynchronizationList implements Synchronization {
     public void registerInterposedSynchronization(Synchronization synchronization) throws IllegalStateException, SystemException {
         int status = ContextTransactionSynchronizationRegistry.getInstance().getTransactionStatus();
         switch (status) {
-            case javax.transaction.Status.STATUS_ACTIVE:
-            case javax.transaction.Status.STATUS_PREPARING:
+            case jakarta.transaction.Status.STATUS_ACTIVE:
+            case jakarta.transaction.Status.STATUS_PREPARING:
                 break;
             case Status.STATUS_MARKED_ROLLBACK:
                 // do nothing; we can pretend like it was registered, but it'll never be run anyway.
@@ -131,8 +114,8 @@ public class JCAOrderedLastSynchronizationList implements Synchronization {
 
     @Override
     public void afterCompletion(int status) {
-        // The list should be iterated in reverse order - has issues with Enterprise Beans 3 if not
-        // https://github.com/jbosstm/narayana/blob/master/ArjunaCore/arjuna/classes/com/arjuna/ats/arjuna/coordinator/TwoPhaseCoordinator.java#L509
+        // The list should be iterated in reverse order - has issues with Enterprise Beans 3 if not. See the afterCompletion method in:
+        // https://github.com/jbosstm/narayana/blob/main/ArjunaCore/arjuna/classes/com/arjuna/ats/arjuna/coordinator/TwoPhaseCoordinator.java
         for (int i = preJcaSyncs.size() - 1; i>= 0; --i) {
             Synchronization preJcaSync = preJcaSyncs.get(i);
             if (TransactionLogger.ROOT_LOGGER.isTraceEnabled()) {

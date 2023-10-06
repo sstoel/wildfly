@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -11,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>28.0.0.Beta1-SNAPSHOT</version>
+        <version>30.0.0.Final-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -44,6 +49,12 @@
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>wildfly-naming</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -158,12 +169,6 @@
         <dependency>
             <groupId>org.wildfly.core</groupId>
             <artifactId>wildfly-core-testsuite-shared</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>xom</groupId>
-            <artifactId>xom</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -549,6 +554,9 @@
                                 <goals>
                                     <goal>test</goal>
                                 </goals>
+                                <configuration>
+                                    <reportNameSuffix>microprofile.surefire</reportNameSuffix>
+                                </configuration>
                             </execution>
                         </executions>
                     </plugin>
@@ -869,6 +877,7 @@
                                         <!-- requires https -->
                                         <exclude>org/jboss/as/test/integration/web/handlers/RequestDumpingHandlerTestCase.java</exclude>
                                     </excludes>
+                                    <reportNameSuffix>web-profile-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -896,8 +905,11 @@
                                         <include>org/jboss/as/test/integration/web/handlers/RequestDumpingHandlerTestCase.java</include>
                                         <!-- TODO this has special setup logic for -Delytron vs not; needs a variant for this test setup
                                              where elytron is configured but -Delytron is not set. -->
+										<!-- TODO this works with ts.bootable with the same set of layers so it's not clear why it doesn't 
+										     work with ts.layers -->
                                         <!--include>org/jboss/as/test/integration/web/security/**/TransportGuaranteeTestCase.java</include-->
                                     </includes>
+                                    <reportNameSuffix>legacy-https-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -927,6 +939,7 @@
                                         <!-- requires https -->
                                         <exclude>org/jboss/as/test/integration/web/handlers/RequestDumpingHandlerTestCase.java</exclude>
                                     </excludes>
+                                    <reportNameSuffix>jaxrs-server-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -949,6 +962,7 @@
                                         <module.path>${project.build.directory}/wildfly-cloud/modules${path.separator}${basedir}/target/modules</module.path>
                                         <jboss.server.config.file.name>standalone.xml</jboss.server.config.file.name>
                                     </systemPropertyVariables>
+                                    <reportNameSuffix>microprofile.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
                         </executions>
@@ -1060,6 +1074,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-web-profile-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1087,6 +1102,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-legacy-security-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1105,15 +1121,14 @@
                                     </systemPropertyVariables>
                                     <includes>
                                         <include>org/jboss/as/test/integration/web/handlers/RequestDumpingHandlerTestCase.java</include>
-                                        <!-- TODO this has special setup logic for -Delytron vs not; needs a variant for this test setup
-                                             where elytron is configured but -Delytron is not set. -->
-                                        <!--include>org/jboss/as/test/integration/web/security/**/TransportGuaranteeTestCase.java</include-->
+                                        <include>org/jboss/as/test/integration/web/security/**/TransportGuaranteeTestCase.java</include>
                                     </includes>
                                     <classpathDependencyExcludes>
                                         <classpathDependencyExclude>
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>ts.bootable.bootable-jar-legacy-https-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1145,6 +1160,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-jaxrs-server-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1176,6 +1192,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-cloud-server-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
                         </executions>
@@ -1184,12 +1201,12 @@
             </build>
         </profile>
         
-        <!-- Test against bootable jar ee9 -->
+        <!-- Test against bootable jar WildFly Preview -->
         <profile>
-            <id>bootablejar.ee9.profile</id>
+            <id>bootablejar.preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.bootable.ee9</name>
+                    <name>ts.bootable.preview</name>
                 </property>
             </activation>
             <dependencies>
@@ -1271,6 +1288,7 @@
                                         <arquillian.xml>arquillian-bootable.xml</arquillian.xml>
                                     </systemPropertyVariables>
                                     <excludes>
+                                        <!--TODO re-evaluate these exclusions from EE 9 work-->
                                         <!-- requires legacy-security -->
                                         <exclude>org/jboss/as/test/integration/web/security/**/*TestCase.java</exclude>
                                         <!-- requires ee-concurrency -->
@@ -1288,6 +1306,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-web-profile-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1306,15 +1325,14 @@
                                     </systemPropertyVariables>
                                     <includes>
                                         <include>org/jboss/as/test/integration/web/handlers/RequestDumpingHandlerTestCase.java</include>
-                                        <!-- TODO this has special setup logic for -Delytron vs not; needs a variant for this test setup
-                                             where elytron is configured but -Delytron is not set. -->
-                                        <!--include>org/jboss/as/test/integration/web/security/**/TransportGuaranteeTestCase.java</include-->
+                                        <include>org/jboss/as/test/integration/web/security/**/TransportGuaranteeTestCase.java</include>
                                     </includes>
                                     <classpathDependencyExcludes>
                                         <classpathDependencyExclude>
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-legacy-https-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1332,6 +1350,7 @@
                                         <arquillian.xml>arquillian-bootable.xml</arquillian.xml>
                                     </systemPropertyVariables>
                                     <excludes>
+                                        <!--TODO re-evaluate these exclusions from EE 9 work-->
                                         <!-- requires legacy-security -->
                                         <exclude>org/jboss/as/test/integration/web/security/**/*TestCase.java</exclude>
                                         <!-- requires ee-concurrency -->
@@ -1349,6 +1368,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-jaxrs-server-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
 
@@ -1366,6 +1386,7 @@
                                         <arquillian.xml>arquillian-bootable.xml</arquillian.xml>
                                     </systemPropertyVariables>
                                     <excludes>
+                                        <!--TODO re-evaluate these exclusions from EE 9 work-->
                                         <!-- requires legacy-security -->
                                         <exclude>org/jboss/as/test/integration/web/security/**/*TestCase.java</exclude>
                                         <!-- requires ee-concurrency -->
@@ -1383,6 +1404,7 @@
                                             org.wildfly.arquillian:wildfly-arquillian-container-managed
                                         </classpathDependencyExclude>
                                     </classpathDependencyExcludes>
+                                    <reportNameSuffix>bootable-jar-cloud-server-layers.surefire</reportNameSuffix>
                                 </configuration>
                             </execution>
                         </executions>
@@ -1391,12 +1413,12 @@
             </build>
         </profile>
 
-        <!-- Test against EE 9 dist -->
+        <!-- Test against WildFly Preview dist -->
         <profile>
-            <id>ee9.profile</id>
+            <id>preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.ee9</name>
+                    <name>ts.preview</name>
                 </property>
             </activation>
             <build>
@@ -1411,7 +1433,7 @@
                                 <phase>test</phase>
                                 <configuration>
                                     <excludes>
-                                        <!-- TODO rework these to handle EE 9 -->
+                                        <!--TODO re-evaluate these exclusions from EE 9 work-->
                                         <exclude>org/jboss/as/test/integration/web/annotationsmodule/WebModuleDeploymentTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/integration/web/jsp/taglib/external/ExternalTagLibTestCase.java</exclude>
                                     </excludes>

@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.subsystem;
@@ -42,7 +25,6 @@ import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.as.controller.registry.OperationEntry;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
-import org.wildfly.clustering.ejb.BeanManagerFactoryServiceConfiguratorConfiguration;
 
 import java.util.List;
 
@@ -75,7 +57,7 @@ public class EJB3RemoteResourceDefinition extends SimpleResourceDefinition {
                     // Capability references should not allow expressions
                     .setAllowExpression(false)
                     .setFlags(AttributeAccess.Flag.RESTART_ALL_SERVICES)
-                    .setDefaultValue(new ModelNode(BeanManagerFactoryServiceConfiguratorConfiguration.DEFAULT_CONTAINER_NAME))
+                    .setDefaultValue(new ModelNode(org.wildfly.clustering.ejb.bean.LegacyBeanManagementConfiguration.DEFAULT_CONTAINER_NAME))
                     // TODO: replace this with a Requirement reference when the ejb-spi module for clustering is available
                     .setCapabilityReference(INFINISPAN_CACHE_CONTAINER_CAPABILITY_NAME, EJB_REMOTE_CAPABILITY)
                     .setDeprecated(EJB3Model.VERSION_10_0_0.getVersion())
@@ -117,9 +99,7 @@ public class EJB3RemoteResourceDefinition extends SimpleResourceDefinition {
 
     static final EJB3RemoteServiceAdd ADD_HANDLER = new EJB3RemoteServiceAdd(ATTRIBUTES);
 
-    public static final EJB3RemoteResourceDefinition INSTANCE = new EJB3RemoteResourceDefinition();
-
-    private EJB3RemoteResourceDefinition() {
+    EJB3RemoteResourceDefinition() {
         super(new Parameters(EJB3SubsystemModel.REMOTE_SERVICE_PATH, EJB3Extension.getResourceDescriptionResolver(EJB3SubsystemModel.REMOTE))
                 .setAddHandler(ADD_HANDLER)
                 .setAddRestartLevel(OperationEntry.Flag.RESTART_ALL_SERVICES)

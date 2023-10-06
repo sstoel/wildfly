@@ -1,26 +1,10 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 package org.jboss.as.clustering.jgroups;
 
+import java.nio.channels.spi.SelectorProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -36,11 +20,13 @@ import org.jgroups.blocks.RequestCorrelator.Header;
 import org.jgroups.conf.ClassConfigurator;
 import org.jgroups.fork.UnknownForkHandler;
 import org.jgroups.protocols.FORK;
+import org.jgroups.protocols.TP;
 import org.jgroups.stack.Protocol;
 import org.wildfly.clustering.jgroups.spi.ChannelFactory;
 import org.wildfly.clustering.jgroups.spi.ProtocolConfiguration;
 import org.wildfly.clustering.jgroups.spi.ProtocolStackConfiguration;
 import org.wildfly.clustering.jgroups.spi.TransportConfiguration;
+import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
  * Factory for creating fork-able channels.
@@ -110,9 +96,10 @@ public class JChannelFactory implements ChannelFactory {
         protocols.add(fork);
 
         // Override the SocketFactory of the transport
-        protocols.get(0).setSocketFactory(new ManagedSocketFactory(this.configuration.getSocketBindingManager(), bindings));
+        TP transport = (TP) protocols.get(0);
+        transport.setSocketFactory(new ManagedSocketFactory(SelectorProvider.provider(), this.configuration.getSocketBindingManager(), bindings));
 
-        JChannel channel = new JChannel(protocols);
+        JChannel channel = createChannel(protocols);
 
         channel.setName(this.configuration.getNodeName());
 
@@ -122,6 +109,18 @@ public class JChannelFactory implements ChannelFactory {
         }
 
         return channel;
+    }
+
+    // TODO Remove this once DNS_PING is configurable via an explicit DNSResolver
+    private static JChannel createChannel(List<Protocol> protocols) throws Exception {
+        // DNS_PING current loads its InitialContextFactory via the TCCL
+        ClassLoader loader = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
+        try {
+            WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(JChannel.class);
+            return new JChannel(protocols);
+        } finally {
+            WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(loader);
+        }
     }
 
     @Override

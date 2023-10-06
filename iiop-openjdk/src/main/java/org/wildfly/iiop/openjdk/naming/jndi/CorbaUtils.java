@@ -1,26 +1,6 @@
 /*
- * Copyright (c) 1999, 2000, Oracle and/or its affiliates. All rights reserved.
- * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.  Oracle designates this
- * particular file as subject to the "Classpath" exception as provided
- * by Oracle in the LICENSE file that accompanied this code.
- *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
- * or visit www.oracle.com if you need additional information or have any
- * questions.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.wildfly.iiop.openjdk.naming.jndi;
@@ -97,10 +77,10 @@ public class CorbaUtils {
 
         // javax.rmi.CORBA.Stub stub = PortableRemoteObject.toStub(remoteObj);
 
-        java.lang.Object stub;
+        Object stub;
 
         try {
-            stub = toStubMethod.invoke(null, new java.lang.Object[]{remoteObj});
+            stub = toStubMethod.invoke(null, new Object[]{remoteObj});
 
         } catch (InvocationTargetException e) {
             Throwable realException = e.getTargetException();
@@ -123,7 +103,7 @@ public class CorbaUtils {
 // Next, make sure that the stub is connected
         // Invoke stub.connect(orb)
         try {
-            connectMethod.invoke(stub, new java.lang.Object[]{orb});
+            connectMethod.invoke(stub, new Object[]{orb});
 
         } catch (InvocationTargetException e) {
             Throwable realException = e.getTargetException();
@@ -254,7 +234,7 @@ public class CorbaUtils {
         // Get javax.rmi.CORBA.Stub.connect(org.omg.CORBA.ORB) method
 
         try {
-            connectMethod = corbaStubClass.getMethod("connect", new Class[]{org.omg.CORBA.ORB.class});
+            connectMethod = corbaStubClass.getMethod("connect", new Class[]{ORB.class});
         } catch (NoSuchMethodException e) {
             throw IIOPLogger.ROOT_LOGGER.noMethodDefForStubConnect();
         }
@@ -264,7 +244,7 @@ public class CorbaUtils {
 
         // Get javax.rmi.PortableRemoteObject(java.rmi.Remote) method
         try {
-            toStubMethod = proClass.getMethod("toStub", new Class[]{java.rmi.Remote.class});
+            toStubMethod = proClass.getMethod("toStub", new Class[]{Remote.class});
 
         } catch (NoSuchMethodException e) {
             throw IIOPLogger.ROOT_LOGGER.noMethodDefForPortableRemoteObjectToStub();

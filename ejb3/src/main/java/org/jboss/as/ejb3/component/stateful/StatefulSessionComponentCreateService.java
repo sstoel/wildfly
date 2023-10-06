@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.component.stateful;
@@ -30,11 +13,11 @@ import java.util.function.Supplier;
 
 import org.jboss.as.ee.component.BasicComponent;
 import org.jboss.as.ee.component.ComponentConfiguration;
-import org.jboss.as.ejb3.cache.CacheFactory;
 import org.jboss.as.ejb3.component.DefaultAccessTimeoutService;
 import org.jboss.as.ejb3.component.InvokeMethodOnTargetInterceptor;
 import org.jboss.as.ejb3.component.interceptors.CurrentInvocationContextInterceptor;
 import org.jboss.as.ejb3.component.session.SessionBeanComponentCreateService;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCacheFactory;
 import org.jboss.as.ejb3.deployment.ApplicationExceptions;
 import org.jboss.ejb.client.SessionID;
 import org.jboss.invocation.ContextClassLoaderInterceptor;
@@ -60,7 +43,7 @@ public class StatefulSessionComponentCreateService extends SessionBeanComponentC
     private final InjectedValue<DefaultAccessTimeoutService> defaultAccessTimeoutService = new InjectedValue<DefaultAccessTimeoutService>();
     private final InjectedValue<AtomicLong> defaultStatefulSessionTimeoutValue = new InjectedValue<>();
     private final InterceptorFactory ejb2XRemoveMethod;
-    private final Supplier<CacheFactory<SessionID, StatefulSessionComponentInstance>> cacheFactory;
+    private final Supplier<StatefulSessionBeanCacheFactory<SessionID, StatefulSessionComponentInstance>> cacheFactory;
     private final Set<Object> serializableInterceptorContextKeys;
     private final StatefulComponentDescription componentDescription;
     final boolean passivationCapable;
@@ -70,7 +53,7 @@ public class StatefulSessionComponentCreateService extends SessionBeanComponentC
      *
      * @param componentConfiguration the component configuration
      */
-    public StatefulSessionComponentCreateService(final ComponentConfiguration componentConfiguration, final ApplicationExceptions ejbJarConfiguration, Supplier<CacheFactory<SessionID, StatefulSessionComponentInstance>> cacheFactory) {
+    public StatefulSessionComponentCreateService(final ComponentConfiguration componentConfiguration, final ApplicationExceptions ejbJarConfiguration, Supplier<StatefulSessionBeanCacheFactory<SessionID, StatefulSessionComponentInstance>> cacheFactory) {
         super(componentConfiguration, ejbJarConfiguration);
 
         final StatefulComponentDescription componentDescription = (StatefulComponentDescription) componentConfiguration.getComponentDescription();
@@ -165,7 +148,7 @@ public class StatefulSessionComponentCreateService extends SessionBeanComponentC
         return serializableInterceptorContextKeys;
     }
 
-    Supplier<CacheFactory<SessionID, StatefulSessionComponentInstance>> getCacheFactory() {
+    Supplier<StatefulSessionBeanCacheFactory<SessionID, StatefulSessionComponentInstance>> getCacheFactory() {
         return this.cacheFactory;
     }
 }

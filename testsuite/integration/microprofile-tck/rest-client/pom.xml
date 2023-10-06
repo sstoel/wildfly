@@ -1,24 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ JBoss, Home of Professional Open Source.
-  ~ Copyright 2019, Red Hat, Inc., and individual contributors
-  ~ as indicated by the @author tags. See the copyright.txt file in the
-  ~ distribution for a full listing of individual contributors.
-  ~
-  ~ This is free software; you can redistribute it and/or modify it
-  ~ under the terms of the GNU Lesser General Public License as
-  ~ published by the Free Software Foundation; either version 2.1 of
-  ~ the License, or (at your option) any later version.
-  ~
-  ~ This software is distributed in the hope that it will be useful,
-  ~  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  ~ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-  ~ Lesser General Public License for more details.
-  ~
-  ~ You should have received a copy of the GNU Lesser General Public
-  ~ License along with this software; if not, write to the Free
-  ~ Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
-  ~ 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
@@ -29,7 +12,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>28.0.0.Beta1-SNAPSHOT</version>
+        <version>30.0.0.Final-SNAPSHOT</version>
     </parent>
     <artifactId>wildfly-ts-integ-mp-rest-client</artifactId>
     <name>WildFly Test Suite: Integration - MicroProfile - REST Client TCK</name>
@@ -39,12 +22,13 @@
         <jbossas.project.dir>${jbossas.ts.dir}/..</jbossas.project.dir>
         <!-- These properties control what layers are provisioned if galleon slimmed provisioning occurs -->
         <ts.microprofile-tck-provisioning.base.layer>jaxrs-server</ts.microprofile-tck-provisioning.base.layer>
-        <ts.microprofile-tck-provisioning.decorator.layer>observability</ts.microprofile-tck-provisioning.decorator.layer>
+        <ts.microprofile-tck-provisioning.decorator.layer>microprofile-rest-client</ts.microprofile-tck-provisioning.decorator.layer>
         <!-- properties to enable plugins shared by various bootable profiles -->
         <bootable-jar-generate-properties-file.phase>none</bootable-jar-generate-properties-file.phase>
-
         <!-- Resource path -->
         <wiremock.resource.path>${project.build.directory}/wildfly/wiremock/wiremock.jar${:}${project.build.directory}/wildfly/wiremock/junit.jar${:}${project.build.directory}/wildfly/wiremock/jetty-io.jar${:}${project.build.directory}/wildfly/wiremock/jetty-http.jar${:}${project.build.directory}/wildfly/wiremock/jetty-server.jar${:}${project.build.directory}/wildfly/wiremock/jetty-util.jar${:}${project.build.directory}/wildfly/wiremock/jboss-servlet-api_4.0_spec.jar</wiremock.resource.path>
+        <!-- Expose timeout property to be configurable from CLI because of environment issues -->
+        <org.eclipse.microprofile.rest.client.tck.timeoutCushion>90000</org.eclipse.microprofile.rest.client.tck.timeoutCushion>
     </properties>
     <dependencies>
         <!-- Required by the RESTEasy Client -->
@@ -101,6 +85,26 @@
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-util</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-servlet</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-servlets</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-webapp</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-proxy</artifactId>
             <scope>test</scope>
         </dependency>
         <!-- End requirement -->
@@ -349,14 +353,11 @@
                             </plugin-options>
                             <feature-packs>
                                 <feature-pack>
-                                    <groupId>${full.maven.groupId}</groupId>
-                                    <artifactId>${ts.microprofile-tck-provisioning.fp.artifactId}</artifactId>
-                                    <version>${full.maven.version}</version>
-                                    <excluded-packages>
-                                        <name>docs</name>
-                                        <name>docs.licenses.merge</name>
-                                    </excluded-packages>
+                                    <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
+                                    <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                    <version>${testsuite.full.galleon.pack.version}</version>
                                     <inherit-configs>false</inherit-configs>
+                                    <inherit-packages>false</inherit-packages>
                                     <included-configs>
                                         <config>
                                             <model>standalone</model>
@@ -373,6 +374,9 @@
                                     </included-configs>
                                 </feature-pack>
                             </feature-packs>
+                            <plugin-options>
+                                <optional-packages>passive+</optional-packages>
+                            </plugin-options>
                         </configuration>
                     </execution>
                     <execution>
@@ -381,9 +385,9 @@
                         <configuration>
                             <feature-packs>
                                 <feature-pack>
-                                    <groupId>${ts.microprofile-tck-provisioning.fp.groupId}</groupId>
-                                    <artifactId>${ts.microprofile-tck-provisioning.fp.artifactId}</artifactId>
-                                    <version>${ts.microprofile-tck-provisioning.fp.version}</version>
+                                    <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
+                                    <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                    <version>${testsuite.full.galleon.pack.version}</version>
                                     <inherit-configs>false</inherit-configs>
                                     <inherit-packages>false</inherit-packages>
                                     <!-- The wiremock module we add as part of the test fixture needs Apache Commons Lang
@@ -447,9 +451,9 @@
                             </cli-sessions>
                             <feature-packs>
                                 <feature-pack>
-                                    <groupId>${ts.microprofile-tck-provisioning.fp.groupId}</groupId>
-                                    <artifactId>${ts.microprofile-tck-provisioning.fp.artifactId}</artifactId>
-                                    <version>${ts.microprofile-tck-provisioning.fp.version}</version>
+                                    <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
+                                    <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                    <version>${testsuite.full.galleon.pack.version}</version>
                                     <!-- The wiremock module we add as part of the test fixture needs Apache Commons Lang
                                     but the layers we want don't result in it being provisioned, so explicitly tell Galleon to
                                     provision it. -->
@@ -476,7 +480,7 @@
                         <jboss.install.dir>${basedir}/target/wildfly</jboss.install.dir>
                         <jboss.server.config.file.name>standalone-microprofile.xml</jboss.server.config.file.name>
                         <!-- -Dts.include.servlet.4=true is needed due to https://github.com/eclipse/microprofile-rest-client/issues/346 -->
-                        <microprofile.jvm.args>${microprofile.jvm.args} -Dts.include.servlet.4=true -Dorg.eclipse.microprofile.rest.client.tck.timeoutCushion=50000 -Dorg.wildfly.unsupported.skip.jakarta.transformer=true</microprofile.jvm.args>
+                        <microprofile.jvm.args>${microprofile.jvm.args} -Dts.include.servlet.4=true -Dorg.eclipse.microprofile.rest.client.tck.timeoutCushion=${org.eclipse.microprofile.rest.client.tck.timeoutCushion} -Dorg.wildfly.unsupported.skip.jakarta.transformer=true</microprofile.jvm.args>
 
                         <test.url>http://localhost:8080</test.url>
                     </systemPropertyVariables>
@@ -556,10 +560,10 @@
         </profile>
         
         <profile>
-            <id>bootablejar.ee9.profile</id>
+            <id>bootablejar.preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.bootable.ee9</name>
+                    <name>ts.bootable.preview</name>
                 </property>
             </activation>
             <properties>
@@ -608,10 +612,10 @@
 
         <!-- Test against the ee 9 feature pack -->
         <profile>
-            <id>ee9.test.profile</id>
+            <id>preview.test.profile</id>
             <activation>
                 <property>
-                    <name>ts.ee9</name>
+                    <name>ts.preview</name>
                 </property>
             </activation>
             <properties>

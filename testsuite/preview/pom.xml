@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright The WildFly Authors
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -11,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>28.0.0.Beta1-SNAPSHOT</version>
+        <version>30.0.0.Final-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-preview</artifactId>
@@ -50,31 +55,12 @@
 
         <!-- Use the WildFly Preview EE dependency set. Child modules that test expansion capabilities can override. -->
         <dependency.management.import.artifact>wildfly-preview-ee-bom</dependency.management.import.artifact>
+        <container.java.home>${java.home}</container.java.home>
     </properties>
 
     <dependencies>
 
-        <!-- Dependencies specific to the integration tests. -->
-        <dependency>
-            <groupId>io.micrometer</groupId>
-            <artifactId>micrometer-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.annotation</groupId>
-            <artifactId>jakarta.annotation-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.enterprise</groupId>
-            <artifactId>jakarta.enterprise.cdi-api</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.ws.rs</groupId>
-            <artifactId>jakarta.ws.rs-api</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- Common ARQ related dependencies. -->
         <dependency>
             <groupId>org.jboss.arquillian.junit</groupId>
             <artifactId>arquillian-junit-container</artifactId>
@@ -91,25 +77,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.wildfly</groupId>
-            <artifactId>wildfly-testsuite-shared</artifactId>
+            <groupId>org.jboss.shrinkwrap.descriptors</groupId>
+            <artifactId>shrinkwrap-descriptors-impl-javaee</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.wildfly.core</groupId>
-            <artifactId>wildfly-core-testsuite-shared</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.wildfly.arquillian</groupId>
@@ -119,11 +89,6 @@
         <dependency>
             <groupId>org.wildfly.arquillian</groupId>
             <artifactId>wildfly-arquillian-protocol-jmx</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>xom</groupId>
-            <artifactId>xom</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -156,17 +121,16 @@
                 <module>manualmode</module>
                 <module>secman</module>
                 <module>legacy</module>
-                <module>legacy-ejb-client</module>
                 <module>elytron</module>
                 <module>elytron-oidc-client</module>-->
             </modules>
         </profile>
 
         <profile>
-            <id>bootablejar.ee9.profile</id>
+            <id>bootablejar.preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.bootable.ee9</name>
+                    <name>ts.bootable.preview</name>
                 </property>
             </activation>
             <properties>
@@ -203,7 +167,6 @@
                 <module>manualmode</module>
                 <module>secman</module>
                 <module>legacy</module>
-                <module>legacy-ejb-client</module>
                 <module>elytron</module>
                 <module>elytron-oidc-client</module>-->
             </modules>
@@ -229,7 +192,6 @@
                 <module>manualmode</module>
                 <module>secman</module>
                 <module>legacy</module>
-                <module>legacy-ejb-client</module>
                 <module>elytron</module>
                 <module>elytron-oidc-client</module>-->
             </modules>
@@ -369,16 +331,6 @@
         </profile>
         -->
 
-        <!-- -Dts.legacy.ejb.client
-        <profile>
-            <id>ts.integ.group.legacy.ejb.client</id>
-            <activation><property><name>ts.legacy.ejb.client</name></property></activation>
-            <modules>
-                <module>legacy-ejb-client</module>
-            </modules>
-        </profile>
-        -->
-
         <!-- -Dts.microprofile
         <profile>
             <id>ts.integ.group.microprofile</id>
@@ -412,10 +364,10 @@
 
         <!-- Test against bootable jar
         <profile>
-            <id>bootablejar.ee9.profile</id>
+            <id>bootablejar.preview.profile</id>
             <activation>
                 <property>
-                    <name>ts.bootable.ee9</name>
+                    <name>ts.bootable.preview</name>
                 </property>
             </activation>
             <properties>
@@ -511,6 +463,7 @@
                         <server.jvm.args>${server.jvm.args}</server.jvm.args>
                         <cli.jvm.args>${modular.jdk.args} -Dmaven.repo.local=${settings.localRepository}</cli.jvm.args>
                         <modular.jdk.args>${modular.jdk.args}</modular.jdk.args>
+                        <container.java.home>${container.java.home}</container.java.home>
                     </systemPropertyVariables>
 
                 </configuration>

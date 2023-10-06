@@ -1,23 +1,6 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2011, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
- * This is free software; you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * This software is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ * Copyright The WildFly Authors
+ * SPDX-License-Identifier: Apache-2.0
  */
 
 package org.jboss.as.ejb3.component.stateful;
@@ -25,11 +8,11 @@ package org.jboss.as.ejb3.component.stateful;
 import java.lang.reflect.Method;
 
 import org.jboss.as.ee.component.Component;
-import org.jboss.as.ee.component.ComponentInstance;
 import org.jboss.as.ee.component.ComponentView;
 import org.jboss.as.ejb3.logging.EjbLogger;
 import org.jboss.as.ejb3.component.EJBComponent;
 import org.jboss.as.ejb3.component.Ejb2xViewType;
+import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBean;
 import org.jboss.ejb.client.SessionID;
 import org.jboss.invocation.Interceptor;
 import org.jboss.invocation.InterceptorContext;
@@ -52,7 +35,7 @@ public class StatefulRemoveInterceptor implements Interceptor {
 
     @Override
     public Object processInvocation(InterceptorContext context) throws Exception {
-        final Component component = context.getPrivateData(Component.class);
+        final EJBComponent component = (EJBComponent) context.getPrivateData(Component.class);
 
         //if a session bean is participating in a transaction, it
         //is an error for a client to invoke the remove method
@@ -64,7 +47,7 @@ public class StatefulRemoveInterceptor implements Interceptor {
                 //this means it is an Enterprise Beans 2.x view
                 //which is not allowed to remove while enrolled in a TX
                 final StatefulTransactionMarker marker = context.getPrivateData(StatefulTransactionMarker.class);
-                if(marker != null && !marker.isFirstInvocation()) {
+                if (marker != null && !marker.isFirstInvocation()) {
                     throw EjbLogger.ROOT_LOGGER.cannotRemoveWhileParticipatingInTransaction();
                 }
             }
@@ -73,7 +56,6 @@ public class StatefulRemoveInterceptor implements Interceptor {
         if (component instanceof StatefulSessionComponent == false) {
             throw EjbLogger.ROOT_LOGGER.unexpectedComponent(component, StatefulSessionComponent.class);
         }
-        final StatefulSessionComponent statefulComponent = (StatefulSessionComponent) component;
         Object invocationResult = null;
         try {
             // proceed
@@ -83,21 +65,31 @@ public class StatefulRemoveInterceptor implements Interceptor {
 
             // If it's an application exception and if the @Remove method has set "retainIfException" to true
             // then just throw back the exception and don't remove the session instance.
-            if (this.isApplicationException(statefulComponent, e.getClass(), context.getMethod()) && this.retainIfException) {
+            if (isApplicationException(component, e.getClass(), context.getMethod()) && this.retainIfException) {
                 throw e;
             }
             // otherwise, just remove it and throw back the original exception
-            final StatefulSessionComponentInstance statefulComponentInstance = (StatefulSessionComponentInstance) context.getPrivateData(ComponentInstance.class);
-            final SessionID sessionId = statefulComponentInstance.getId();
-            statefulComponent.removeSession(sessionId);
+            remove(context);
             throw e;
         }
-        final StatefulSessionComponentInstance statefulComponentInstance = (StatefulSessionComponentInstance) context.getPrivateData(ComponentInstance.class);
-        final SessionID sessionId = statefulComponentInstance.getId();
         // just remove the session because of a call to @Remove method
-        statefulComponent.removeSession(sessionId);
+        remove(context);
         // return the invocation result
         return invocationResult;
+    }
+
+    private static void remove(InterceptorContext context) {
+        StatefulSessionBean<SessionID, StatefulSessionComponentInstance> bean = StatefulComponentInstanceInterceptor.getBean(context);
+        if (bean.isClosed()) {
+            // Bean may have been closed by a previous interceptor
+            // If so, look it up again
+            StatefulSessionComponent component = (StatefulSessionComponent) context.getPrivateData(Component.class);
+            SessionID id = context.getPrivateData(SessionID.class);
+            bean = component.getCache().findStatefulSessionBean(id);
+        }
+        if (bean != null) {
+            bean.remove();
+        }
     }
 
     /**
@@ -107,9 +99,7 @@ public class StatefulRemoveInterceptor implements Interceptor {
      * @param exceptionClass The exception class
      * @return
      */
-    private boolean isApplicationException(final EJBComponent ejbComponent, final Class<?> exceptionClass, final Method invokedMethod) {
+    private static boolean isApplicationException(final EJBComponent ejbComponent, final Class<?> exceptionClass, final Method invokedMethod) {
         return ejbComponent.getApplicationException(exceptionClass, invokedMethod) != null;
     }
-
-
 }
