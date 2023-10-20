@@ -20,7 +20,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
     -->
-    <version>30.0.0.Final-SNAPSHOT</version>
+    <version>31.0.0.Beta1-SNAPSHOT</version>
 
     <packaging>pom</packaging>
 
@@ -129,7 +129,7 @@
         <ee.dist.product.release.version>${full.dist.product.release.version}</ee.dist.product.release.version>
         <ee.maven.groupId>${project.groupId}</ee.maven.groupId>
         <ee.maven.version>${project.version}</ee.maven.version>
-        <product.docs.server.version>30</product.docs.server.version>
+        <product.docs.server.version>31</product.docs.server.version>
         <!-- A short variant of product.release.version used in 'startsWith' tests done by dist verification logic -->
         <verifier.product.release.version>${product.docs.server.version}.0</verifier.product.release.version>
         <!-- The Galleon channel for the minor version with which this branch is associated.  -->
@@ -296,14 +296,14 @@
         <version.ant.junit>1.10.13</version.ant.junit>
         <version.asciidoctor.plugin>2.2.2</version.asciidoctor.plugin>
         <version.org.jacoco>0.8.10</version.org.jacoco>
-        <version.org.jboss.galleon>5.2.0.Final</version.org.jboss.galleon>
+        <version.org.jboss.galleon>5.2.1.Final</version.org.jboss.galleon>
         <version.org.wildfly.glow>1.0.0.Alpha6</version.org.wildfly.glow>
         <version.org.jboss.wildscribe>2.1.0.Final</version.org.jboss.wildscribe>
         <version.org.wildfly.bom-builder-plugin>2.0.6.Final</version.org.wildfly.bom-builder-plugin>
         <version.org.wildfly.build-tools>1.2.12.Final</version.org.wildfly.build-tools>
         <version.org.wildfly.checkstyle-config>1.0.8.Final</version.org.wildfly.checkstyle-config>
         <version.org.wildfly.common>1.6.0.Final</version.org.wildfly.common>
-        <version.org.wildfly.galleon-plugins>6.4.2.Final</version.org.wildfly.galleon-plugins>
+        <version.org.wildfly.galleon-plugins>6.5.0.Final</version.org.wildfly.galleon-plugins>
         <version.org.wildfly.jar.plugin>10.0.0.Final</version.org.wildfly.jar.plugin>
         <version.org.wildfly.maven.plugins>2.3.1.Final</version.org.wildfly.maven.plugins>
         <version.org.wildfly.plugin>4.1.0.Final</version.org.wildfly.plugin>
@@ -326,7 +326,7 @@
         <legacy.version.jakarta.enterprise>2.0.2</legacy.version.jakarta.enterprise>
         <legacy.version.jakarta.inject.jakarta.inject-api>1.0.5</legacy.version.jakarta.inject.jakarta.inject-api>
         <version.jaxen>1.1.6</version.jaxen>
-        <version.jsoup>1.15.3</version.jsoup>
+        <version.jsoup>1.15.4</version.jsoup>
         <version.junit>4.13.1</version.junit>
         <version.org.apache.ds>2.0.0.AM26</version.org.apache.ds>
         <version.org.awaitility.awaitility>4.0.2</version.org.awaitility.awaitility>
@@ -396,7 +396,7 @@
         <version.gnu.getopt>1.0.13</version.gnu.getopt>
         <version.io.agroal>2.0</version.io.agroal>
         <version.io.micrometer>1.9.13</version.io.micrometer>
-        <version.io.netty>4.1.97.Final</version.io.netty>
+        <version.io.netty>4.1.100.Final</version.io.netty>
         <version.io.opentelemetry.opentelemetry>1.20.0</version.io.opentelemetry.opentelemetry>
         <version.io.opentelemetry.proto>0.19.0-alpha</version.io.opentelemetry.proto>
         <version.io.perfmark>0.23.0</version.io.perfmark>
@@ -415,8 +415,8 @@
         <version.io.smallrye.smallrye-opentelemetry>2.3.2</version.io.smallrye.smallrye-opentelemetry>
         <version.io.smallrye.smallrye-reactive-messaging>4.9.0</version.io.smallrye.smallrye-reactive-messaging>
         <version.io.undertow.jastow>2.2.6.Final</version.io.undertow.jastow>
-        <version.io.vertx.vertx>4.4.1</version.io.vertx.vertx>
-        <version.io.vertx.vertx-kafka-client>4.4.5</version.io.vertx.vertx-kafka-client>
+        <version.io.vertx.vertx>4.4.6</version.io.vertx.vertx>
+        <version.io.vertx.vertx-kafka-client>4.4.6</version.io.vertx.vertx-kafka-client>
         <version.jakarta.activation.jakarta.activation-api>2.1.2</version.jakarta.activation.jakarta.activation-api>
         <version.jakarta.annotation.jakarta-annotation-api>2.1.1</version.jakarta.annotation.jakarta-annotation-api>
         <version.jakarta.batch.jakarta.batch-api>2.1.1</version.jakarta.batch.jakarta.batch-api>
@@ -475,13 +475,13 @@
         <version.org.eclipse.microprofile.health.api>4.0.1</version.org.eclipse.microprofile.health.api>
         <version.org.eclipse.microprofile.jwt.api>2.1</version.org.eclipse.microprofile.jwt.api>
         <version.org.eclipse.microprofile.lra.api>2.0</version.org.eclipse.microprofile.lra.api>
-        <version.org.eclipse.microprofile.openapi>3.1</version.org.eclipse.microprofile.openapi>
+        <version.org.eclipse.microprofile.openapi>3.1.1</version.org.eclipse.microprofile.openapi>
         <version.org.eclipse.microprofile.reactive-messaging.api>3.0</version.org.eclipse.microprofile.reactive-messaging.api>
         <version.org.eclipse.microprofile.reactive-streams-operators.api>3.0</version.org.eclipse.microprofile.reactive-streams-operators.api>
-        <version.org.eclipse.microprofile.rest.client.api>3.0</version.org.eclipse.microprofile.rest.client.api>
+        <version.org.eclipse.microprofile.rest.client.api>3.0.1</version.org.eclipse.microprofile.rest.client.api>
         <version.org.eclipse.microprofile.telemetry>1.0</version.org.eclipse.microprofile.telemetry>
         <version.org.eclipse.persistence.eclipselink>4.0.0</version.org.eclipse.persistence.eclipselink>
-        <version.org.eclipse.yasson>3.0.3</version.org.eclipse.yasson>
+        <version.org.eclipse.yasson>3.0.2</version.org.eclipse.yasson>
         <version.org.elasticsearch.client.rest-client>8.10.2</version.org.elasticsearch.client.rest-client>
         <version.org.glassfish.expressly>5.0.0</version.org.glassfish.expressly>
         <version.org.glassfish.jakarta.enterprise.concurrent>3.0.0</version.org.glassfish.jakarta.enterprise.concurrent>
@@ -490,9 +490,9 @@
         <version.org.glassfish.soteria>3.0.3</version.org.glassfish.soteria>
         <version.org.glassfish.web.jakarta.servlet.jsp.jstl>3.0.0</version.org.glassfish.web.jakarta.servlet.jsp.jstl>
         <version.org.hibernate.commons.annotations>6.0.6.Final</version.org.hibernate.commons.annotations>
-        <version.org.hibernate>6.3.1.Final</version.org.hibernate>
+        <version.org.hibernate>6.2.13.Final</version.org.hibernate>
         <version.org.hibernate.search>6.2.2.Final</version.org.hibernate.search>
-        <version.org.hibernate.validator>8.0.0.Final</version.org.hibernate.validator>
+        <version.org.hibernate.validator>8.0.1.Final</version.org.hibernate.validator>
         <version.org.hornetq>2.4.9.Final</version.org.hornetq>
         <version.org.infinispan>14.0.17.Final</version.org.infinispan>
         <version.org.infinispan.protostream>4.6.5.Final</version.org.infinispan.protostream>
@@ -518,14 +518,14 @@
         <version.org.jboss.spec.jakarta.el.jboss-el-api_5.0_spec>4.0.1.Final</version.org.jboss.spec.jakarta.el.jboss-el-api_5.0_spec>
         <version.org.jboss.spec.jakarta.xml.soap.saaj-api_3.0_spec>1.0.0.Final</version.org.jboss.spec.jakarta.xml.soap.saaj-api_3.0_spec>
         <version.org.jboss.spec.jakarta.xml.ws.api_4.0_spec>1.0.0.Final</version.org.jboss.spec.jakarta.xml.ws.api_4.0_spec>
-        <version.org.jboss.weld.weld>5.1.1.SP2</version.org.jboss.weld.weld>
+        <version.org.jboss.weld.weld>5.1.2.Final</version.org.jboss.weld.weld>
         <version.org.jboss.weld.weld-api>5.0.SP3</version.org.jboss.weld.weld-api>
-        <version.org.jboss.ws.api>2.0.0.Final</version.org.jboss.ws.api>
-        <version.org.jboss.ws.common>4.0.0.Final</version.org.jboss.ws.common>
-        <version.org.jboss.ws.common.tools>1.4.0.Final</version.org.jboss.ws.common.tools>
-        <version.org.jboss.ws.cxf>6.2.0.Final</version.org.jboss.ws.cxf>
+        <version.org.jboss.ws.api>3.0.0.Final</version.org.jboss.ws.api>
+        <version.org.jboss.ws.common>5.0.0.Final</version.org.jboss.ws.common>
+        <version.org.jboss.ws.common.tools>2.1.0.Final</version.org.jboss.ws.common.tools>
+        <version.org.jboss.ws.cxf>7.0.0.Final</version.org.jboss.ws.cxf>
         <version.org.jboss.ws.jaxws-undertow-httpspi>2.0.0.Final</version.org.jboss.ws.jaxws-undertow-httpspi>
-        <version.org.jboss.ws.spi>4.1.0.Final</version.org.jboss.ws.spi>
+        <version.org.jboss.ws.spi>5.0.0.Final</version.org.jboss.ws.spi>
         <version.org.jboss.xnio.netty.netty-xnio-transport>0.1.9.Final</version.org.jboss.xnio.netty.netty-xnio-transport>
         <version.org.jctools.jctools-core>2.1.2</version.org.jctools.jctools-core>
         <version.org.jetbrains.kotlin>1.7.10</version.org.jetbrains.kotlin>
@@ -540,7 +540,7 @@
         <version.org.opensaml.opensaml>4.2.0</version.org.opensaml.opensaml>
         <version.org.ow2.asm>9.5</version.org.ow2.asm>
         <version.org.reactivestreams>1.0.4</version.org.reactivestreams>
-        <version.org.wildfly.core>22.0.0.Beta3</version.org.wildfly.core>
+        <version.org.wildfly.core>22.0.1.Final</version.org.wildfly.core>
         <version.org.wildfly.http-client>2.0.2.Final</version.org.wildfly.http-client>
         <version.org.wildfly.naming-client>2.0.1.Final</version.org.wildfly.naming-client>
         <version.org.wildfly.security.elytron-mp>2.0.0.Final</version.org.wildfly.security.elytron-mp>

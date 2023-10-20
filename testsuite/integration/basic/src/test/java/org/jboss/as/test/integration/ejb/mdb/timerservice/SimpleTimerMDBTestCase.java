@@ -4,6 +4,10 @@
  */
 package org.jboss.as.test.integration.ejb.mdb.timerservice;
 
+import static org.jboss.as.test.shared.PermissionUtils.createPermissionsXmlAsset;
+
+import java.util.PropertyPermission;
+
 import jakarta.jms.Destination;
 import jakarta.jms.Message;
 import jakarta.jms.MessageProducer;
@@ -17,6 +21,7 @@ import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.test.jms.auxiliary.CreateTopicSetupTask;
+import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.WebArchive;
@@ -38,6 +43,10 @@ public class SimpleTimerMDBTestCase {
         final WebArchive war = ShrinkWrap.create(WebArchive.class, "testTimerServiceSimple.war");
         war.addPackage(SimpleTimerMDBTestCase.class.getPackage());
         war.addClass(CreateTopicSetupTask.class);
+        war.addClass(TimeoutUtil.class);
+        war.addAsManifestResource(createPermissionsXmlAsset(
+                new PropertyPermission("ts.timeout.factor", "read")
+        ), "permissions.xml");
         return war;
 
     }
@@ -53,7 +62,7 @@ public class SimpleTimerMDBTestCase {
     public void testTimedObjectTimeoutMethod() throws Exception {
         InitialContext ctx = new InitialContext();
         sendMessage();
-        Assert.assertTrue(TimedObjectTimerServiceMDB.awaitTimerCall());
+        Assert.assertTrue(TimedObjectTimerServiceMDB.awaitTimerCall(TimeoutUtil.adjust(2000)));
     }
 
     //the timer is created when the
