@@ -101,7 +101,9 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
             }
         } finally {
             Thread.currentThread().setContextClassLoader(old);
-            serviceConsumer.accept(this);
+            if (autostart) {
+                serviceConsumer.accept(this);
+            }
         }
     }
 
@@ -124,7 +126,9 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
     }
 
     public void stopContext() {
-        serviceConsumer.accept(null);
+        if (autostart) {
+            serviceConsumer.accept(null);
+        }
         final ClassLoader old = Thread.currentThread().getContextClassLoader();
         DeploymentInfo deploymentInfo = this.deploymentInfo.get();
         Thread.currentThread().setContextClassLoader(deploymentInfo.getClassLoader());
