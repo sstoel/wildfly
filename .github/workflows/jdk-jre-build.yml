@@ -69,7 +69,7 @@ jobs:
 
       - name: Setup JRE ${{ matrix.java }} for building
         id: setup-java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: ${{ matrix.java }}
@@ -82,10 +82,10 @@ jobs:
           echo "JRE_HOME=$JAVA_HOME" >> "$GITHUB_OUTPUT"
 
       - name: Setup JDK ${{ matrix.java }} for building
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '17'
           cache: 'maven'
 
       - name: Build and verify WildFly with JRE ${{ matrix.java }}
@@ -93,17 +93,17 @@ jobs:
           mvn -B clean install -DskipTests -Denforcer.skip=true -Dcheckstyle.skip=true
           cd testsuite
           echo "Running: mvn -B verify -Dcontainer.java.home=${{ steps.jre-home.outputs.JRE_HOME }} -fae"
-          mvn -B verify -Dcontainer.java.home=${{ steps.jre-home.outputs.JRE_HOME }} -fae
+          mvn -B verify -DnoCompile -Dcontainer.java.home=${{ steps.jre-home.outputs.JRE_HOME }} -fae
 
       - name: Upload Surefire Reports on Failure
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: surefire-reports-${{ matrix.java }}
           path: '**/surefire-reports/'
 
       - name: Upload Server Logs on Failure
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: server-logs-${{ matrix.java }}
