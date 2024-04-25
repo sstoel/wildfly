@@ -41,7 +41,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>30.0.0.Final</version>
+        <version>32.0.0.Final</version>
     </parent>
 
     <artifactId>wildfly-testsuite</artifactId>
@@ -51,6 +51,7 @@
 
     <modules>
         <module>integration</module>
+        <module>test-product-conf</module>
     </modules>
 
 
@@ -166,6 +167,9 @@
 
         <!-- used to enable trace logging for test suite runs -->
         <trace>none</trace>
+
+        <!-- Dynamic part of the name of ee-version-specific test source dir that may be added to the build -->
+        <additional.ee.test.source>ee10</additional.ee.test.source>
     </properties>
 
     <dependencyManagement>
@@ -196,6 +200,13 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Ensure the relevant test feature pack is built -->
+        <dependency>
+            <groupId>${full.maven.groupId}</groupId>
+            <artifactId>${testsuite.test.galleon.pack.artifactId}</artifactId>
+            <type>zip</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -311,6 +322,26 @@
                        <trimStackTrace>false</trimStackTrace>
                    </configuration>
                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <executions combine-children="append">
+                        <!-- If enabled, add a second test source dir for EE-version-specific classes -->
+                        <execution>
+                            <id>add-ee-test-source</id>
+                            <!-- Disabled by default -->
+                            <phase>none</phase>
+                            <goals>
+                                <goal>add-test-source</goal>
+                            </goals>
+                            <configuration>
+                                <sources>
+                                    <source>src/test/${additional.ee.test.source}/java</source>
+                                </sources>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
 
                <!-- Disable default site run. -->
                <plugin>
@@ -460,9 +491,10 @@
             <activation><property><name>ts.preview</name></property></activation>
             <properties>
                 <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
+                <!-- For WFP, if there are EE-version-specific test sources, uses the ee11 ones -->
+                <additional.ee.test.source>ee11</additional.ee.test.source>
             </properties>
             <modules>
-                <module>test-feature-pack-preview</module>
                 <module>domain</module>
                 <module>integration</module>
                 <module>layers</module>
@@ -478,10 +510,33 @@
                     <name>ts.bootable.preview</name>
                 </property>
             </activation>
+            <properties>
+                <!-- For WFP, if there are EE-version-specific test sources, uses the ee11 ones -->
+                <additional.ee.test.source>ee11</additional.ee.test.source>
+            </properties>
             <modules>
-                <module>test-feature-pack-preview</module>
                 <module>integration</module>
+                <module>preview</module>
             </modules>
+        </profile>
+        <!-- Profile that can be activated in combination with -Dts.layers and -Dts.galleon
+             to execute the tests activated by those profiles, but using the wildfly-preview feature pack
+             based variant of wildfly-test-galleon-pack.
+        -->
+        <profile>
+            <id>test.feature.pack.preview.profile</id>
+            <activation>
+                <property>
+                    <name>testsuite.ee.galleon.pack.artifactId</name>
+                    <value>wildfly-preview-feature-pack</value>
+                </property>
+            </activation>
+            <properties>
+                <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
+                <testsuite.test.galleon.pack.artifactId>wildfly-test-feature-pack-preview</testsuite.test.galleon.pack.artifactId>
+                <!-- For WFP, if there are EE-version-specific test sources, uses the ee11 ones -->
+                <additional.ee.test.source>ee11</additional.ee.test.source>
+            </properties>
         </profile>
 
         <!--
@@ -1161,6 +1216,35 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <profile>
+            <!-- Use the channels specified by the user-provided external.wildfly.channels property
+                 when provisioning. -->
+            <id>external.channel.profile</id>
+            <activation><property><name>external.wildfly.channels</name></property></activation>
+            <properties>
+                <!-- The wildfly-maven-plugin 'provision' mojo will provision using a channel
+                     if a wildfly.channels pom property is set.
+
+                     Note the user could just directly do -Dwildfly-channels=xxx and get
+                     the same effect, but we use this indirection to leave open the possibility
+                     to have other ways of setting the property, without having to deal with
+                     users having learned to directly use -Dwildfly.channels.
+                 -->
+                <wildfly.channels>${external.wildfly.channels}</wildfly.channels>
+            </properties>
+        </profile>
+
+        <profile>
+            <!-- Use the internally-created channel when provisioning -->
+            <id>internal.channel.profile</id>
+            <activation><property><name>internal.wildfly.channels</name></property></activation>
+            <properties>
+                <!-- The wildfly-maven-plugin 'provision' mojo will provision using a channel
+                     if a wildfly.channels pom property is set. -->
+                <wildfly.channels>org.wildfly.channels:wildfly:${full.maven.version}</wildfly.channels>
+            </properties>
         </profile>
 
     </profiles>
