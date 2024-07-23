@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>33.0.0.Beta1-SNAPSHOT</version>
+        <version>34.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -312,12 +312,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.fasterxml.jackson.dataformat</groupId>
-                <artifactId>jackson-dataformat-yaml</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.fasterxml.jackson.jr</groupId>
                 <artifactId>jackson-jr-objects</artifactId>
                 <version>${version.com.fasterxml.jackson.jr.jackson-jr-objects}</version>
@@ -355,30 +349,6 @@
                 <groupId>com.google.protobuf</groupId>
                 <artifactId>protobuf-java-util</artifactId>
                 <version>${version.com.google.protobuf}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>okhttp</artifactId>
-                <version>${version.com.squareup.okhttp}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup.okio</groupId>
-                <artifactId>okio-jvm</artifactId>
-                <version>${version.com.squareup.okio-jvm}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>*</groupId>

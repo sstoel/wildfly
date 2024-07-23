@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>33.0.0.Beta1-SNAPSHOT</version>
+        <version>34.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-messaging-activemq-subsystem</artifactId>
@@ -115,6 +115,10 @@
                 <exclusion>
                     <groupId>org.apache.activemq</groupId>
                     <artifactId>artemis-jms-server</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.jline</groupId>
+                    <artifactId>jline</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

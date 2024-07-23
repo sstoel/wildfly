@@ -39,7 +39,8 @@ import org.xnio.XnioWorker;
 class RuntimeInitialization extends DefaultInitialization {
     private final Map<ServiceName, Supplier<Object>> values;
 
-    RuntimeInitialization(Map<ServiceName, Supplier<Object>> values) {
+    RuntimeInitialization(final Map<ServiceName, Supplier<Object>> values, final UndertowSubsystemSchema schema) {
+        super(schema);
         this.values = values;
     }
 
@@ -74,20 +75,21 @@ class RuntimeInitialization extends DefaultInitialization {
             this.record(target, ServerDefinition.SERVER_CAPABILITY.getCapabilityServiceName("some-server"));
             this.start(target, HostDefinition.HOST_CAPABILITY.getCapabilityServiceName("some-server", "default-virtual-host"));
             this.start(target, HostDefinition.HOST_CAPABILITY.getCapabilityServiceName("some-server", "other-host"));
-            this.record(target, UndertowService.locationServiceName("some-server", "default-virtual-host", "/"));
+            this.record(target, LocationDefinition.LOCATION_CAPABILITY.getCapabilityServiceName("some-server", "default-virtual-host", "/"));
             this.start(target, ServletContainerDefinition.SERVLET_CONTAINER_CAPABILITY.getCapabilityServiceName("myContainer"));
             this.start(target, UndertowService.filterRefName("some-server", "other-host", "/", "static-gzip"));
             this.start(target, UndertowService.filterRefName("some-server", "other-host", "headers"));
             this.record(target, UndertowService.DEFAULT_HOST);
             this.record(target, UndertowService.DEFAULT_SERVER);
-            this.record(target, UndertowService.accessLogServiceName("some-server", "default-virtual-host"));
+            this.record(target, AccessLogDefinition.ACCESS_LOG_CAPABILITY.getCapabilityServiceName("some-server", "default-virtual-host"));
             this.record(target, ServerDefinition.SERVER_CAPABILITY.getCapabilityServiceName("undertow-server"));
             this.record(target, ServerDefinition.SERVER_CAPABILITY.getCapabilityServiceName("default-server"));
         }
         try {
             SSLContext sslContext = SSLContext.getDefault();
 
-            target.addService(ServiceName.parse(Capabilities.REF_SUSPEND_CONTROLLER)).setInstance(new SuspendController()).install();
+            ServiceBuilder<?> builder = target.addService();
+            builder.setInstance(Service.newInstance(builder.provides(ServiceName.parse(Capabilities.REF_SUSPEND_CONTROLLER)), new SuspendController())).install();
             target.addService(Services.JBOSS_SERVICE_MODULE_LOADER).setInstance(new ServiceModuleLoader(null)).install();
             target.addService(ContextNames.JAVA_CONTEXT_SERVICE_NAME).setInstance(new NamingStoreService()).install();
             target.addService(ContextNames.JBOSS_CONTEXT_SERVICE_NAME).setInstance(new NamingStoreService()).install();

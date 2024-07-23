@@ -42,10 +42,6 @@
       <exists>true</exists>
     </file>
     <file>
-      <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/org/jboss/as/server/main/wildfly-server-${version.org.wildfly.core}.jar</location>
-      <exists>true</exists>
-    </file>
-    <file>
       <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/io/smallrye/fault-tolerance/main</location>
       <exists>false</exists>
     </file>
@@ -59,10 +55,6 @@
     </file>
     <file>
       <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/org/wildfly/microprofile/fault-tolerance-smallrye</location>
-      <exists>false</exists>
-    </file>
-    <file>
-      <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/main</location>
       <exists>false</exists>
     </file>
     <file>
@@ -92,6 +84,10 @@
     <file>
       <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/org/wildfly/security/elytron-jwt/main</location>
       <exists>false</exists>
+    </file>
+    <file>
+      <location>target/${server.output.dir.prefix}-${server.output.dir.version}/modules/system/layers/base/org/wildfly/_internal/unstable-api-annotation-index/main/content/wildfly-ee-feature-pack.zip</location>
+      <exists>true</exists>
     </file>
     <file>
       <location>target/${server.output.dir.prefix}-${server.output.dir.version}/docs/schema/wildfly-txn_5_0.xsd</location>

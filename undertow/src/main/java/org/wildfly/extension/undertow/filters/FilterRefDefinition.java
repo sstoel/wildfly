@@ -32,6 +32,7 @@ import org.jboss.msc.service.ServiceTarget;
 import org.wildfly.extension.undertow.Capabilities;
 import org.wildfly.extension.undertow.Constants;
 import org.wildfly.extension.undertow.FilterLocation;
+import org.wildfly.extension.undertow.Host;
 import org.wildfly.extension.undertow.PredicateValidator;
 import org.wildfly.extension.undertow.UndertowExtension;
 import org.wildfly.extension.undertow.UndertowFilter;
@@ -77,9 +78,6 @@ public class FilterRefDefinition extends PersistentResourceDefinition {
     }
 
     static class FilterRefAdd extends AbstractAddStepHandler {
-        FilterRefAdd() {
-            super(FilterRefDefinition.PREDICATE, PRIORITY);
-        }
 
         @Override
         protected void performRuntime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
@@ -93,7 +91,7 @@ public class FilterRefDefinition extends PersistentResourceDefinition {
                 final PathAddress serverAddress = hostAddress.getParent();
                 final String serverName = serverAddress.getLastElement().getValue();
                 final String hostName = hostAddress.getLastElement().getValue();
-                locationSN = context.getCapabilityServiceName(Capabilities.CAPABILITY_HOST, FilterLocation.class, serverName, hostName);
+                locationSN = context.getCapabilityServiceName(Host.SERVICE_DESCRIPTOR, serverName, hostName);
             } else {
                 final PathAddress locationAddress = address.getParent();
                 final PathAddress hostAddress = locationAddress.getParent();

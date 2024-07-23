@@ -195,6 +195,7 @@ public abstract class LayersTestBase {
             // Extension not included in the default config
             "org.wildfly.extension.microprofile.lra-coordinator",
             "org.wildfly.extension.microprofile.lra-participant",
+            "org.jboss.narayana.rts.lra-service-base",
             "org.jboss.narayana.rts.lra-coordinator",
             "org.jboss.narayana.rts.lra-participant",
             "org.eclipse.microprofile.lra.api",
@@ -315,7 +316,10 @@ public abstract class LayersTestBase {
     public static final String[] NO_LAYER_OR_REFERENCE_WILDFLY_EE = {
             // In wildfly-ee only referenced by the
             // unused-in-all-layers org.jboss.resteasy.resteasy-rxjava2
-            "io.reactivex.rxjava2.rxjava"
+            "io.reactivex.rxjava2.rxjava",
+            // Downstream uses this in installations provisioned with wildfly-ee but upstream does not.
+            // To make life easier downstream we include it in wildfly-ee.
+            "com.fasterxml.jackson.dataformat.jackson-dataformat-yaml"
     };
 
     /**

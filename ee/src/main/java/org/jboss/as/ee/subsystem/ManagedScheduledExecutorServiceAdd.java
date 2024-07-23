@@ -15,6 +15,7 @@ import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.CapabilityServiceBuilder;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.ProcessStateNotifier;
 import org.jboss.as.ee.concurrent.ManagedThreadFactoryImpl;
 import org.jboss.as.ee.concurrent.service.ConcurrentServiceNames;
 import org.jboss.as.ee.concurrent.service.ManagedExecutorHungTasksPeriodicTerminationService;
@@ -78,11 +79,13 @@ public class ManagedScheduledExecutorServiceAdd extends AbstractAddStepHandler {
             threadFactory = ManagedScheduledExecutorServiceResourceDefinition.THREAD_FACTORY_AD.resolveModelAttribute(context, model).asString();
         }
         final Supplier<ManagedThreadFactoryImpl> managedThreadFactorySupplier = threadFactory != null ? serviceBuilder.requiresCapability(ManagedThreadFactoryResourceDefinition.CAPABILITY.getName(), ManagedThreadFactoryImpl.class, threadFactory) : null;
+
+        final Supplier<ProcessStateNotifier> processStateNotifierSupplier = serviceBuilder.requires(ProcessStateNotifier.SERVICE_DESCRIPTOR);
         Supplier<RequestController> requestControllerSupplier = null;
         if (context.hasOptionalCapability(REQUEST_CONTROLLER_CAPABILITY_NAME, ManagedScheduledExecutorServiceResourceDefinition.CAPABILITY.getDynamicName(context.getCurrentAddress()), null)) {
             requestControllerSupplier = serviceBuilder.requiresCapability(REQUEST_CONTROLLER_CAPABILITY_NAME, RequestController.class);
         }
-        final ManagedScheduledExecutorServiceService service = new ManagedScheduledExecutorServiceService(consumer, contextServiceSupplier, managedThreadFactorySupplier, requestControllerSupplier, name, jndiName, hungTaskThreshold, hungTaskTerminationPeriod, longRunningTasks, coreThreads, keepAliveTime, keepAliveTimeUnit, threadLifeTime, rejectPolicy, threadPriority, hungTasksPeriodicTerminationService);
+        final ManagedScheduledExecutorServiceService service = new ManagedScheduledExecutorServiceService(consumer, contextServiceSupplier, managedThreadFactorySupplier, processStateNotifierSupplier, requestControllerSupplier, name, jndiName, hungTaskThreshold, hungTaskTerminationPeriod, longRunningTasks, coreThreads, keepAliveTime, keepAliveTimeUnit, threadLifeTime, rejectPolicy, threadPriority, hungTasksPeriodicTerminationService);
         serviceBuilder.setInstance(service);
         serviceBuilder.install();
     }

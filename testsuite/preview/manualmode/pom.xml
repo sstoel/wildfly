@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>33.0.0.Beta1-SNAPSHOT</version>
+        <version>34.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -113,6 +113,13 @@
             <artifactId>wildfly-controller</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>org.wildfly.core</groupId>
+            <artifactId>wildfly-core-test-runner</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.wildfly.core</groupId>
             <artifactId>wildfly-core-testsuite-shared</artifactId>

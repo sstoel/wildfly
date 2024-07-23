@@ -56,10 +56,7 @@ class OpenTelemetrySubsystemDefinition extends PersistentResourceDefinition {
             "io.opentelemetry.context",
             "io.opentelemetry.exporter",
             "io.opentelemetry.sdk",
-            "io.smallrye.opentelemetry",
-            "io.vertx.core",
-            "io.vertx.grpc-client",
-            "io.netty.netty-buffer"
+            "io.smallrye.opentelemetry"
     };
 
     static final RuntimeCapability<Void> OPENTELEMETRY_CAPABILITY =

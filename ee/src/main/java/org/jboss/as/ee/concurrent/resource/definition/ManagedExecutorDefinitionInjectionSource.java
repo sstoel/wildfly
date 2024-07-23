@@ -6,6 +6,8 @@ package org.jboss.as.ee.concurrent.resource.definition;
 
 import org.glassfish.enterprise.concurrent.AbstractManagedExecutorService;
 import org.glassfish.enterprise.concurrent.ManagedExecutorServiceAdapter;
+import org.jboss.as.controller.ProcessStateNotifier;
+import org.jboss.as.controller.RequirementServiceBuilder;
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
 import org.jboss.as.ee.concurrent.ContextServiceImpl;
 import org.jboss.as.ee.concurrent.deployers.EEConcurrentDefaultBindingProcessor;
@@ -67,14 +69,15 @@ public class ManagedExecutorDefinitionInjectionSource extends ResourceDefinition
         try {
             // install the resource service
             final ServiceName resourceServiceName = ManagedExecutorServiceResourceDefinition.CAPABILITY.getCapabilityServiceName(resourceName);
-            final ServiceBuilder resourceServiceBuilder = phaseContext.getServiceTarget().addService(resourceServiceName);
+            final RequirementServiceBuilder<?> resourceServiceBuilder = phaseContext.getRequirementServiceTarget().addService();
             final Consumer<ManagedExecutorServiceAdapter> consumer = resourceServiceBuilder.provides(resourceServiceName);
             final Supplier<ManagedExecutorHungTasksPeriodicTerminationService> hungTasksPeriodicTerminationService = resourceServiceBuilder.requires(ConcurrentServiceNames.HUNG_TASK_PERIODIC_TERMINATION_SERVICE_NAME);
+            final Supplier<ProcessStateNotifier> processStateNotifierSupplier = resourceServiceBuilder.requires(ProcessStateNotifier.SERVICE_DESCRIPTOR);
             Supplier<RequestController> requestControllerSupplier = null;
             if (capabilityServiceSupport.hasCapability(REQUEST_CONTROLLER_CAPABILITY_NAME)) {
                 requestControllerSupplier = resourceServiceBuilder.requires(capabilityServiceSupport.getCapabilityServiceName(REQUEST_CONTROLLER_CAPABILITY_NAME));
             }
-            final ManagedExecutorServiceService resourceService = new ManagedExecutorServiceService(consumer, null, null, requestControllerSupplier, resourceName, resourceJndiName, hungTaskThreshold, hungTaskTerminationPeriod, longRunningTasks, maxAsync, maxAsync, keepAliveTime, keepAliveTimeUnit, threadLifeTime, queueLength, rejectPolicy, threadPriority, hungTasksPeriodicTerminationService);
+            final ManagedExecutorServiceService resourceService = new ManagedExecutorServiceService(consumer, null, null, processStateNotifierSupplier, requestControllerSupplier, resourceName, resourceJndiName, hungTaskThreshold, hungTaskTerminationPeriod, longRunningTasks, maxAsync, maxAsync, keepAliveTime, keepAliveTimeUnit, threadLifeTime, queueLength, rejectPolicy, threadPriority, hungTasksPeriodicTerminationService);
             resourceServiceBuilder.setInstance(resourceService);
             final Injector<ManagedReferenceFactory> contextServiceLookupInjector = new Injector<>() {
                 @Override

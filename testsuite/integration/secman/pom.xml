@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>33.0.0.Beta1-SNAPSHOT</version>
+        <version>34.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
 
@@ -127,36 +127,6 @@
                                 <JBOSS_HOME>${jboss.dist}</JBOSS_HOME>
                             </environmentVariables>
                         </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-
-        <!-- Test against WildFly Preview dist -->
-        <profile>
-            <id>preview.profile</id>
-            <activation>
-                <property>
-                    <name>ts.preview</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <executions>
-                            <!--Re-enable the default surefire execution. -->
-                            <execution>
-                                <id>default-test</id>
-                                <phase>test</phase>
-                                <configuration>
-                                    <environmentVariables>
-                                        <JBOSS_HOME>${jboss.dist}</JBOSS_HOME>
-                                    </environmentVariables>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                 </plugins>
             </build>

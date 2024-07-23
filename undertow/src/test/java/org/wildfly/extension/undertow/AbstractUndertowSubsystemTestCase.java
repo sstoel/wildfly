@@ -34,14 +34,10 @@ import org.wildfly.extension.undertow.filters.PredicateHandlerWrapper;
 
 public abstract class AbstractUndertowSubsystemTestCase extends AbstractSubsystemSchemaTest<UndertowSubsystemSchema> {
     final Map<ServiceName, Supplier<Object>> values = new ConcurrentHashMap<>();
-    private final UndertowSubsystemSchema schema;
-
-    AbstractUndertowSubsystemTestCase() {
-        this(UndertowSubsystemSchema.CURRENT);
-    }
+    protected final UndertowSubsystemSchema schema;
 
     AbstractUndertowSubsystemTestCase(UndertowSubsystemSchema schema) {
-        super(UndertowExtension.SUBSYSTEM_NAME, new UndertowExtension(), schema, UndertowSubsystemSchema.CURRENT);
+        super(UndertowExtension.SUBSYSTEM_NAME, new UndertowExtension(), schema, UndertowSubsystemSchema.CURRENT.get(schema.getStability()));
         this.schema = schema;
     }
 
@@ -67,7 +63,7 @@ public abstract class AbstractUndertowSubsystemTestCase extends AbstractSubsyste
         // Skip runtime tests for old versions - since legacy SSO is only allowed in admin-only mode
         if (!this.schema.since(UndertowSubsystemSchema.VERSION_14_0)) return;
 
-        KernelServicesBuilder builder = createKernelServicesBuilder(new RuntimeInitialization(this.values)).setSubsystemXml(getSubsystemXml());
+        KernelServicesBuilder builder = createKernelServicesBuilder(new RuntimeInitialization(this.values, this.schema)).setSubsystemXml(getSubsystemXml());
         KernelServices mainServices = builder.build();
 
         if (!mainServices.isSuccessfulBoot()) {
@@ -110,7 +106,7 @@ public abstract class AbstractUndertowSubsystemTestCase extends AbstractSubsyste
         Assert.assertEquals(3, host.getAllAliases().size());
         Assert.assertTrue(host.getAllAliases().contains("default-alias"));
 
-        LocationService locationService = (LocationService) this.values.get(UndertowService.locationServiceName("some-server", "default-virtual-host", "/")).get();
+        LocationService locationService = (LocationService) this.values.get(LocationDefinition.LOCATION_CAPABILITY.getCapabilityServiceName("some-server", "default-virtual-host", "/")).get();
         Assert.assertNotNull(locationService);
 
         JSPConfig jspConfig = ((ServletContainerService) this.values.get(ServletContainerDefinition.SERVLET_CONTAINER_CAPABILITY.getCapabilityServiceName("myContainer")).get()).getJspConfig();
@@ -152,7 +148,7 @@ public abstract class AbstractUndertowSubsystemTestCase extends AbstractSubsyste
         Server defaultServer = (Server) this.values.get(UndertowService.DEFAULT_SERVER).get();
         Assert.assertNotNull("Default host should exist", defaultServer);
 
-        AccessLogService accessLogService = (AccessLogService) this.values.get(UndertowService.accessLogServiceName("some-server", "default-virtual-host")).get();
+        AccessLogService accessLogService = (AccessLogService) this.values.get(AccessLogDefinition.ACCESS_LOG_CAPABILITY.getCapabilityServiceName("some-server", "default-virtual-host")).get();
         Assert.assertNotNull(accessLogService);
         Assert.assertFalse(accessLogService.isRotate());
 
@@ -166,6 +162,6 @@ public abstract class AbstractUndertowSubsystemTestCase extends AbstractSubsyste
 
     @Override
     protected AdditionalInitialization createAdditionalInitialization() {
-        return new DefaultInitialization();
+        return new DefaultInitialization(this.schema);
     }
 }

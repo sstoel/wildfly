@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>33.0.0.Beta1-SNAPSHOT</version>
+        <version>34.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-feature-pack-galleon-shared</artifactId>
@@ -27,17 +27,6 @@
     <packaging>pom</packaging>
 
     <dependencies>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-yaml</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
 
         <dependency><groupId>com.fasterxml.jackson.jr</groupId><artifactId>jackson-jr-objects</artifactId></dependency>
 
@@ -50,8 +39,6 @@
         <dependency><groupId>com.google.api.grpc</groupId><artifactId>proto-google-common-protos</artifactId></dependency>
         <dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId></dependency>
         <dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java-util</artifactId></dependency>
-
-        <dependency><groupId>com.squareup.okio</groupId><artifactId>okio-jvm</artifactId></dependency>
 
         <dependency>
             <groupId>io.grpc</groupId>
@@ -659,6 +646,26 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.wildfly.unstable.api.annotation</groupId>
+                <artifactId>unstable-api-annotation-classpath-indexer-plugin</artifactId>
+                <configuration>
+                    <outputFile>${project.build.directory}/index/wildfly-galleon-pack.zip</outputFile>
+                    <filters>
+                        <filter>
+                            <annotation>io.smallrye.common.annotation.Experimental</annotation>
+                            <groupIds>
+                                <groupId>io.smallrye</groupId>
+                                <groupId>io.smallrye.*</groupId>
+                            </groupIds>
+                            <excludedClasses>
+                                <excludedClass>org.eclipse.microprofile.reactive.messaging.Channel</excludedClass>
+                                <excludedClass>org.eclipse.microprofile.reactive.messaging.Incoming</excludedClass>
+                            </excludedClasses>
+                        </filter>
+                    </filters>
+                </configuration>
             </plugin>
         </plugins>
     </build>
