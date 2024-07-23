@@ -251,8 +251,8 @@ public interface UndertowLogger extends BasicLogger {
 //    @Message(id = 57, value = "Null parameter %s")
 //    IllegalArgumentException nullParamter(String id);
 
-//    @Message(id = 58, value = "Cannot activate context: %s")
-//    IllegalStateException cannotActivateContext(@Cause Throwable th, ServiceName service);
+    @Message(id = 58, value = "Cannot activate context: %s")
+    IllegalStateException cannotActivateContext(@Cause Throwable th, ServiceName service);
 
 //    @Message(id = 59, value = "Could not construct handler for class: %s. with parameters %s")
 //    RuntimeException cannotCreateHttpHandler(Class<?> handlerClass, ModelNode parameters, @Cause Throwable cause);
