@@ -21,7 +21,6 @@ import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.appclient.deployment.ApplicationClientManifestProcessor;
 import org.jboss.as.appclient.deployment.ApplicationClientParsingDeploymentProcessor;
 import org.jboss.as.appclient.deployment.ApplicationClientStartProcessor;
-import org.jboss.as.appclient.deployment.ApplicationClientStructureProcessor;
 import org.jboss.as.appclient.service.ApplicationClientDeploymentService;
 import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.CapabilityServiceBuilder;
@@ -69,7 +68,7 @@ class AppClientSubsystemAdd extends AbstractBoottimeAddStepHandler {
     }
 
     protected void performBoottime(final OperationContext context, ModelNode operation, final ModelNode model) throws OperationFailedException {
-        final String deployment = AppClientSubsystemResourceDefinition.DEPLOYMENT.resolveModelAttribute(context, model).asString();
+        final String deployment = AppClientSubsystemResourceDefinition.DEPLOYMENT.resolveModelAttribute(context, model).asStringOrNull();
         final File file = new File(AppClientSubsystemResourceDefinition.FILE.resolveModelAttribute(context, model).asString());
         if (!file.exists()) {
             context.setRollbackOnly();
@@ -81,9 +80,6 @@ class AppClientSubsystemAdd extends AbstractBoottimeAddStepHandler {
 
         context.addStep(new AbstractDeploymentChainStep() {
             protected void execute(DeploymentProcessorTarget processorTarget) {
-                if (deployment != null && !deployment.isEmpty()) {
-                    processorTarget.addDeploymentProcessor(Constants.SUBSYSTEM_NAME, Phase.STRUCTURE, Phase.STRUCTURE_APP_CLIENT, new ApplicationClientStructureProcessor(deployment));
-                }
                 processorTarget.addDeploymentProcessor(Constants.SUBSYSTEM_NAME, Phase.STRUCTURE, Phase.STRUCTURE_REGISTER_JBOSS_ALL_APPCLIENT, new JBossAllXmlParserRegisteringProcessor<>(AppClientJBossAllParser.ROOT_ELEMENT, AppClientJBossAllParser.ATTACHMENT_KEY, new AppClientJBossAllParser()));
                 processorTarget.addDeploymentProcessor(Constants.SUBSYSTEM_NAME, Phase.PARSE, Phase.PARSE_APP_CLIENT_XML, new ApplicationClientParsingDeploymentProcessor());
                 processorTarget.addDeploymentProcessor(Constants.SUBSYSTEM_NAME, Phase.POST_MODULE, Phase.POST_MODULE_APPLICATION_CLIENT_MANIFEST, new ApplicationClientManifestProcessor());

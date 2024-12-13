@@ -22,7 +22,6 @@ import java.util.function.Supplier;
 import jakarta.enterprise.inject.spi.Extension;
 
 import org.jboss.as.controller.capability.CapabilityServiceSupport;
-import org.jboss.as.ee.concurrent.ConcurrentContextSetupAction;
 import org.jboss.as.ee.naming.JavaNamespaceSetup;
 import org.jboss.as.naming.deployment.ContextNames;
 import org.jboss.as.naming.deployment.JndiNamingDependencyProcessor;
@@ -70,9 +69,11 @@ import org.jboss.weld.bootstrap.spi.Metadata;
 import org.jboss.weld.config.ConfigurationKey;
 import org.jboss.weld.configuration.spi.ExternalConfiguration;
 import org.jboss.weld.configuration.spi.helpers.ExternalConfigurationBuilder;
+import org.jboss.weld.lite.extension.translator.LiteExtensionTranslator;
 import org.jboss.weld.manager.api.ExecutorServices;
 import org.jboss.weld.security.spi.SecurityServices;
 import org.jboss.weld.transaction.spi.TransactionServices;
+import org.jboss.as.ee.component.ConcurrencyAttachments;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
@@ -213,8 +214,11 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
                 additional.getServices().add(entry.getKey(), Reflections.cast(entry.getValue()));
             }
         }
-
-        final Collection<Metadata<Extension>> extensions = WeldPortableExtensions.getPortableExtensions(deploymentUnit).getExtensions();
+        WeldPortableExtensions portableExtensions = WeldPortableExtensions.getPortableExtensions(deploymentUnit);
+        // register LiteExtensionTranslator as the last extension so that we have all info on registered BCEs
+        // NOTE: I chose to register it under the dep. unit of the top level deployment, using its CL, not sure if this is correct
+        portableExtensions.registerLiteExtensionTranslatorIfNeeded(classes -> new LiteExtensionTranslator(classes, module.getClassLoader()), deploymentUnit);
+        final Collection<Metadata<Extension>> extensions = portableExtensions.getExtensions();
 
         final WeldDeployment deployment = new WeldDeployment(beanDeploymentArchives, extensions, module, subDeploymentLoaders, deploymentUnit, rootBeanDeploymentModule, eeModuleDescriptors);
 
@@ -324,7 +328,7 @@ public class WeldDeploymentProcessor implements DeploymentUnitProcessor {
         if (naming != null) {
             setupActions.add(naming);
         }
-        final ConcurrentContextSetupAction concurrentContext = deploymentUnit.getAttachment(org.jboss.as.ee.component.Attachments.CONCURRENT_CONTEXT_SETUP_ACTION);
+        final SetupAction concurrentContext = deploymentUnit.getAttachment(ConcurrencyAttachments.CONCURRENT_CONTEXT_SETUP_ACTION);
         if (concurrentContext != null) {
             setupActions.add(concurrentContext);
         }
