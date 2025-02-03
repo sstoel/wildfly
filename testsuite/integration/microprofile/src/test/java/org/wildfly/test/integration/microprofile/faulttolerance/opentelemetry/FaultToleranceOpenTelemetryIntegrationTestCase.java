@@ -6,6 +6,7 @@
 package org.wildfly.test.integration.microprofile.faulttolerance.opentelemetry;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -16,7 +17,6 @@ import org.jboss.arquillian.test.api.ArquillianResource;
 import org.jboss.arquillian.testcontainers.api.DockerRequired;
 import org.jboss.arquillian.testcontainers.api.Testcontainer;
 import org.jboss.as.arquillian.api.ServerSetup;
-import org.jboss.as.arquillian.api.ServerSetupTask;
 import org.jboss.as.test.integration.common.HttpRequest;
 import org.jboss.as.test.shared.observability.containers.OpenTelemetryCollectorContainer;
 import org.jboss.as.test.shared.observability.setuptasks.MicrometerSetupTask;
@@ -50,13 +50,13 @@ public class FaultToleranceOpenTelemetryIntegrationTestCase {
     protected OpenTelemetryCollectorContainer otelCollector;
 
     private static final String MP_CONFIG = "otel.sdk.disabled=false\n" +
-            "otel.metric.export.interval=10";
+            // Lower the interval from 60 seconds to 100 millis
+            "otel.metric.export.interval=100";
 
-    @Deployment
+    @Deployment(testable = false)
     public static Archive<?> deploy() {
         return ShrinkWrap.create(WebArchive.class, FaultToleranceMicrometerIntegrationTestCase.class.getSimpleName() + ".war")
                 .addAsManifestResource(new StringAsset(MP_CONFIG), "microprofile-config.properties")
-                .addClasses(ServerSetupTask.class)
                 .addPackage(FaultTolerantApplication.class.getPackage())
                 .addAsWebInfResource(FaultToleranceMicrometerIntegrationTestCase.class.getPackage(), "web.xml", "web.xml")
                 .addAsWebInfResource(FaultToleranceMicrometerIntegrationTestCase.class.getPackage(), "beans.xml", "beans.xml");
@@ -100,7 +100,7 @@ public class FaultToleranceOpenTelemetryIntegrationTestCase {
                     .findFirst();
             Assert.assertTrue(prometheusMetric.isPresent());
             Assert.assertEquals(0, Integer.parseInt(prometheusMetric.get().getValue()), 0);
-        });
+        }, Duration.ofSeconds(70)); // n.b. this in ~2% of cases needs slightly more time on our CI given the asynchronicity
     }
 
 }

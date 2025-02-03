@@ -21,7 +21,6 @@ import java.util.stream.Collectors;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.WebTarget;
-
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.as.test.shared.observability.signals.PrometheusMetric;
 import org.jboss.as.test.shared.observability.signals.jaeger.JaegerTrace;
@@ -34,7 +33,7 @@ import org.testcontainers.utility.MountableFile;
  */
 public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetryCollectorContainer> {
     public static final String IMAGE_NAME = "otel/opentelemetry-collector";
-    public static final String IMAGE_VERSION = "0.103.1";
+    public static final String IMAGE_VERSION = "0.115.1";
     public static final int OTLP_GRPC_PORT = 4317;
     public static final int OTLP_HTTP_PORT = 4318;
     public static final int PROMETHEUS_PORT = 1234;
@@ -42,6 +41,8 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
     public static final String OTEL_COLLECTOR_CONFIG_YAML = "/etc/otel-collector-config.yaml";
 
     private final JaegerContainer jaegerContainer;
+    private final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(
+            TimeoutUtil.adjust(Integer.parseInt(System.getProperty("testsuite.integration.container.timeout", "30"))));
 
     public OpenTelemetryCollectorContainer() {
         super("OpenTelemetryCollector", IMAGE_NAME, IMAGE_VERSION,
@@ -86,21 +87,62 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
     }
 
     public List<JaegerTrace> getTraces(String serviceName) throws InterruptedException {
-        return (jaegerContainer != null ? jaegerContainer.getTraces(serviceName) : Collections.emptyList());
+        return jaegerContainer.getTraces(serviceName);
     }
 
-    Duration DEFAULT_TIMEOUT = Duration.ofSeconds(TimeoutUtil.adjust(30));
+    /**
+     * Continually evaluates assertions provided in a consumer until the state obtained from the Jaeger endpoint
+     * matches the expected state or until a timeout elapses. By default, polls the collector every second for 30 seconds.
+     * Returns snapshot of the Jaeger traces that passed the assertions; typically ignored.
+     *
+     * @param assertionConsumer consumer implementation that contains {@link Assert}ions throwing
+     *                          {@link AssertionError#AssertionError()}s if the state obtained from the Jaeger endpoint
+     *                          does not match the expected state
+     * @return list of Jaeger traces; typically ignored.
+     * @throws AssertionError       last {@link AssertionError} thrown by the provided {@code assertionConsumer} before timeout elapsed
+     * @throws InterruptedException if interrupted
+     */
+    public List<JaegerTrace> assertTraces(String serviceName, Consumer<List<JaegerTrace>> assertionConsumer) throws InterruptedException {
+        return assertTraces(serviceName, assertionConsumer, DEFAULT_TIMEOUT);
+    }
+
+    /**
+     * Variant of {@link OpenTelemetryCollectorContainer#assertTraces(String, Consumer)} that can be configured with a
+     * timeout duration.
+     */
+    public List<JaegerTrace> assertTraces(String serviceName, Consumer<List<JaegerTrace>> assertionConsumer, Duration timeout) throws InterruptedException {
+        debugLog("assertTraces(...) validation starting.");
+        Instant endTime = Instant.now().plus(timeout);
+        AssertionError lastAssertionError = null;
+
+        while (Instant.now().isBefore(endTime)) {
+            try {
+                List<JaegerTrace> traces = jaegerContainer.getTraces(serviceName);
+                assertionConsumer.accept(traces);
+                debugLog("assertTraces(...) validation passed.");
+                return traces;
+            } catch (AssertionError assertionError) {
+                debugLog("assertTraces(...) validation failed - retrying.");
+                lastAssertionError = assertionError;
+                Thread.sleep(1000);
+            }
+        }
+
+        throw Objects.requireNonNullElseGet(lastAssertionError, AssertionError::new);
+    }
 
     /**
      * Continually evaluates assertions provided in a consumer until the state obtained from the Prometheus endpoint
      * matches the expected state or until a timeout elapses.
      * By default, polls the collector every second for 30 seconds.
+     * Typically {@code otel.metric.export.interval} must be adjusted to lower values since the default is attempting
+     * to push every 60 seconds, which is well above the default timeout of this method.
      * Returns snapshot of the prometheus registry that passed the assertions; typically ignored.
      *
      * @param assertionConsumer consumer implementation that contains {@link Assert}ions throwing {@link AssertionError#AssertionError()}s
      *                          if the state obtained from the Prometheus endpoint does not match the expected state
      * @return list of prometheus metrics; typically ignored.
-     * @throws AssertionError if
+     * @throws AssertionError       last {@link AssertionError} thrown by the provided {@code assertionConsumer} before timeout elapsed
      * @throws InterruptedException if interrupted
      */
     public List<PrometheusMetric> assertMetrics(Consumer<List<PrometheusMetric>> assertionConsumer) throws AssertionError, InterruptedException {

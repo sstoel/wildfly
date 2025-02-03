@@ -29,9 +29,8 @@ public abstract class BaseOpenTelemetryTest {
     protected OpenTelemetryCollectorContainer otelCollector;
 
     private static final String MP_CONFIG = "otel.sdk.disabled=false\n" +
-//        "otel.metrics.exporter=otlp\n" +
-//        "otel.traces.exporter=otlp\n" +
-        "otel.metric.export.interval=100";
+            // Lower the interval from 60 seconds to 100 millis
+            "otel.metric.export.interval=100";
 
     static WebArchive buildBaseArchive(String name) {
         return ShrinkWrap
