@@ -7,6 +7,7 @@ package org.jboss.as.txn.deployment;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.Manifest;
 
 import jakarta.transaction.TransactionSynchronizationRegistry;
 import jakarta.transaction.UserTransaction;
@@ -25,6 +26,7 @@ import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
+import org.jboss.as.server.deployment.ManifestHelper;
 import org.jboss.as.txn.service.TransactionSynchronizationRegistryService;
 import org.jboss.as.txn.service.UserTransactionBindingService;
 import org.jboss.as.txn.service.UserTransactionAccessControlService;
@@ -45,7 +47,8 @@ public class TransactionJndiBindingProcessor implements DeploymentUnitProcessor 
     @Override
     public void deploy(DeploymentPhaseContext phaseContext) throws DeploymentUnitProcessingException {
         final DeploymentUnit deploymentUnit = phaseContext.getDeploymentUnit();
-        if(DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit)) {
+        Manifest manifest = deploymentUnit.getAttachment(org.jboss.as.server.deployment.Attachments.OSGI_MANIFEST);
+        if(DeploymentTypeMarker.isType(DeploymentType.EAR, deploymentUnit) || ManifestHelper.hasMainAttributeValue(manifest, "Fragment-Host")) {
             return;
         }
         final EEModuleDescription moduleDescription = deploymentUnit.getAttachment(Attachments.EE_MODULE_DESCRIPTION);
