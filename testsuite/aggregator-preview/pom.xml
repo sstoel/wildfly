@@ -23,7 +23,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -34,6 +34,12 @@
     <description>Controls execution of testsuite modules relevant to testing functionality
         available via the wildfly-preview feature pack</description>
 
+    <properties>
+        <!-- Don't try to deploy the module -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+    </properties>
 
     <profiles>
 
@@ -52,7 +58,22 @@
             <id>layers_.module.profile</id>
             <activation><property><name>ts.layers</name></property></activation>
             <modules>
+                <module>../test-feature-pack-preview</module> <!-- needed by integration/basic -->
+                <module>../integration/basic</module>
+                <module>../integration/elytron</module>
+                <module>../integration/clustering</module>
+                <module>../integration/ws</module>
+                <!-- TODO WFLY-20375 The ts.preview profile already uses
+                     slimmed servers for these, so instead of duplicating,
+                     for now just let it cover them. -->
+                <!--
+                <module>../integration/elytron-oidc-client</module>
+                <module>../layers</module>
+                <module>../integration/microprofile</module>
+                <module>../integration/microprofile-tck</module>
+                <module>../layers-expansion</module>
                 <module>../preview</module>
+                -->
             </modules>
         </profile>
 
@@ -67,12 +88,14 @@
                 <module>../integration/clustering</module>
                 <module>../integration/elytron</module>
                 <module>../integration/elytron-oidc-client</module>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/vdx</module>
                 <module>../integration/rbac</module>
                 <module>../integration/legacy</module>
                 <module>../preview</module>
+                <!-- TODO WFLY-20375 Probably just use ts.layers for these next two
+                     and remove them from here. -->
                 <module>../layers</module>
                 <module>../layers-expansion</module>
                 <module>../domain</module>
@@ -92,7 +115,7 @@
                 <module>../test-feature-pack-preview</module> <!-- needed by integration/basic -->
                 <module>../integration/basic</module>
                 <module>../integration/clustering</module>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/elytron-oidc-client</module>
                 <module>../preview</module>

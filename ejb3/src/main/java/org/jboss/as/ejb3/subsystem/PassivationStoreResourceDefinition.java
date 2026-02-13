@@ -27,7 +27,7 @@ import org.wildfly.clustering.infinispan.service.InfinispanServiceDescriptor;
 import org.wildfly.subsystem.resource.capability.CapabilityReferenceRecorder;
 
 /**
- * Definies a CacheFactoryBuilder instance which, during deployment, is used to configure, build and install a CacheFactory for the SFSB being deployed.
+ * Defines a CacheFactoryBuilder instance which, during deployment, is used to configure, build and install a CacheFactory for the SFSB being deployed.
  * The CacheFactory produces bean caches which are distributable and have passivation enabled. Used to support CacheFactoryResourceDefinition.
  *
  * @author Paul Ferraro
@@ -36,10 +36,6 @@ import org.wildfly.subsystem.resource.capability.CapabilityReferenceRecorder;
 public class PassivationStoreResourceDefinition extends SimpleResourceDefinition {
 
     public static final String PASSIVATION_STORE_CAPABILITY_NAME = "org.wildfly.ejb.passivation-store";
-
-    // use these to avoid pulling in ISPN SPI module
-    protected static final String INFINISPAN_DEFAULT_CACHE_CONFIGURATION_CAPABILITY_NAME = "org.wildfly.clustering.infinispan.default-cache-configuration";
-    protected static final String INFINISPAN_CACHE_CONFIGURATION_CAPABILITY_NAME = "org.wildfly.clustering.infinispan.cache-configuration";
 
     static final RuntimeCapability<Void> PASSIVATION_STORE_CAPABILITY = RuntimeCapability.Builder.of(PASSIVATION_STORE_CAPABILITY_NAME, true)
             .setServiceType(Void.class)

@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -24,6 +24,13 @@
     <packaging>jar</packaging>
 
     <name>WildFly Test Suite: Shared</name>
+
+    <properties>
+        <!-- Don't try to deploy the module -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+    </properties>
 
     <dependencyManagement>
         <dependencies>
@@ -266,9 +273,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jboss.arquillian</groupId>
+            <groupId>org.arquillian.testcontainers</groupId>
             <artifactId>arquillian-testcontainers</artifactId>
-            <version>1.0.0.Alpha1</version>
+            <version>${version.org.arquillian.testcontainers}</version>
             <scope>compile</scope>
         </dependency>
 
@@ -276,6 +283,14 @@
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-client</artifactId>
             <scope>compile</scope>
+        </dependency>
+
+        <!-- test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${version.org.junit}</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -288,13 +303,6 @@
                 -->
                 <!-- Arquillian dependency versions -->
                 <artifactId>maven-enforcer-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
                     <skip>true</skip>
                 </configuration>

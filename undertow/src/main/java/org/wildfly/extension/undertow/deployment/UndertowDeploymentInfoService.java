@@ -105,6 +105,10 @@ import org.wildfly.extension.undertow.logging.UndertowLogger;
 import org.wildfly.extension.undertow.UndertowService;
 import org.wildfly.extension.undertow.ApplicationSecurityDomainDefinition.Registration;
 import org.wildfly.extension.undertow.security.jacc.JACCContextIdHandler;
+import org.wildfly.extension.undertow.session.AffinitySessionConfigWrapper;
+import org.wildfly.extension.undertow.session.AffinitySessionIdentifierCodec;
+import org.wildfly.extension.undertow.session.CodecSessionConfigWrapper;
+import org.wildfly.extension.undertow.session.SessionAffinityProvider;
 import org.wildfly.security.auth.server.HttpAuthenticationFactory;
 import org.wildfly.security.auth.server.MechanismConfiguration;
 import org.wildfly.security.auth.server.MechanismConfigurationSelector;
@@ -120,6 +124,9 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
@@ -142,6 +149,7 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
 
 import static io.undertow.servlet.api.SecurityInfo.EmptyRoleSemantic.AUTHENTICATE;
 import static io.undertow.servlet.api.SecurityInfo.EmptyRoleSemantic.DENY;
@@ -191,7 +199,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
     private final Consumer<DeploymentInfo> deploymentInfoConsumer;
     private final Supplier<UndertowService> undertowService;
     private final Supplier<SessionManagerFactory> sessionManagerFactory;
-    private final Supplier<Function<CookieConfig, SessionConfigWrapper>> sessionConfigWrapperFactory;
+    private final Supplier<SessionAffinityProvider> sessionAffinityProvider;
     private final Supplier<ServletContainerService> container;
     private final Supplier<ComponentRegistry> componentRegistry;
     private final Supplier<Host> host;
@@ -211,7 +219,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
             final Consumer<DeploymentInfo> deploymentInfoConsumer,
             final Supplier<UndertowService> undertowService,
             final Supplier<SessionManagerFactory> sessionManagerFactory,
-            final Supplier<Function<CookieConfig, SessionConfigWrapper>> sessionConfigWrapperFactory,
+            final Supplier<SessionAffinityProvider> sessionAffinityProvider,
             final Supplier<ServletContainerService> container,
             final Supplier<ComponentRegistry> componentRegistry,
             final Supplier<Host> host,
@@ -225,7 +233,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
         this.deploymentInfoConsumer = deploymentInfoConsumer;
         this.undertowService = undertowService;
         this.sessionManagerFactory = sessionManagerFactory;
-        this.sessionConfigWrapperFactory = sessionConfigWrapperFactory;
+        this.sessionAffinityProvider = sessionAffinityProvider;
         this.container = container;
         this.componentRegistry = componentRegistry;
         this.host = host;
@@ -271,7 +279,6 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
 
             deploymentInfo.setConfidentialPortManager(getConfidentialPortManager());
 
-            handleDistributable(deploymentInfo);
             if (!isElytronActive()) {
                 if (securityDomain != null || mergedMetaData.isUseJBossAuthorization()) {
                     throw UndertowLogger.ROOT_LOGGER.legacySecurityUnsupported();
@@ -286,11 +293,11 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
             if(sharedSessionManagerConfig != null && sharedSessionManagerConfig.getSessionConfig() != null) {
                 sessionConfig = sharedSessionManagerConfig.getSessionConfig();
             }
-            ServletSessionConfig config = null;
+            ReflectiveServletSessionConfig config = null;
             //default session config
             CookieConfig defaultSessionConfig = container.get().getSessionCookieConfig();
             if (defaultSessionConfig != null) {
-                config = new ServletSessionConfig();
+                config = new ReflectiveServletSessionConfig();
                 if (defaultSessionConfig.getName() != null) {
                     config.setName(defaultSessionConfig.getName());
                 }
@@ -319,7 +326,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 }
                 CookieConfigMetaData cookieConfig = sessionConfig.getCookieConfig();
                 if (config == null) {
-                    config = new ServletSessionConfig();
+                    config = new ReflectiveServletSessionConfig();
                 }
                 if (cookieConfig != null) {
                     if (cookieConfig.getName() != null) {
@@ -356,7 +363,8 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 deploymentInfo.setDefaultSessionTimeout(container.get().getDefaultSessionTimeout() * 60);
             }
             if (config != null) {
-                deploymentInfo.setServletSessionConfig(config);
+                //deploymentInfo.setServletSessionConfig(config);
+                config.storeInDeploymentInfo(deploymentInfo); // temp workaround
             }
 
             for (final SetupAction action : setupActions) {
@@ -391,16 +399,10 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 deploymentInfo.setMetricsCollector(new UndertowMetricsCollector());
             }
 
-            ControlPoint controlPoint = this.controlPoint != null ? this.controlPoint.get() : null;
-            if (controlPoint != null) {
-                deploymentInfo.addOuterHandlerChainWrapper(GlobalRequestControllerHandler.wrapper(controlPoint, allowSuspendedRequests));
-            }
-
             deploymentInfoConsumer.accept(this.deploymentInfo = deploymentInfo);
         } finally {
             Thread.currentThread().setContextClassLoader(oldTccl);
         }
-
     }
 
     @Override
@@ -455,16 +457,24 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
         };
     }
 
-    private void handleDistributable(final DeploymentInfo deploymentInfo) {
+    private DeploymentInfo createDeploymentInfo() {
+        DeploymentInfo deployment = new DeploymentInfo();
+
         SessionManagerFactory managerFactory = this.sessionManagerFactory != null ? this.sessionManagerFactory.get() : null;
         if (managerFactory != null) {
-            deploymentInfo.setSessionManagerFactory(managerFactory);
+            deployment.setSessionManagerFactory(managerFactory);
         }
 
-        Function<CookieConfig, SessionConfigWrapper> sessionConfigWrapperFactory = this.sessionConfigWrapperFactory != null ? this.sessionConfigWrapperFactory.get() : null;
-        if (sessionConfigWrapperFactory != null) {
-            deploymentInfo.setSessionConfigWrapper(sessionConfigWrapperFactory.apply(this.container.get().getAffinityCookieConfig()));
+        SessionAffinityProvider sessionAffinityProvider = this.sessionAffinityProvider != null ? this.sessionAffinityProvider.get() : null;
+        if (sessionAffinityProvider != null) {
+            CookieConfig config = this.container.get().getAffinityCookieConfig();
+            SessionConfigWrapper wrapper = (config != null) ? new AffinitySessionConfigWrapper(config, sessionAffinityProvider) : new CodecSessionConfigWrapper(new AffinitySessionIdentifierCodec(sessionAffinityProvider));
+            deployment.setSessionConfigWrapper(wrapper);
         }
+
+        UnaryOperator<DeploymentInfo> decorator = this.controlPoint != null ? new ControlPointDeploymentInfoConfigurator(this.controlPoint.get(), this.allowSuspendedRequests) : UnaryOperator.identity();
+
+        return decorator.apply(deployment);
     }
 
     private DeploymentInfo createServletConfig() throws StartException {
@@ -474,7 +484,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 mergedMetaData.resolveAnnotations();
             }
             mergedMetaData.resolveRunAs();
-            final DeploymentInfo d = new DeploymentInfo();
+            final DeploymentInfo d = this.createDeploymentInfo();
             d.setContextPath(contextPath);
             if (mergedMetaData.getDescriptionGroup() != null) {
                 d.setDisplayName(mergedMetaData.getDescriptionGroup().getDisplayName());
@@ -1385,7 +1395,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 final Consumer<DeploymentInfo> deploymentInfoConsumer,
                 final Supplier<UndertowService> undertowService,
                 final Supplier<SessionManagerFactory> sessionManagerFactory,
-                final Supplier<Function<CookieConfig, SessionConfigWrapper>> sessionConfigWrapperFactory,
+                final Supplier<SessionAffinityProvider> sessionAffinityProvider,
                 final Supplier<ServletContainerService> container,
                 final Supplier<ComponentRegistry> componentRegistry,
                 final Supplier<Host> host,
@@ -1397,7 +1407,7 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 final Supplier<BiFunction<DeploymentInfo, Function<String, RunAsIdentityMetaData>, Registration>> applySecurityFunction
         ) {
             return new UndertowDeploymentInfoService(deploymentInfoConsumer, undertowService, sessionManagerFactory,
-                    sessionConfigWrapperFactory, container, componentRegistry, host, controlPoint,
+                    sessionAffinityProvider, container, componentRegistry, host, controlPoint,
                     suspendController, serverEnvironment, rawSecurityDomain, rawMechanismFactory, applySecurityFunction, mergedMetaData, deploymentName, tldInfo, module,
                     scisMetaData, deploymentRoot, jaccContextId, securityDomain, attributes, contextPath, setupActions, overlays,
                     expressionFactoryWrappers, predicatedHandlers, initialHandlerChainWrappers, innerHandlerChainWrappers, outerHandlerChainWrappers,
@@ -1423,6 +1433,89 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                     UndertowThreadSetupAction.this.action.teardown(Collections.emptyMap());
                 }
             };
+        }
+    }
+
+    /**
+     * Temporary reflective workaround to deal with the fact that ServletSessionConfig
+     * is binary-incompatible in the Undertow versions used for EE 10 and EE 11.
+     */
+    private static class ReflectiveServletSessionConfig {
+        private static final Constructor<?> CONSTRUCTOR;
+        private static final Method SET_NAME;
+        private static final Method SET_DOMAIN;
+        private static final Method SET_HTTP_ONLY;
+        private static final Method SET_SECURE;
+        private static final Method SET_MAX_AGE;
+        private static final Method SET_PATH;
+        private static final Method SET_SESSION_TRACKING_MODES;
+        private static final Method SET_SERVLET_SESSION_CONFIG;
+
+        static {
+            Class<?> ssc = ServletSessionConfig.class;
+            try {
+                CONSTRUCTOR = ssc.getConstructor();
+                SET_NAME = ssc.getMethod("setName", String.class);
+                SET_DOMAIN = ssc.getMethod("setDomain", String.class);
+                SET_PATH = ssc.getMethod("setPath", String.class);
+                SET_HTTP_ONLY = ssc.getMethod("setHttpOnly", boolean.class);
+                SET_SECURE = ssc.getMethod("setSecure", boolean.class);
+                SET_MAX_AGE = ssc.getMethod("setMaxAge", int.class);
+                SET_SESSION_TRACKING_MODES = ssc.getMethod("setSessionTrackingModes", Set.class);
+                SET_SERVLET_SESSION_CONFIG = DeploymentInfo.class.getMethod("setServletSessionConfig", ssc);
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private final Object target;
+
+        ReflectiveServletSessionConfig() {
+            try {
+                target = CONSTRUCTOR.newInstance();
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        void storeInDeploymentInfo(DeploymentInfo deploymentInfo) {
+            invoke(SET_SERVLET_SESSION_CONFIG, deploymentInfo, target);
+        }
+
+        void setName(String name) {
+            invoke(SET_NAME, target, name);
+        }
+
+        void setDomain(String domain) {
+            invoke(SET_DOMAIN, target, domain);
+        }
+
+        void setHttpOnly(boolean httpOnly) {
+            invoke(SET_HTTP_ONLY, target, httpOnly);
+        }
+
+        void setSecure(boolean secure) {
+            invoke(SET_SECURE, target, secure);
+        }
+
+        void setMaxAge(int maxAge) {
+            invoke(SET_MAX_AGE, target, maxAge);
+        }
+
+        void setPath(String path) {
+            invoke(SET_PATH, target, path);
+        }
+
+        void setSessionTrackingModes(final Set<SessionTrackingMode> sessionTrackingModes) {
+            invoke(SET_SESSION_TRACKING_MODES, target, sessionTrackingModes);
+        }
+
+        private void invoke(Method method, Object target, Object... args) {
+            try {
+                method.invoke(target, args);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }

@@ -5,10 +5,8 @@
 
 package org.wildfly.clustering.ejb.infinispan.bean;
 
-import static org.wildfly.clustering.cache.function.Functions.whenNullFunction;
-import static org.wildfly.common.function.Functions.discardingConsumer;
-
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
 import org.infinispan.Cache;
@@ -17,9 +15,11 @@ import org.wildfly.clustering.cache.CacheEntryMutator;
 import org.wildfly.clustering.cache.CacheEntryMutatorFactory;
 import org.wildfly.clustering.cache.CacheEntryRemover;
 import org.wildfly.clustering.cache.infinispan.embedded.EmbeddedCacheConfiguration;
-import org.wildfly.clustering.cache.infinispan.embedded.EmbeddedCacheEntryMutatorFactory;
 import org.wildfly.clustering.ejb.bean.BeanInstance;
 import org.wildfly.clustering.ejb.cache.bean.BeanGroupKey;
+import org.wildfly.clustering.function.Consumer;
+import org.wildfly.clustering.function.Supplier;
+import org.wildfly.clustering.function.UnaryOperator;
 import org.wildfly.clustering.marshalling.MarshalledValue;
 
 /**
@@ -36,19 +36,19 @@ public class InfinispanBeanGroupManager<K, V extends BeanInstance<K>, C> impleme
     private final CacheEntryMutatorFactory<BeanGroupKey<K>, MarshalledValue<Map<K, V>, C>> mutatorFactory;
 
     public InfinispanBeanGroupManager(EmbeddedCacheConfiguration configuration) {
-        this.cache = configuration.getCache();
+        this.cache = configuration.getReadWriteCache();
         this.removeCache = configuration.getWriteOnlyCache();
-        this.mutatorFactory = new EmbeddedCacheEntryMutatorFactory<>(configuration.getCache());
+        this.mutatorFactory = configuration.getCacheEntryMutatorFactory();
     }
 
     @Override
     public CompletionStage<MarshalledValue<Map<K, V>, C>> createValueAsync(K id, MarshalledValue<Map<K, V>, C> defaultValue) {
-        return this.cache.putIfAbsentAsync(new InfinispanBeanGroupKey<>(id), defaultValue).thenApply(whenNullFunction(defaultValue));
+        return this.cache.putIfAbsentAsync(new InfinispanBeanGroupKey<>(id), defaultValue).thenApply(UnaryOperator.<MarshalledValue<Map<K, V>, C>>identity().orDefault(Objects::nonNull, Supplier.of(defaultValue)));
     }
 
     @Override
     public CompletionStage<Void> removeAsync(K id) {
-        return this.removeCache.removeAsync(new InfinispanBeanGroupKey<>(id)).thenAccept(discardingConsumer());
+        return this.removeCache.removeAsync(new InfinispanBeanGroupKey<>(id)).thenAccept(Consumer.empty());
     }
 
     @Override

@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -50,11 +50,44 @@
              -->
 
             <dependency>
+                <groupId>org.glassfish.soteria</groupId>
+                <artifactId>jakarta.security.enterprise</artifactId>
+                <version>${version.org.glassfish.soteria}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.jboss.spec.jakarta.el</groupId>
+                <artifactId>jboss-el-api_5.0_spec</artifactId>
+                <version>${version.org.jboss.spec.jakarta.el.jboss-el-api_5.0_spec}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
                 <groupId>${ee.maven.groupId}</groupId>
                 <artifactId>wildfly-ee-feature-pack-product-conf</artifactId>
                 <version>${ee.maven.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.glassfish</groupId>
+                <artifactId>jakarta.enterprise.concurrent</artifactId>
+                <version>${version.org.glassfish.jakarta.enterprise.concurrent}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
 
         </dependencies>
     </dependencyManagement>

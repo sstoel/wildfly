@@ -10,6 +10,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -26,7 +27,7 @@ import org.infinispan.transaction.TransactionMode;
 import org.jboss.arquillian.container.test.api.OperateOnDeployment;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.as.test.clustering.ClusterHttpClientUtil;
+import org.jboss.as.test.clustering.TopologyChangeListenerUtil;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.single.web.SimpleServlet;
 import org.jboss.as.test.http.util.TestHttpClientUtils;
@@ -51,7 +52,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
     }
 
     protected AbstractWebFailoverTestCase(String deploymentName, CacheMode cacheMode, TransactionMode transactionMode) {
-        super(THREE_NODES);
+        super(NODE_1_2_3);
 
         this.deploymentName = deploymentName;
         this.cacheMode = cacheMode;
@@ -89,7 +90,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
         URI uri2 = SimpleServlet.createURI(baseURL2);
         URI uri3 = SimpleServlet.createURI(baseURL3);
 
-        this.establishTopology(baseURL1, THREE_NODES);
+        this.establishTopology(baseURL1, NODE_1_2_3);
         int value = 1;
         // In case updated route information is received, it must be different from the last route
         String lastOwner;
@@ -112,7 +113,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
 
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_2, entry.getValue());
                     lastOwner = entry.getValue();
@@ -128,7 +129,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
 
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_3, entry.getValue());
                     lastOwner = entry.getValue();
@@ -141,7 +142,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
 
             lifecycle.stop(NODE_1);
 
-            this.establishTopology(baseURL2, NODE_2, NODE_3);
+            this.establishTopology(baseURL2, Set.of(NODE_2, NODE_3));
 
             // node2
             try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
@@ -173,7 +174,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_3, entry.getValue());
                 } else {
@@ -190,13 +191,13 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
 
             lifecycle.start(NODE_1);
 
-            this.establishTopology(baseURL2, THREE_NODES);
+            this.establishTopology(baseURL2, NODE_1_2_3);
 
             try (CloseableHttpResponse response = client.execute(new HttpGet(uri2))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_2, entry.getValue());
                 } else if (entry != null) {
@@ -219,7 +220,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_3, entry.getValue());
                 } else {
@@ -231,7 +232,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
 
             lifecycle.stop(NODE_2);
 
-            this.establishTopology(baseURL1, NODE_1, NODE_3);
+            this.establishTopology(baseURL1, Set.of(NODE_1, NODE_3));
 
             try (CloseableHttpResponse response = client.execute(new HttpGet(uri1))) {
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
@@ -261,7 +262,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_3, entry.getValue());
                 } else {
@@ -286,7 +287,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
 
             lifecycle.start(NODE_2);
 
-            this.establishTopology(baseURL1, THREE_NODES);
+            this.establishTopology(baseURL1, NODE_1_2_3);
 
             this.nonTxWait.run();
 
@@ -294,7 +295,7 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
                 Assert.assertEquals(HttpServletResponse.SC_OK, response.getStatusLine().getStatusCode());
                 Assert.assertEquals(value++, Integer.parseInt(response.getFirstHeader(SimpleServlet.VALUE_HEADER).getValue()));
                 Map.Entry<String, String> entry = parseSessionRoute(response);
-                if (!this.cacheMode.needsStateTransfer()) {
+                if (!this.cacheMode.isClustered()) {
                     Assert.assertNotNull(entry);
                     Assert.assertEquals(NODE_1, entry.getValue());
                 } else if (entry != null) {
@@ -371,9 +372,9 @@ public abstract class AbstractWebFailoverTestCase extends AbstractClusteringTest
         }
     }
 
-    private void establishTopology(URL baseURL, String... nodes) throws URISyntaxException, IOException, InterruptedException {
+    private void establishTopology(URL baseURL, Set<String> topology) throws URISyntaxException, IOException, InterruptedException {
         if (this.cacheMode.isClustered()) {
-            ClusterHttpClientUtil.establishTopology(baseURL, "web", this.deploymentName, nodes);
+            TopologyChangeListenerUtil.establishTopology(baseURL, "web", this.deploymentName, topology);
 
             // TODO we should be able to speed this up by observing changes in the routing registry
             // prevents failing assertions when topology information is expected, e.g.:

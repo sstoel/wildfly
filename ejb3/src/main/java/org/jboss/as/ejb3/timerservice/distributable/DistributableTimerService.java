@@ -36,11 +36,13 @@ import org.jboss.as.ejb3.timerservice.spi.TimerServiceRegistry;
 import org.jboss.invocation.InterceptorContext;
 import org.wildfly.clustering.cache.batch.Batch;
 import org.wildfly.clustering.cache.batch.SuspendedBatch;
+import org.wildfly.clustering.context.Context;
 import org.wildfly.clustering.ejb.timer.ImmutableScheduleExpression;
 import org.wildfly.clustering.ejb.timer.IntervalTimerConfiguration;
 import org.wildfly.clustering.ejb.timer.ScheduleTimerConfiguration;
 import org.wildfly.clustering.ejb.timer.Timer;
 import org.wildfly.clustering.ejb.timer.TimerManager;
+import org.wildfly.clustering.server.service.DecoratedService;
 
 import jakarta.ejb.EJBException;
 import jakarta.ejb.ScheduleExpression;
@@ -55,7 +57,7 @@ import jakarta.transaction.TransactionSynchronizationRegistry;
  * @author Paul Ferraro
  * @param <I> the timer identifier type
  */
-public class DistributableTimerService<I> implements ManagedTimerService {
+public class DistributableTimerService<I> extends DecoratedService implements ManagedTimerService {
 
     private final TimerServiceRegistry registry;
     private final TimedObjectInvoker invoker;
@@ -65,6 +67,7 @@ public class DistributableTimerService<I> implements ManagedTimerService {
     private final Predicate<TimerConfig> filter;
 
     public DistributableTimerService(DistributableTimerServiceConfiguration<I> configuration, TimerManager<I> manager) {
+        super(manager);
         this.invoker = configuration.getInvoker();
         this.identifierParser = configuration.getIdentifierParser();
         this.filter = configuration.getTimerFilter();
@@ -95,21 +98,6 @@ public class DistributableTimerService<I> implements ManagedTimerService {
     @Override
     public TimedObjectInvoker getInvoker() {
         return this.invoker;
-    }
-
-    @Override
-    public boolean isStarted() {
-        return this.manager.isStarted();
-    }
-
-    @Override
-    public void start() {
-        this.manager.start();
-    }
-
-    @Override
-    public void stop() {
-        this.manager.stop();
     }
 
     @Override
@@ -159,47 +147,47 @@ public class DistributableTimerService<I> implements ManagedTimerService {
 
     private Timer<I> createTimer(BiFunction<TimerManager<I>, I, Timer<I>> factory) {
         Transaction transaction = ManagedTimerService.getActiveTransaction();
-        boolean close = true;
-        Batch batch = this.manager.getBatchFactory().get();
-        try {
-            I id = this.manager.getIdentifierFactory().get();
-            Timer<I> timer = factory.apply(this.manager, id);
-            if (timer.getMetaData().getNextTimeout() != null) {
-                if (transaction != null) {
-                    // Transactional case: Activate timer on tx commit
-                    // Cancel timer on tx rollback
-                    SuspendedBatch suspendedBatch = batch.suspend();
-                    transaction.registerSynchronization(this.synchronizationFactory.createActivateSynchronization(timer, this.manager.getBatchFactory(), suspendedBatch));
-                    TransactionSynchronizationRegistry tsr = this.invoker.getComponent().getTransactionSynchronizationRegistry();
-                    // Store suspended batch in TSR so we can resume it later, if necessary
-                    tsr.putResource(id, new SimpleImmutableEntry<>(timer, suspendedBatch));
-                    @SuppressWarnings("unchecked")
-                    Set<I> inactiveTimers = (Set<I>) tsr.getResource(this.manager);
-                    if (inactiveTimers == null) {
-                        inactiveTimers = new TreeSet<>();
-                        tsr.putResource(this.manager, inactiveTimers);
+        SuspendedBatch suspended = this.manager.getBatchFactory().get().suspend();
+        try (Context<Batch> context = suspended.resumeWithContext()) {
+            try (Batch batch = context.get()) {
+                I id = this.manager.getIdentifierFactory().get();
+                Timer<I> timer = factory.apply(this.manager, id);
+                if (timer.getMetaData().getNextTimeout() != null) {
+                    if (transaction != null) {
+                        // Transactional case: Activate timer on tx commit
+                        // Cancel timer on tx rollback
+                        this.registerSynchronization(transaction, timer);
+                        TransactionSynchronizationRegistry tsr = this.invoker.getComponent().getTransactionSynchronizationRegistry();
+                        // Store suspended batch in TSR so we can resume it later, if necessary
+                        tsr.putResource(id, new SimpleImmutableEntry<>(timer, suspended));
+                        @SuppressWarnings("unchecked")
+                        Set<I> inactiveTimers = (Set<I>) tsr.getResource(this.manager);
+                        if (inactiveTimers == null) {
+                            inactiveTimers = new TreeSet<>();
+                            tsr.putResource(this.manager, inactiveTimers);
+                        }
+                        inactiveTimers.add(id);
+                    } else {
+                        // Non-transactional case: activate timer immediately.
+                        this.synchronizationFactory.getActivateTask().accept(timer);
                     }
-                    inactiveTimers.add(id);
-                    close = false;
                 } else {
-                    // Non-transactional case: activate timer immediately.
-                    this.synchronizationFactory.getActivateTask().accept(timer);
+                    // This timer will never expire!
+                    timer.cancel();
                 }
-            } else {
-                // This timer will never expire!
-                timer.cancel();
+                return timer;
             }
-            return timer;
-        } catch (RollbackException e) {
-            // getActiveTransaction() would have returned null
-            throw new IllegalStateException(e);
-        } catch (SystemException e) {
-            batch.discard();
+        }
+    }
+
+    private void registerSynchronization(Transaction transaction, Timer<I> timer) {
+        @SuppressWarnings("resource") // Closed via synchronization
+        Batch batch = this.manager.getBatchFactory().get();
+        try (Context<SuspendedBatch> context = batch.suspendWithContext()) {
+            transaction.registerSynchronization(this.synchronizationFactory.createActivateSynchronization(timer, context.get()));
+        } catch (RollbackException | SystemException e) {
+            batch.close();
             throw new EJBException(e);
-        } finally {
-            if (close) {
-                batch.close();
-            }
         }
     }
 

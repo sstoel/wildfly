@@ -4,10 +4,10 @@
  */
 package org.wildfly.clustering.ejb.infinispan.bean;
 
-import java.util.function.Supplier;
+import java.time.Duration;
+import java.util.Optional;
 
 import org.infinispan.Cache;
-import org.wildfly.clustering.ejb.bean.BeanExpirationConfiguration;
 import org.wildfly.clustering.ejb.bean.BeanInstance;
 import org.wildfly.clustering.ejb.bean.BeanManager;
 import org.wildfly.clustering.ejb.bean.BeanManagerConfiguration;
@@ -15,6 +15,8 @@ import org.wildfly.clustering.ejb.bean.BeanManagerFactory;
 import org.wildfly.clustering.ejb.cache.bean.BeanFactory;
 import org.wildfly.clustering.ejb.cache.bean.CompositeBeanFactory;
 import org.wildfly.clustering.ejb.cache.bean.RemappableBeanMetaDataEntry;
+import org.wildfly.clustering.function.Consumer;
+import org.wildfly.clustering.function.Supplier;
 import org.wildfly.clustering.server.infinispan.dispatcher.CacheContainerCommandDispatcherFactory;
 
 /**
@@ -48,8 +50,13 @@ public class InfinispanBeanManagerFactory<K, V extends BeanInstance<K>> implemen
         }
 
         @Override
-        public BeanExpirationConfiguration<K, V> getExpiration() {
-            return this.managerConfiguration.getExpiration();
+        public Consumer<V> getExpirationListener() {
+            return this.managerConfiguration.getExpirationListener();
+        }
+
+        @Override
+        public Optional<Duration> getMaxIdle() {
+            return this.managerConfiguration.getMaxIdle();
         }
 
         @Override

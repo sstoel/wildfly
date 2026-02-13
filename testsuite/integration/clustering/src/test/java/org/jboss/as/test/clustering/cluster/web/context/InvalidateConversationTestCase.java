@@ -10,6 +10,7 @@ import static org.junit.Assert.*;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Set;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -22,7 +23,7 @@ import org.jboss.arquillian.container.test.api.OperateOnDeployment;
 import org.jboss.arquillian.container.test.api.TargetsContainer;
 import org.jboss.arquillian.junit.Arquillian;
 import org.jboss.arquillian.test.api.ArquillianResource;
-import org.jboss.as.test.clustering.ClusterHttpClientUtil;
+import org.jboss.as.test.clustering.TopologyChangeListenerUtil;
 import org.jboss.as.test.clustering.ClusterTestUtil;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.cluster.web.DistributableTestCase;
@@ -71,7 +72,7 @@ public class InvalidateConversationTestCase extends AbstractClusteringTestCase {
 
         String conversation = null;
 
-        establishTopology(baseURL1, TWO_NODES);
+        establishTopology(baseURL1, NODE_1_2);
 
         try (CloseableHttpClient client = TestHttpClientUtils.promiscuousCookieHttpClient()) {
             HttpResponse response = client.execute(new HttpGet(ConversationServlet.createURI(baseURL1)));
@@ -106,7 +107,7 @@ public class InvalidateConversationTestCase extends AbstractClusteringTestCase {
         }
     }
 
-    private static void establishTopology(URL baseURL, String... nodes) throws URISyntaxException, IOException {
-        ClusterHttpClientUtil.establishTopology(baseURL, "web", DEPLOYMENT_NAME, nodes);
+    private static void establishTopology(URL baseURL, Set<String> topology) throws URISyntaxException, IOException {
+        TopologyChangeListenerUtil.establishTopology(baseURL, "web", DEPLOYMENT_NAME, topology);
     }
 }

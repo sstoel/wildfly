@@ -5,9 +5,10 @@
 package org.jboss.as.test.shared.observability.setuptasks;
 
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.STATISTICS_ENABLED;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.SUBSYSTEM;
 
-import org.jboss.arquillian.testcontainers.api.DockerRequired;
-import org.jboss.arquillian.testcontainers.api.Testcontainer;
+import org.arquillian.testcontainers.api.Testcontainer;
+import org.arquillian.testcontainers.api.TestcontainersRequired;
 import org.jboss.as.arquillian.container.ManagementClient;
 import org.jboss.as.controller.client.helpers.Operations;
 import org.jboss.as.test.shared.ServerReload;
@@ -18,10 +19,11 @@ import org.jboss.dmr.ModelNode;
  * Sets up a functioning Micrometer subsystem configuration. Requires functioning Docker environment! Tests using this
  * are expected to call AssumeTestGroupUtil.assumeDockerAvailable(); in a @BeforeClass.
  */
-@DockerRequired
+@TestcontainersRequired
 public class MicrometerSetupTask extends AbstractSetupTask {
-    private static final ModelNode micrometerExtension = Operations.createAddress("extension", "org.wildfly.extension.micrometer");
-    private static final ModelNode micrometerSubsystem = Operations.createAddress("subsystem", "micrometer");
+    public static final ModelNode MICROMETER_EXTENSION = Operations.createAddress("extension", "org.wildfly.extension.micrometer");
+    public static final ModelNode MICROMETER_SUBSYSTEM = Operations.createAddress("subsystem", "micrometer");
+    private static final ModelNode OTLP_REGISTRY = Operations.createAddress(SUBSYSTEM, "micrometer", "registry", "otlp");
 
     @Testcontainer
     private OpenTelemetryCollectorContainer otelCollector;
@@ -30,19 +32,23 @@ public class MicrometerSetupTask extends AbstractSetupTask {
     public void setup(final ManagementClient managementClient, String containerId) throws Exception {
         executeOp(managementClient, writeAttribute("undertow", STATISTICS_ENABLED, "true"));
 
-        if (!Operations.isSuccessfulOutcome(executeRead(managementClient, micrometerExtension))) {
-            executeOp(managementClient, Operations.createAddOperation(micrometerExtension));
+        if (!Operations.isSuccessfulOutcome(executeRead(managementClient, MICROMETER_EXTENSION))) {
+            executeOp(managementClient, Operations.createAddOperation(MICROMETER_EXTENSION));
         }
 
-        if (!Operations.isSuccessfulOutcome(executeRead(managementClient, micrometerSubsystem))) {
-            ModelNode addOp = Operations.createAddOperation(micrometerSubsystem);
-            addOp.get("endpoint").set(otelCollector.getOtlpHttpEndpoint() + "/v1/metrics");
-            executeOp(managementClient, addOp);
+        if (!Operations.isSuccessfulOutcome(executeRead(managementClient, MICROMETER_SUBSYSTEM))) {
+            executeOp(managementClient, Operations.createAddOperation(MICROMETER_SUBSYSTEM));
         }
 
-        executeOp(managementClient, writeAttribute("micrometer", "endpoint",
+        if (!Operations.isSuccessfulOutcome(executeRead(managementClient, OTLP_REGISTRY))) {
+            ModelNode addOtlpOp = Operations.createAddOperation(OTLP_REGISTRY);
+            addOtlpOp.get("endpoint").set(otelCollector.getOtlpHttpEndpoint() + "/v1/metrics");
+            addOtlpOp.get("step").set("1");
+            executeOp(managementClient, addOtlpOp);
+        } else {
+            executeOp(managementClient, writeAttribute(OTLP_REGISTRY, "endpoint",
                 otelCollector.getOtlpHttpEndpoint() + "/v1/metrics"));
-        executeOp(managementClient, writeAttribute("micrometer", "step", "1"));
+        }
 
         ServerReload.executeReloadAndWaitForCompletion(managementClient);
     }
@@ -52,8 +58,8 @@ public class MicrometerSetupTask extends AbstractSetupTask {
         otelCollector.stop();
 
         executeOp(managementClient, clearAttribute("undertow", STATISTICS_ENABLED));
-        executeOp(managementClient, Operations.createRemoveOperation(micrometerSubsystem));
-        executeOp(managementClient, Operations.createRemoveOperation(micrometerExtension));
+        executeOp(managementClient, Operations.createRemoveOperation(MICROMETER_SUBSYSTEM));
+        executeOp(managementClient, Operations.createRemoveOperation(MICROMETER_EXTENSION));
 
         ServerReload.executeReloadAndWaitForCompletion(managementClient);
     }

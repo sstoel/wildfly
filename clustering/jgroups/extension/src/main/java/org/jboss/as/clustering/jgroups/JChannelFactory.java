@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.jboss.as.network.SocketBinding;
 import org.jgroups.EmptyMessage;
@@ -24,8 +25,8 @@ import org.jgroups.protocols.TP;
 import org.jgroups.stack.Protocol;
 import org.wildfly.clustering.jgroups.spi.ChannelFactory;
 import org.wildfly.clustering.jgroups.spi.ProtocolConfiguration;
-import org.wildfly.clustering.jgroups.spi.ProtocolStackConfiguration;
-import org.wildfly.clustering.jgroups.spi.TransportConfiguration;
+import org.wildfly.clustering.jgroups.spi.ChannelFactoryConfiguration;
+import org.wildfly.clustering.jgroups.spi.TLSConfiguration;
 import org.wildfly.security.manager.WildFlySecurityManager;
 
 /**
@@ -34,14 +35,14 @@ import org.wildfly.security.manager.WildFlySecurityManager;
  */
 public class JChannelFactory implements ChannelFactory {
 
-    private final ProtocolStackConfiguration configuration;
+    private final ChannelFactoryConfiguration configuration;
 
-    public JChannelFactory(ProtocolStackConfiguration configuration) {
+    public JChannelFactory(ChannelFactoryConfiguration configuration) {
         this.configuration = configuration;
     }
 
     @Override
-    public ProtocolStackConfiguration getProtocolStackConfiguration() {
+    public ChannelFactoryConfiguration getConfiguration() {
         return this.configuration;
     }
 
@@ -63,7 +64,7 @@ public class JChannelFactory implements ChannelFactory {
             }
 
             private Object handle(Message message) {
-                Header header = (Header) message.getHeader(this.id);
+                Header header = message.getHeader(this.id);
                 // If this is a request expecting a response, don't leave the requester hanging - send an identifiable response on which it can filter
                 if ((header != null) && (header.type == Header.REQ) && header.rspExpected()) {
                     Message response = new EmptyMessage(message.src()).setFlag(message.getFlags(), false).clearFlag(Message.Flag.RSVP);
@@ -97,16 +98,16 @@ public class JChannelFactory implements ChannelFactory {
 
         // Override the SocketFactory of the transport
         TP transport = (TP) protocols.get(0);
-        transport.setSocketFactory(new ManagedSocketFactory(SelectorProvider.provider(), this.configuration.getSocketBindingManager(), bindings));
+        Optional<TLSConfiguration> sslConfiguration = this.configuration.getTransport().getSSLConfiguration();
+
+        transport.setSocketFactory(sslConfiguration.isPresent() ?
+                new TLSManagedSocketFactory(SelectorProvider.provider(), this.configuration.getSocketBindingManager(), bindings, sslConfiguration.get()) :
+                new ManagedSocketFactory(SelectorProvider.provider(), this.configuration.getSocketBindingManager(), bindings)
+        );
 
         JChannel channel = createChannel(protocols);
 
         channel.setName(this.configuration.getMemberName());
-
-        TransportConfiguration.Topology topology = this.configuration.getTransport().getTopology();
-        if (topology != null) {
-            channel.addAddressGenerator(new TopologyAddressGenerator(topology));
-        }
 
         return channel;
     }

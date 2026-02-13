@@ -5,7 +5,7 @@
 
 package org.wildfly.extension.clustering.web.routing.infinispan;
 
-import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ClusteringConfigurationBuilder;
@@ -24,7 +24,7 @@ import org.wildfly.clustering.web.service.routing.RoutingProvider;
  */
 @Deprecated
 @MetaInfServices(LegacyRoutingProviderFactory.class)
-public class InfinispanLegacyRoutingProviderFactory implements LegacyRoutingProviderFactory, BinaryServiceConfiguration, Consumer<ConfigurationBuilder> {
+public class InfinispanLegacyRoutingProviderFactory implements LegacyRoutingProviderFactory, BinaryServiceConfiguration, UnaryOperator<ConfigurationBuilder> {
 
     @Override
     public RoutingProvider createRoutingProvider() {
@@ -42,18 +42,19 @@ public class InfinispanLegacyRoutingProviderFactory implements LegacyRoutingProv
     }
 
     @Override
-    public void accept(ConfigurationBuilder builder) {
+    public ConfigurationBuilder apply(ConfigurationBuilder builder) {
         ClusteringConfigurationBuilder clustering = builder.clustering();
         CacheMode mode = clustering.cacheMode();
         clustering.cacheMode(mode.needsStateTransfer() ? CacheMode.REPL_SYNC : CacheMode.LOCAL);
         clustering.l1().disable();
         // Ensure we use the default data container
-        builder.addModule(DataContainerConfigurationBuilder.class).evictable(null);
+        builder.addModule(DataContainerConfigurationBuilder.class);
         // Disable expiration
         builder.expiration().lifespan(-1).maxIdle(-1);
         // Disable eviction
         builder.memory().storage(StorageType.HEAP).maxCount(-1).whenFull(EvictionStrategy.NONE);
         builder.persistence().clearStores();
         clustering.stateTransfer().fetchInMemoryState(mode.needsStateTransfer()).awaitInitialTransfer(true);
+        return builder;
     }
 }

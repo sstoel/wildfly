@@ -1,5 +1,5 @@
 [[JTA_Reference]]
-= JTA Reference
+= Jakarta Transactions Reference
 
 ifdef::env-github[]
 :tip-caption: :bulb:
@@ -354,9 +354,7 @@ or `@TransactionScoped` then class loading handling is done automatically.
 There is one limitation with the CDI with this approach.
 If your application adds the transactional annotations dynamically
 (you adds the annotations dynamically during runtime) then the
-transaction module has to be
-https://docs.jboss.org/author/display/WFLY/Class+Loading+in+WildFly[explicitly added]
-to the application classpath.
+transaction module has to be <<Class_Loading_in_WildFly, explicitly added>> to the application classpath.
 
 This can be done with creating `META-INF/MANIFEST.MF` or
 with use of `jboss-deployment-structure.xml` descriptor. The `MANIFEST.MF`
@@ -495,7 +493,7 @@ Configuration related to the behaviour of the Narayana transaction manager
 is covered under `transactions` subsystem. For the details refer to
 link:Admin_Guide{outfilesuffix}#Transactions_Subsystem[Admin Guide Transactions subsystem].
 
-To check the subsystem model you can use the link:wildscribe[WildFly model reference^]
+To check the subsystem model you can use the link:feature-pack/doc/reference/subsystem/transactions/index.html[/subsystem=transactions model reference]
 or list all the configuration options of the subsystem in `jboss-cli`
 
 [source,bash]

@@ -10,6 +10,7 @@
         <config model="standalone" name="standalone-core.xml" >
             <layers>
                 <include name="ee-core-profile-server"/>
+                <include name="web-console"/>
             </layers>
         </config>
         <config model="standalone" name="standalone-genericjms.xml">
@@ -67,9 +68,6 @@
                 <include name="management"/>
                 <include name="elytron"/>
             </layers>
-            <feature spec="core-service.management.management-interface.http-interface">
-                <param name="console-enabled" value="false"/>
-            </feature>
         </config>
         <config model="standalone" name="standalone-rts.xml">
             <layers>
@@ -151,13 +149,10 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="azure.AZURE_PING"/>
-                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;}"/>
+                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>
@@ -198,7 +193,7 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="azure.AZURE_PING"/>
-                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;}"/>
+                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
@@ -293,13 +288,10 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="azure.AZURE_PING"/>
-                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;}"/>
+                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>
@@ -340,7 +332,7 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="azure.AZURE_PING"/>
-                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;}"/>
+                            <param name="properties" value="{storage_account_name=&quot;${jboss.jgroups.azure_ping.storage_account_name}&quot;,storage_access_key=&quot;${jboss.jgroups.azure_ping.storage_access_key}&quot;,container=&quot;${jboss.jgroups.azure_ping.container}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
@@ -436,13 +428,10 @@
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="org.jgroups.protocols.aws.S3_PING"/>
                             <param name="module" value="org.jgroups.aws"/>
-                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;}"/>
+                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>
@@ -484,7 +473,7 @@
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="org.jgroups.protocols.aws.S3_PING"/>
                             <param name="module" value="org.jgroups.aws"/>
-                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;}"/>
+                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
@@ -579,13 +568,10 @@
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="org.jgroups.protocols.aws.S3_PING"/>
                             <param name="module" value="org.jgroups.aws"/>
-                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;}"/>
+                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>
@@ -627,7 +613,7 @@
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="org.jgroups.protocols.aws.S3_PING"/>
                             <param name="module" value="org.jgroups.aws"/>
-                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;}"/>
+                            <param name="properties" value="{region_name=&quot;${jboss.jgroups.aws.s3_ping.region_name}&quot;,bucket_name=&quot;${jboss.jgroups.aws.s3_ping.bucket_name}&quot;,register_shutdown_hook=&quot;false&quot;}"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
@@ -723,9 +709,6 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>
@@ -863,9 +846,6 @@
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="MERGE3"/>
-                        </feature>
-                        <feature spec="subsystem.jgroups.stack.protocol.FD_SOCK2">
-                            <param name="socket-binding" value="jgroups-tcp-fd"/>
                         </feature>
                         <feature spec="subsystem.jgroups.stack.protocol">
                             <param name="protocol" value="FD_ALL3"/>

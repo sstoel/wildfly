@@ -47,6 +47,7 @@ public class Server implements Service<Server> {
     private final Supplier<ServletContainerService> servletContainer;
     private final Supplier<UndertowService> undertowService;
     private final String defaultHost;
+    private volatile String finalRoute = null;
     private final String name;
     private final NameVirtualHostHandler virtualHostHandler = new NameVirtualHostHandler();
     private final List<ListenerService> listeners = new CopyOnWriteArrayList<>();
@@ -75,6 +76,8 @@ public class Server implements Service<Server> {
         UndertowLogger.ROOT_LOGGER.startedServer(name);
         undertowService.get().registerServer(this);
         serverConsumer.accept(this);
+
+        finalRoute = computeRoute();
     }
 
     @Override
@@ -93,10 +96,8 @@ public class Server implements Service<Server> {
            if (!listener.isSecure()) {
                SocketBinding binding = listener.getBinding().get();
                SocketBinding redirectBinding = listener.getRedirectSocket() != null ? listener.getRedirectSocket().get() : null;
-               if (redirectBinding!=null) {
+               if (redirectBinding != null) {
                    securePortMappings.put(binding.getAbsolutePort(), redirectBinding.getAbsolutePort());
-               }else{
-                   securePortMappings.put(binding.getAbsolutePort(), -1);
                }
            }
        }
@@ -130,7 +131,8 @@ public class Server implements Service<Server> {
     }
 
     public int lookupSecurePort(final int unsecurePort) {
-        return securePortMappings.get(unsecurePort);
+        final Integer securePort = securePortMappings.get(unsecurePort);
+        return securePort != null ? securePort : -1;
     }
 
     public ServletContainerService getServletContainer() {
@@ -162,6 +164,10 @@ public class Server implements Service<Server> {
     }
 
     public String getRoute() {
+        return finalRoute;
+    }
+
+    private String computeRoute() {
         final UndertowService service = this.undertowService.get();
         final String defaultServerRoute = service.getInstanceId();
         if (service.isObfuscateSessionRoute()) {

@@ -29,6 +29,7 @@ import org.jboss.as.server.deployment.DeploymentUnit;
 import org.jboss.as.server.deployment.DeploymentUnitProcessingException;
 import org.jboss.as.server.deployment.DeploymentUnitProcessor;
 import org.jboss.as.server.deployment.reflect.ClassReflectionIndex;
+import org.jboss.as.server.deployment.reflect.ClassReflectionIndexUtil;
 import org.jboss.as.server.deployment.reflect.DeploymentReflectionIndex;
 import org.jboss.invocation.proxy.MethodIdentifier;
 import org.jboss.metadata.ejb.spec.EjbJarMetaData;
@@ -179,7 +180,7 @@ public class DeploymentDescriptorInterceptorBindingsProcessor implements Deploym
                         final ClassReflectionIndex classIndex = index.getClassIndex(componentClass);
                         Method resolvedMethod = null;
                         if (methodData.getMethodParams() == null) {
-                            final Collection<Method> methods = classIndex.getAllMethods(methodData.getMethodName());
+                            final Collection<Method> methods = ClassReflectionIndexUtil.findAllMethodsByName(index, classIndex, methodData.getMethodName());
                             if (methods.isEmpty()) {
                                 throw EjbLogger.ROOT_LOGGER.failToFindMethodInEjbJarXml(componentClass.getName(), methodData.getMethodName());
                             } else if (methods.size() > 1) {
@@ -187,23 +188,14 @@ public class DeploymentDescriptorInterceptorBindingsProcessor implements Deploym
                             }
                             resolvedMethod = methods.iterator().next();
                         } else {
-                            final Collection<Method> methods = classIndex.getAllMethods(methodData.getMethodName(), methodData.getMethodParams().size());
-                            for (final Method method : methods) {
-                                boolean match = true;
-                                for (int i = 0; i < method.getParameterCount(); ++i) {
-                                    if (!method.getParameterTypes()[i].getName().equals(methodData.getMethodParams().get(i))) {
-                                        match = false;
-                                        break;
-                                    }
-                                }
-                                if (match) {
-                                    resolvedMethod = method;
-                                    break;
-                                }
+                            String[] params = methodData.getMethodParams().stream().map(this::mapArrayNotation).toArray(String[]::new);
+                            final Collection<Method> methods = ClassReflectionIndexUtil.findMethods(index, classIndex, methodData.getMethodName(), params);
+                            if (methods.isEmpty()) {
+                                throw EjbLogger.ROOT_LOGGER.failToFindMethodInEjbJarXml(componentClass.getName(), methodData.getMethodName());
+                            } else if (methods.size() > 1) {
+                                throw EjbLogger.ROOT_LOGGER.multipleMethodReferencedInEjbJarXml(methodData.getMethodName(), componentClass.getName());
                             }
-                            if (resolvedMethod == null) {
-                                throw EjbLogger.ROOT_LOGGER.failToFindMethodWithParameterTypes(componentClass.getName(), methodData.getMethodName(), methodData.getMethodParams());
-                            }
+                            resolvedMethod = methods.iterator().next();
                         }
                         List<InterceptorBindingMetaData> list = methodInterceptors.get(resolvedMethod);
                         if (list == null) {
@@ -326,7 +318,34 @@ public class DeploymentDescriptorInterceptorBindingsProcessor implements Deploym
             }
 
         }
+    }
 
+    private static final Map<String, String> primitiveArrayLiterals = new HashMap<>();
 
+    //WFLY-20432
+    static {
+        primitiveArrayLiterals.put("java.lang.boolean", "[Z");
+        primitiveArrayLiterals.put("java.lang.byte", "[B");
+        primitiveArrayLiterals.put("java.lang.char", "[C");
+        primitiveArrayLiterals.put("java.lang.double", "[D");
+        primitiveArrayLiterals.put("java.lang.float", "[F");
+        primitiveArrayLiterals.put("java.lang.int", "[I");
+        primitiveArrayLiterals.put("java.lang.short", "[S");
+        primitiveArrayLiterals.put("java.lang.long", "[J");
+    }
+
+    private String mapArrayNotation(String param) {
+        if (param.endsWith("[]")) {
+            String type = param.substring(0, param.length() - 2);
+            if (primitiveArrayLiterals.containsKey(type)) {
+                return primitiveArrayLiterals.get(type);
+            } else if (primitiveArrayLiterals.containsKey("java.lang." + type)) {
+                return primitiveArrayLiterals.get("java.lang." + type);
+            } else {
+                return "[L" + type + ";";
+            }
+        } else {
+            return param;
+        }
     }
 }

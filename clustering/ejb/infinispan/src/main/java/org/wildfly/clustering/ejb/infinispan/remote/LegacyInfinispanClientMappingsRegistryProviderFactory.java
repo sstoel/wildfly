@@ -5,7 +5,7 @@
 
 package org.wildfly.clustering.ejb.infinispan.remote;
 
-import java.util.function.Consumer;
+import java.util.function.UnaryOperator;
 
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.ClusteringConfigurationBuilder;
@@ -25,7 +25,7 @@ import org.wildfly.clustering.server.service.BinaryServiceConfiguration;
  */
 @Deprecated
 @MetaInfServices(LegacyClientMappingsRegistryProviderFactory.class)
-public class LegacyInfinispanClientMappingsRegistryProviderFactory implements LegacyClientMappingsRegistryProviderFactory, Consumer<ConfigurationBuilder> {
+public class LegacyInfinispanClientMappingsRegistryProviderFactory implements LegacyClientMappingsRegistryProviderFactory, UnaryOperator<ConfigurationBuilder> {
 
     @Override
     public ClientMappingsRegistryProvider createClientMappingsRegistryProvider(String clusterName) {
@@ -33,18 +33,19 @@ public class LegacyInfinispanClientMappingsRegistryProviderFactory implements Le
     }
 
     @Override
-    public void accept(ConfigurationBuilder builder) {
+    public ConfigurationBuilder apply(ConfigurationBuilder builder) {
         ClusteringConfigurationBuilder clustering = builder.clustering();
         CacheMode mode = clustering.cacheMode();
         clustering.cacheMode(mode.needsStateTransfer() ? CacheMode.REPL_SYNC : CacheMode.LOCAL);
         clustering.l1().disable();
         // Ensure we use the default data container
-        builder.addModule(DataContainerConfigurationBuilder.class).evictable(null);
+        builder.addModule(DataContainerConfigurationBuilder.class);
         // Disable expiration
         builder.expiration().lifespan(-1).maxIdle(-1);
         // Disable eviction
         builder.memory().storage(StorageType.HEAP).maxCount(-1).whenFull(EvictionStrategy.NONE);
         builder.persistence().clearStores();
         clustering.stateTransfer().fetchInMemoryState(mode.needsStateTransfer()).awaitInitialTransfer(mode.needsStateTransfer());
+        return builder;
     }
 }

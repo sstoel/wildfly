@@ -15,7 +15,7 @@ import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.manager.EmbeddedCacheManagerAdmin;
 
 /**
- * Custom {@link EmbeddedCacheManagerAdmin} that does not use on a GlobalConfigurationManager.
+ * Custom {@link EmbeddedCacheManagerAdmin} that does not use a GlobalConfigurationManager.
  * @author Paul Ferraro
  */
 public class DefaultCacheContainerAdmin implements EmbeddedCacheManagerAdmin {
@@ -81,5 +81,13 @@ public class DefaultCacheContainerAdmin implements EmbeddedCacheManagerAdmin {
     @Override
     public EmbeddedCacheManagerAdmin withSubject(Subject subject) {
         return this;
+    }
+
+    @Override
+    public void assignAlias(String aliasName, String cacheName) {
+    }
+
+    @Override
+    public void updateConfigurationAttribute(String cacheName, String attribute, String value) {
     }
 }

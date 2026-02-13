@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -52,19 +52,11 @@
                     <version>${version.org.wildfly.bom-builder-plugin}</version>
                     <configuration>
                         <!-- configuration common to all user BOMs -->
-                        <licenses>true</licenses>
+                        <generateLicenses>true</generateLicenses>
                         <includeRepositories>
                             <id>jboss-public-repository-group</id>
                         </includeRepositories>
                     </configuration>
-                </plugin>
-                <!-- The WildFly plugin deploys your war to a local WildFly container -->
-                <!-- To use, set the JBOSS_HOME environment variable and
-                    run: mvn package wildfly:deploy -->
-                <plugin>
-                    <groupId>org.wildfly.plugins</groupId>
-                    <artifactId>wildfly-maven-plugin</artifactId>
-                    <version>${version.org.wildfly.plugin}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -86,6 +78,146 @@
                 <module>client</module>
                 <module>tools</module>
             </modules>
+        </profile>
+
+        <!--
+             Modules in this tree attach an artifact (bom-pom.xml) under a different
+             Maven GA from the module's GA.
+             1) Disable the jboss-parent pom's jboss-release profile use of maven-gpg-plugin
+             for this one as it can't handle that; we need to use wildfly-maven-gpg-plugin
+             to deal with this.
+             2) Work around the nxrm3-maven-plugin's staging-deploy mojo's inability to directly
+             POST these artifacts to the remote repository.
+        -->
+        <profile>
+            <id>jboss-release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gpg-sign</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.wildfly</groupId>
+                        <artifactId>wildfly-maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gpg-sign</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nxrm3-maven-plugin</artifactId>
+                        <extensions>true</extensions>
+                        <executions>
+                            <!--
+                                 The staging-deploy mojo can't deal with directly deploying this project's artifacts
+                                 to a remote repo, because different artifacts have different maven GAs.
+                                 So, we configure it to stage locally, and then in a subsequent execution we upload.
+                                 The local staging writes a proper repo file layout, which the upload mojo
+                                 uses to determine the GAV info for what it uploads.
+                            -->
+                            <execution>
+                                <id>nexus-deploy</id>
+                                <configuration>
+                                    <stageLocally>true</stageLocally>
+                                    <altStagingDirectory>${project.build.directory}/nexus-staging</altStagingDirectory>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>nexus-upload</id>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>upload</goal>
+                                </goals>
+                                <configuration>
+                                    <altStagingDirectory>${project.build.directory}/nexus-staging</altStagingDirectory>
+                                    <repository>${nexus.repository.staging}</repository>
+                                    <tag>${nexus.staging.tag}</tag>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <!--
+            Disable the parent pom's use of maven-gpg-plugin for these modules
+            as it can't handle the fact we produce artifacts under multiple
+            grouopIds; we need to use wildfly-maven-gpg-plugin to deal with signing.
+        -->
+        <profile>
+            <id>maven-central-release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gpg-sign</id>
+                                <phase>none</phase>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.wildfly</groupId>
+                        <artifactId>wildfly-maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gpg-sign</id>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <!--
+                        The central-publishing-maven-plugin can't deal with this project's generated artifacts
+                        because it writes maven-metadata-central-staging.xml files for those components that
+                        Maven Central rejects.
+                        So we hack this by redeclaring the central-publishing-maven-plugin
+                        and then *after it* add a 'deploy' phase maven-clean-plugin execution to remove those files.-->
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                    </plugin>
+                    <plugin>
+                        <artifactId>maven-clean-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>post-stage-clean</id>
+                                <phase>deploy</phase>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                                <configuration>
+                                    <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                                    <filesets>
+                                        <fileset>
+                                            <directory>${maven.multiModuleProjectDirectory}/target/central-staging</directory>
+                                            <includes>
+                                                <include>**/maven-metadata-*.xml</include>
+                                            </includes>
+                                        </fileset>
+                                    </filesets>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
         </profile>
     </profiles>
 

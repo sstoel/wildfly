@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <packaging>pom</packaging>
@@ -86,7 +86,7 @@
                                     </manifest>
                                 </channel>
                             </channels>
-                            <includeTransitives>false</includeTransitives>
+                            <includeTransitives>true</includeTransitives>
                             <includeDependencies>
                                 <dependency>
                                     <groupId>com.h2database</groupId>
@@ -153,9 +153,6 @@
                                     <version>org.jboss.arquillian.container:arquillian-container-test-spi:jar</version>
                                 </dependency>
                             </versionRefDependencies>
-                            <includePlugins>
-                                <includePlugin>org.wildfly.plugins:wildfly-maven-plugin</includePlugin>
-                            </includePlugins>
                         </configuration>
                     </execution>
                 </executions>

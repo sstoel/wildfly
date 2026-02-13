@@ -22,11 +22,11 @@ public class NamespaceContextualizerFactory implements ContextualizerFactory {
     @Override
     public Contextualizer createContextualizer(ClassLoader loader) {
         NamespaceContextSelector selector = NamespaceContextSelector.getCurrentSelector();
-        return (selector != null) ? Contextualizer.withContextProvider(new Supplier<>() {
+        return (selector != null) ? Contextualizer.withContextProvider(new Supplier<Context<NamespaceContextSelector>>() {
             @Override
-            public Context get() {
+            public Context<NamespaceContextSelector> get() {
                 NamespaceContextSelector.pushCurrentSelector(selector);
-                return NamespaceContextSelector::popCurrentSelector;
+                return Context.of(selector, NamespaceContextSelector::popCurrentSelector);
             }
         }) : Contextualizer.NONE;
     }

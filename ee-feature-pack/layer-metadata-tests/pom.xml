@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ee-galleon-pack-layer-tests</artifactId>
@@ -25,6 +25,13 @@
     <name>WildFly: EE Full Galleon Pack Layer Tests</name>
     <description>Tests for the layer metadata rules</description>
     <packaging>jar</packaging>
+
+    <properties>
+        <!-- Don't try to deploy the module -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+    </properties>
 
     <dependencies>
         <dependency>

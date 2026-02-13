@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-messaging-activemq-subsystem</artifactId>
@@ -100,10 +100,18 @@
             <artifactId>artemis-server</artifactId>
         </dependency>
 
+        <!--
+        This dependecy on artemis-cli is required for the import/export journal operation.
+        Thus all the transitive dependencies not strictly required should be excluded.
+        -->
         <dependency>
             <groupId>org.apache.activemq</groupId>
             <artifactId>artemis-cli</artifactId>
             <exclusions>
+                <exclusion>
+                    <groupId>info.picocli</groupId>
+                    <artifactId>picocli-shell-jline3</artifactId>
+                </exclusion>
                 <exclusion>
                     <groupId>org.apache.qpid</groupId>
                     <artifactId>qpid-jms-client</artifactId>
@@ -118,7 +126,15 @@
                 </exclusion>
                 <exclusion>
                     <groupId>org.jline</groupId>
-                    <artifactId>jline</artifactId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>info.picocli</groupId>
+                    <artifactId>picocli</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>info.picocli</groupId>
+                    <artifactId>picocli-shell-jline3</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

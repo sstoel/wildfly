@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -80,16 +80,6 @@
         <dependency>
             <groupId>io.undertow</groupId>
             <artifactId>undertow-core</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.undertow</groupId>
-            <artifactId>undertow-servlet</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.undertow</groupId>
-            <artifactId>undertow-websockets-jsr</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>jakarta.activation</groupId>
@@ -297,6 +287,11 @@
         <dependency>
             <groupId>org.apache.cxf</groupId>
             <artifactId>cxf-rt-wsdl</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -753,7 +748,7 @@
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>elasticsearch</artifactId>
+            <artifactId>testcontainers-elasticsearch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -819,11 +814,6 @@
         <dependency>
             <groupId>wsdl4j</groupId>
             <artifactId>wsdl4j</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.spec.jakarta.el</groupId>
-            <artifactId>jboss-el-api_5.0_spec</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>jakarta.servlet.jsp</groupId>
@@ -895,6 +885,15 @@
                                     <destFileName>hibernate-search-v5migrationhelper-orm.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <goals>
+                            <goal>build-classpath</goal>
+                        </goals>
+                        <configuration>
+                            <includeArtifactIds>h2</includeArtifactIds>
+                            <outputFile>${project.build.directory}/h2.version</outputFile>
                         </configuration>
                     </execution>
                 </executions>
@@ -1210,10 +1209,11 @@
                                 <error>ambiguous resource injection. Enable verbose output to see the locations.</error>
                                 <error>jakarta.naming.Context or InitialContext lookup. Enable verbose output to see the locations.</error>
                             </expected-errors>
-                            <expected-discovery>[bean-validation, cdi, datasources, ee-concurrency, ee-integration, ejb-lite, h2-datasource, h2-driver, jaxrs, jpa, jsonb, jsonp, mail, messaging-activemq, naming, resource-adapters, servlet, transactions]==>ee-core-profile-server,ejb-lite,h2-datasource,jaxrs,jpa,mail,messaging-activemq</expected-discovery>
+                            <expected-discovery>[bean-validation, cdi, datasources, ee-concurrency, ee-integration, ejb-lite, h2-datasource, h2-driver, jaxrs, jpa, jsonb, jsonp, mail, management, messaging-activemq, naming, resource-adapters, servlet, transactions, web-console]==>ee-core-profile-server,ejb-lite,h2-datasource,jaxrs,jpa,mail,messaging-activemq,web-console</expected-discovery>
                             <surefire-execution-for-included-classes>microprofile.surefire</surefire-execution-for-included-classes>
                             <add-ons>
                                 <add-on>h2-database</add-on>
+                                <add-on>hal-web-console</add-on>
                             </add-ons>
                         </configuration>
                     </execution>
@@ -3739,22 +3739,61 @@
                 </plugins>
             </build>
         </profile>
-        <!-- Profile that can be activated in combination with -Dts.layers and -Dts.galleon
-             to execute the tests activated by those profiles, but using the wildfly-preview feature pack
-             based variant of wildfly-test-galleon-pack.
-        -->
+        <!-- Dependencies only to be used when testing WildFly Preview -->
         <profile>
-            <id>test.feature.pack.preview.profile</id>
+            <id>preview-server-tests-deps</id>
             <activation>
                 <property>
-                    <name>testsuite.ee.galleon.pack.artifactId</name>
-                    <value>wildfly-preview-feature-pack</value>
+                    <name>preview-server-tests</name>
                 </property>
             </activation>
             <dependencies>
                 <dependency>
+                    <groupId>io.undertow.ee</groupId>
+                    <artifactId>undertow-servlet</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>io.undertow.ee</groupId>
+                    <artifactId>undertow-websockets</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
                     <groupId>jakarta.enterprise</groupId>
                     <artifactId>jakarta.enterprise.cdi-el-api</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.jboss.spec.jakarta.el</groupId>
+                    <artifactId>jakarta.el-api</artifactId>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+        </profile>
+        <!-- Dependencies only to be used when NOT testing WildFly Preview -->
+        <profile>
+            <id>standard-server-tests-deps</id>
+            <activation>
+                <property>
+                    <name>!preview-server-tests</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>io.undertow</groupId>
+                    <artifactId>undertow-servlet</artifactId>
+                    <scope>test</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>io.undertow</groupId>
+                    <artifactId>undertow-websockets-jsr</artifactId>
+                    <scope>test</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.jboss.spec.jakarta.el</groupId>
+                    <artifactId>jboss-el-api_5.0_spec</artifactId>
+                    <scope>test</scope>
                 </dependency>
             </dependencies>
         </profile>

@@ -237,7 +237,7 @@ public class AssumeTestGroupUtil {
      * @throws {@code true} of system property {@code testsuite.default.build.project.prefix} has a non-empty value
      */
     public static boolean isFullDistribution() {
-        return System.getProperty("testsuite.default.build.project.prefix", "").equals("");
+        return System.getProperty("testsuite.default.build.project.prefix", "").isEmpty();
     }
 
     /**
@@ -289,7 +289,7 @@ public class AssumeTestGroupUtil {
     }
 
     public static boolean isWildFlyPreview() {
-        return System.getProperty("ts.preview") != null || System.getProperty("ts.bootable.preview") != null;
+        return anyOf("ts.preview", "ts.bootable.preview", "preview-server-tests");
     }
 
     public static void assumeBootableJar() {
@@ -314,6 +314,15 @@ public class AssumeTestGroupUtil {
                 return null;
             }
         });
+    }
+
+    private static boolean anyOf(final String... keys) {
+        for (String key : keys) {
+            if (System.getProperty(key) != null) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }

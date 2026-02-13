@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -48,6 +48,20 @@
         <module>subsystem</module>
         <module>spi</module>
         <module>eclipselink</module>
-
     </modules>
+
+    <profiles>
+        <profile>
+            <id>skip.preview</id>
+            <activation>
+                <property>
+                    <name>!no.preview.build</name>
+                </property>
+            </activation>
+            <modules>
+                <module>hibernate7</module>
+                <module>persistence-cdi-extension</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>

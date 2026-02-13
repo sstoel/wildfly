@@ -14,8 +14,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.wildfly.clustering.cache.batch.Batch;
-import org.wildfly.clustering.cache.batch.BatchContext;
 import org.wildfly.clustering.cache.batch.SuspendedBatch;
+import org.wildfly.clustering.context.Context;
+import org.wildfly.clustering.function.Consumer;
 import org.wildfly.clustering.session.user.User;
 import org.wildfly.clustering.session.user.UserSessions;
 import org.wildfly.security.auth.server.SecurityIdentity;
@@ -78,29 +79,38 @@ public class DistributableSingleSignOn implements SingleSignOn {
 
     @Override
     public boolean addParticipant(String applicationId, String sessionId, URI participant) {
-        try (BatchContext<Batch> context = this.suspendedBatch.resumeWithContext()) {
+        try (Context<Batch> context = this.suspendedBatch.resumeWithContext()) {
             return this.user.getSessions().addSession(applicationId, new AbstractMap.SimpleImmutableEntry<>(sessionId, participant));
         }
     }
 
     @Override
     public Map.Entry<String, URI> removeParticipant(String applicationId) {
-        try (BatchContext<Batch> context = this.suspendedBatch.resumeWithContext()) {
+        try (Context<Batch> context = this.suspendedBatch.resumeWithContext()) {
             return this.user.getSessions().removeSession(applicationId);
         }
     }
 
     @Override
     public void invalidate() {
-        try (Batch batch = this.suspendedBatch.resume()) {
-            this.user.invalidate();
-        }
+        // In some cases, Elytron neglects to close invalidated SSO, so close it here
+        this.close(User::invalidate);
     }
 
     @Override
     public void close() {
+        this.close(Consumer.empty());
+    }
+
+    private void close(Consumer<User<CachedIdentity, AtomicReference<SecurityIdentity>, String, Map.Entry<String, URI>>> action) {
         if (this.closed.compareAndSet(false, true)) {
-            this.suspendedBatch.resume().close();
+            try (Context<Batch> context = this.suspendedBatch.resumeWithContext()) {
+                try (Batch batch = context.get()) {
+                    try (User<CachedIdentity, AtomicReference<SecurityIdentity>, String, Map.Entry<String, URI>> user = this.user) {
+                        action.accept(user);
+                    }
+                }
+            }
         }
     }
 }

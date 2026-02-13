@@ -17,13 +17,14 @@ import jakarta.transaction.Transaction;
 
 import org.jboss.as.ejb3.context.CurrentInvocationContext;
 import org.jboss.as.ejb3.logging.EjbLogger;
+import org.jboss.as.ejb3.timerservice.AbstractManagedTimer;
 import org.jboss.as.ejb3.timerservice.spi.ManagedTimer;
 import org.jboss.as.ejb3.timerservice.spi.ManagedTimerService;
 import org.jboss.as.ejb3.timerservice.spi.TimedObjectInvoker;
 import org.jboss.invocation.InterceptorContext;
 import org.wildfly.clustering.cache.batch.Batch;
-import org.wildfly.clustering.cache.batch.BatchContext;
 import org.wildfly.clustering.cache.batch.SuspendedBatch;
+import org.wildfly.clustering.context.Context;
 import org.wildfly.clustering.ejb.timer.Timer;
 import org.wildfly.clustering.ejb.timer.TimerManager;
 import org.wildfly.common.function.ExceptionConsumer;
@@ -35,7 +36,7 @@ import org.wildfly.common.function.ExceptionFunction;
  * @author Paul Ferraro
  * @param <I> the timer identifier type
  */
-public class OOBTimer<I> implements ManagedTimer {
+public class OOBTimer<I> extends AbstractManagedTimer {
 
     private static final ExceptionFunction<ManagedTimer, TimerHandle, EJBException> GET_HANDLE = ManagedTimer::getHandle;
     private static final ExceptionFunction<ManagedTimer, Serializable, EJBException> GET_INFO = ManagedTimer::getInfo;
@@ -62,6 +63,7 @@ public class OOBTimer<I> implements ManagedTimer {
     private final Function<I, Timer<I>> dynamicReader;
 
     public OOBTimer(TimerManager<I> manager, I id, TimedObjectInvoker invoker, TimerSynchronizationFactory<I> synchronizationFactory) {
+        super(invoker.getTimedObjectId(), id.toString());
         this.manager = manager;
         this.id = id;
         this.invoker = invoker;
@@ -169,40 +171,28 @@ public class OOBTimer<I> implements ManagedTimer {
             SuspendedBatch suspendedBatch = existing.getValue();
             return function.apply(new DistributableTimer<>(this.manager, timer, suspendedBatch, this.invoker, this.synchronizationFactory));
         }
-        try (Batch batch = this.manager.getBatchFactory().get()) {
-            Timer<I> timer = reader.apply(this.id);
-            if (timer == null) {
-                throw EjbLogger.ROOT_LOGGER.timerWasCanceled(this.id.toString());
-            }
-            try (BatchContext<SuspendedBatch> context = batch.suspendWithContext()) {
-                return function.apply(new DistributableTimer<>(this.manager, timer, context.get(), this.invoker, this.synchronizationFactory));
+        SuspendedBatch suspended = this.manager.getBatchFactory().get().suspend();
+        // Ensure any deferred batch is suspended
+        try (Context<Batch> context = suspended.resumeWithContext()) {
+            try (Batch batch = context.get()) {
+                Timer<I> timer = reader.apply(this.id);
+                if (timer == null) {
+                    throw EjbLogger.ROOT_LOGGER.timerWasCanceled(this.id.toString());
+                }
+                try (Context<SuspendedBatch> suspendedContext = batch.suspendWithContext()) {
+                    return function.apply(new DistributableTimer<>(this.manager, timer, suspendedContext.get(), this.invoker, this.synchronizationFactory));
+                }
             }
         }
     }
 
     private <E extends Exception> void invoke(ExceptionConsumer<ManagedTimer, E> consumer) throws E {
-        this.invokeDynamic(new ExceptionFunction<ManagedTimer, Void, E>() {
+        this.invoke(new ExceptionFunction<ManagedTimer, Void, E>() {
             @Override
             public Void apply(ManagedTimer timer) throws E {
                 consumer.accept(timer);
                 return null;
             }
-        });
-    }
-
-    @Override
-    public int hashCode() {
-        return this.id.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object object) {
-        if (!(object instanceof ManagedTimer)) return false;
-        return this.getId().equals(((ManagedTimer) object).getId());
-    }
-
-    @Override
-    public String toString() {
-        return this.getId();
+        }, this.dynamicReader);
     }
 }

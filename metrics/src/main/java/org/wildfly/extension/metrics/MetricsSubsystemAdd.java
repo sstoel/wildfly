@@ -15,6 +15,7 @@ import static org.wildfly.extension.metrics.MetricsSubsystemDefinition.METRICS_R
 import static org.wildfly.extension.metrics.MetricsSubsystemDefinition.WILDFLY_COLLECTOR;
 import static org.wildfly.extension.metrics._private.MetricsLogger.LOGGER;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -22,6 +23,7 @@ import org.jboss.as.controller.AbstractBoottimeAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.OperationStepHandler;
+import org.jboss.as.controller.capability.RuntimeCapability;
 import org.jboss.as.controller.registry.ImmutableManagementResourceRegistration;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.server.AbstractDeploymentChainStep;
@@ -34,6 +36,8 @@ import org.wildfly.extension.metrics.deployment.DeploymentMetricProcessor;
  * @author <a href="http://jmesnil.net/">Jeff Mesnil</a> (c) 2018 Red Hat inc.
  */
 class MetricsSubsystemAdd extends AbstractBoottimeAddStepHandler {
+    private static final String CAPABILITY_NAME_MICROMETER = "org.wildfly.extension.micrometer.micrometer-collector";
+    private static final String CAPABILITY_NAME_OPENTELEMETRY = "org.wildfly.extension.opentelemetry";
 
 
     MetricsSubsystemAdd() {
@@ -41,6 +45,16 @@ class MetricsSubsystemAdd extends AbstractBoottimeAddStepHandler {
     }
 
     static final MetricsSubsystemAdd INSTANCE = new MetricsSubsystemAdd();
+
+    @Override
+    protected void recordCapabilitiesAndRequirements(OperationContext operationContext, ModelNode operation, Resource resource) throws OperationFailedException {
+        super.recordCapabilitiesAndRequirements(operationContext, operation, resource);
+
+        operationContext.registerCapability(
+            RuntimeCapability.Builder.of("org.wildfly.management.context", true).build()
+                .fromBaseCapability(MetricsContextService.CONTEXT_NAME.substring(1))
+        );
+    }
 
     @Override
     protected void performBoottime(OperationContext context, ModelNode operation, ModelNode model) throws OperationFailedException {
@@ -70,6 +84,20 @@ class MetricsSubsystemAdd extends AbstractBoottimeAddStepHandler {
             context.addStep(new OperationStepHandler() {
                 @Override
                 public void execute(OperationContext operationContext, ModelNode modelNode) {
+                    List<String> otherMetrics = new ArrayList<>();
+                    if (context.getCapabilityServiceSupport().hasCapability(CAPABILITY_NAME_MICROMETER)) {
+                        otherMetrics.add("Micrometer");
+                    }
+                    if (context.getCapabilityServiceSupport().hasCapability(CAPABILITY_NAME_OPENTELEMETRY)) {
+                        otherMetrics.add("OpenTelemetry Metrics");
+                    }
+                    if (!otherMetrics.isEmpty()) {
+                        if (Boolean.parseBoolean(System.getProperty("wildfly.multiple.metrics.warn", "true"))) {
+                            LOGGER.multipleMetricsSystemsEnabled(String.join(",", otherMetrics));
+                        }
+                    }
+
+
                     ServiceController<?> serviceController = context.getServiceRegistry(false).getService(WILDFLY_COLLECTOR);
                     MetricCollector metricCollector = MetricCollector.class.cast(serviceController.getValue());
                     ServiceController<?> wildflyRegistryController = context.getServiceRegistry(false).getService(METRICS_REGISTRY_RUNTIME_CAPABILITY.getCapabilityServiceName());

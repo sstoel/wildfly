@@ -29,10 +29,8 @@
         <module name="io.smallrye.reactive.mutiny"/>
         <module name="io.smallrye.reactive.mutiny.reactive-streams-operators"/>
         <module name="io.smallrye.reactive.mutiny.vertx-core"/>
-        <module name="io.smallrye.reactive.mutiny.vertx-kafka-client"/>
         <module name="io.smallrye.reactive.mutiny.zero"/>
         <module name="io.smallrye.reactive.mutiny.zero-flow-adapters"/>
-        <module name="io.vertx.client.kafka"/>
         <module name="io.vertx.core"/>
         <module name="jakarta.annotation.api"/>
         <module name="jakarta.enterprise.api" />

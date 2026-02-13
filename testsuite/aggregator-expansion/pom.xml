@@ -23,7 +23,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -34,6 +34,12 @@
     <description>Controls execution of testsuite modules relevant to testing functionality
         available via the wildfly-galleon-pack feature pack artifact.</description>
 
+    <properties>
+        <!-- Don't try to deploy the module -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
+        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+    </properties>
 
     <profiles>
 
@@ -42,7 +48,7 @@
             <id>expansion.all-modules.module.profile</id>
             <activation><property><name>allTests</name></property></activation>
             <modules>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/manualmode-expansion</module>
             </modules>
@@ -53,7 +59,7 @@
             <activation><property><name>integ.module</name></property></activation>
             <modules>
                 <module>../integration/manualmode-expansion</module>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
             </modules>
         </profile>
@@ -69,7 +75,7 @@
             <id>expansion.layers_.module.profile</id>
             <activation><property><name>ts.layers</name></property></activation>
             <modules>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../layers-expansion</module>
             </modules>
@@ -80,7 +86,7 @@
             <id>expansion.ts.integ.allGroupsIntegration</id>
             <activation><property><name>ts.integration</name></property></activation>
             <modules>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/manualmode-expansion</module>
             </modules>
@@ -101,7 +107,7 @@
             <activation><property><name>ts.standalone.microprofile</name></property></activation>
             <modules>
                 <module>../integration/basic</module>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/clustering</module>
                 <module>../integration/elytron-oidc-client</module>
@@ -113,7 +119,7 @@
             <id>ts.integ.group.microprofile</id>
             <activation><property><name>ts.microprofile</name></property></activation>
             <modules>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
             </modules>
         </profile>
@@ -127,7 +133,7 @@
                 </property>
             </activation>
             <modules>
-                <module>../integration/microprofile</module>
+                <module>../integration/expansion</module>
                 <module>../integration/microprofile-tck</module>
             </modules>
         </profile>

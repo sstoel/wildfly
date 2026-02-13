@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -35,7 +35,7 @@
         <byteman.port>17091</byteman.port>
         <!-- JVM args -->
         <microprofile.server.jvm.args>${server.jvm.args} -Djboss.node.name=microprofile</microprofile.server.jvm.args>
-        <!-- This module tests expanded funtionality, so use a bom that includes expansion dependencies -->
+        <!-- This module tests expanded functionality, so use a bom that includes expansion dependencies -->
         <dependency.management.import.artifact>wildfly-standard-expansion-bom</dependency.management.import.artifact>
         <dependency.management.import.test.artifact>wildfly-standard-test-expansion-bom</dependency.management.import.test.artifact>
         <channel.provisioning.phase>process-test-resources</channel.provisioning.phase>
@@ -54,6 +54,11 @@
     </dependencyManagement>
 
     <dependencies>
+        <dependency>
+            <groupId>commons-io</groupId>
+            <artifactId>commons-io</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>jakarta.inject</groupId>
             <artifactId>jakarta.inject-api</artifactId>
@@ -156,51 +161,6 @@
                         <goals>
                             <goal>execute-commands</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>channel-provisioning-comparison</id>
-                        <goals>
-                            <goal>provision</goal>
-                        </goals>
-                        <phase>${channel.provisioning.phase}</phase>
-                        <configuration>
-                            <provisioning-dir>${project.build.directory}/wildfly-from-channel</provisioning-dir>
-                            <record-provisioning-state>true</record-provisioning-state>
-                            <log-provisioning-time>${galleon.log.time}</log-provisioning-time>
-                            <offline-provisioning>true</offline-provisioning>
-                            <overwrite-provisioned-server>true</overwrite-provisioned-server>
-                            <galleon-options>
-                                <jboss-fork-embedded>${galleon.fork.embedded}</jboss-fork-embedded>
-                            </galleon-options>
-                            <channels>
-                                <channel>
-                                    <manifest>
-                                        <groupId>${channels.maven.groupId}</groupId>
-                                        <artifactId>wildfly</artifactId>
-                                        <version>${full.maven.version}</version>
-                                    </manifest>
-                                </channel>
-                            </channels>
-                            <feature-packs>
-                                <feature-pack>
-                                    <transitive>true</transitive>
-                                    <groupId>${ee.maven.groupId}</groupId>
-                                    <artifactId>wildfly-ee-galleon-pack</artifactId>
-                                    <version>${ee.maven.version}</version>
-                                    <included-packages>
-                                        <name>docs.examples.configs</name>
-                                    </included-packages>
-                                </feature-pack>
-                                <feature-pack>
-                                    <groupId>${full.maven.groupId}</groupId>
-                                    <artifactId>wildfly-galleon-pack</artifactId>
-                                    <version>${full.maven.version}</version>
-                                    <included-packages>
-                                        <name>docs.examples.configs</name>
-                                    </included-packages>
-                                </feature-pack>
-                            </feature-packs>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>

@@ -1,6 +1,6 @@
 [[Installation_Guide]]
 = Installation Guide
-WildFly team;
+WildFly authors;
 :revnumber: {version}
 :revdate: {localdate}
 :toc: macro
@@ -23,8 +23,6 @@ endif::[]
 
 ifndef::ebook-format[:leveloffset: 1]
 
-(C) The WildFly Authors.
-
 ifdef::basebackend-html[toc::[]]
 :numbered:
 
@@ -41,7 +39,7 @@ but if you'd like a technical preview look at what's coming in the future, try o
 [[Zipped_Installation]]
 = Installing WildFly from a zipped distribution
 
-http://www.wildfly.org/downloads[Downloading the WildFly release zip] and unzipping it is the traditional way to install
+https://www.wildfly.org/downloads/[Downloading the WildFly release zip] and unzipping it is the traditional way to install
 a complete WildFly server with support for both standalone and managed domain operating modes. A WildFly distribution
 contains a large number of default configurations allowing you to select the server features and operating modes.
 
@@ -57,8 +55,7 @@ If that is the kind of installation you are aiming at, the guides that you shoul
 
 * The link:Getting_Started_Guide{outfilesuffix}[Getting Started Guide] shows you
 how to install, start and configure the server.
-* The link:Getting_Started_Developing_Applications_Guide{outfilesuffix}[Getting
-Started Developing Applications Guide] shows you how to build Jakarta EE
+* The link:Application_Development_Guide{outfilesuffix}[Application Development Guide] shows you how to build
 applications and deploy them to WildFly.
 
 [[Galleon_Provisioning]]
@@ -82,8 +79,7 @@ If that is the kind of installation you are aiming at, the guides that you shoul
 
 * The link:Galleon_Guide{outfilesuffix}[Galleon Provisioning Guide] shows you how to
 provision customized WildFly server using Galleon.
-* The link:Getting_Started_Developing_Applications_Guide{outfilesuffix}[Getting
-Started Developing Applications Guide] shows you how to build Jakarta EE
+* The link:Application_Development_Guide{outfilesuffix}[Application Development Guide] shows you how to build
 applications and deploy them to WildFly.
 
 [[WildFly_Maven_Plugin_Provisioning]]

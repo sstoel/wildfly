@@ -1,6 +1,6 @@
 [[WildFly_Maven_Plugin_Guide]]
 = WildFly Maven Plugin Guide
-WildFly team;
+WildFly authors;
 :revnumber: {version}
 :revdate: {localdate}
 :toc: macro
@@ -19,8 +19,6 @@ ifdef::env-github[]
 endif::[]
 
 // ifndef::ebook-format[:leveloffset: 1]
-
-(C) The WildFly Authors.
 
 ifdef::basebackend-html[toc::[]]
 :numbered:
@@ -408,7 +406,7 @@ For example:
 
 ====
 Examples of projects that produce WildFly applications for the cloud 
-can be found in the https://github.com/wildfly/quickstart/[WildFly quickstarts]. 
+can be found in the https://docs.wildfly.org/quickstart[WildFly Quickstarts].
 
 You can check https://github.com/wildfly-extras/wildfly-cloud-galleon-pack/blob/main/README.md[this documentation] 
 for more details on the WildFly cloud feature-pack .

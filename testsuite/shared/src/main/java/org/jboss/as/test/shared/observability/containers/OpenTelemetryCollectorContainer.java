@@ -21,9 +21,12 @@ import java.util.stream.Collectors;
 import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.WebTarget;
+import org.jboss.as.test.config.ContainerConfig;
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.as.test.shared.observability.signals.PrometheusMetric;
 import org.jboss.as.test.shared.observability.signals.jaeger.JaegerTrace;
+import org.jboss.as.test.shared.observability.signals.logs.CollectorLogRecordParser;
+import org.jboss.as.test.shared.observability.signals.logs.OpenTelemetryLogRecord;
 import org.junit.Assert;
 import org.testcontainers.utility.MountableFile;
 
@@ -32,8 +35,6 @@ import org.testcontainers.utility.MountableFile;
  * @author Radoslav Husar
  */
 public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetryCollectorContainer> {
-    public static final String IMAGE_NAME = "otel/opentelemetry-collector";
-    public static final String IMAGE_VERSION = "0.115.1";
     public static final int OTLP_GRPC_PORT = 4317;
     public static final int OTLP_HTTP_PORT = 4318;
     public static final int PROMETHEUS_PORT = 1234;
@@ -41,11 +42,19 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
     public static final String OTEL_COLLECTOR_CONFIG_YAML = "/etc/otel-collector-config.yaml";
 
     private final JaegerContainer jaegerContainer;
+
+    /**
+     * The default timeout in seconds configurable by -Dtestsuite.integration.container.timeout=... and adjustable by -Dts.timeout.factor=...
+     * Note that this is not a waiting time, but the maximum allowable time while actively polling.
+     * Defaults to 2 minutes.
+     */
     private final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(
-            TimeoutUtil.adjust(Integer.parseInt(System.getProperty("testsuite.integration.container.timeout", "30"))));
+            TimeoutUtil.adjust(
+                    Integer.parseInt(
+                            System.getProperty("testsuite.integration.container.timeout", "120"))));
 
     public OpenTelemetryCollectorContainer() {
-        super("OpenTelemetryCollector", IMAGE_NAME, IMAGE_VERSION,
+        super("OpenTelemetryCollector", ContainerConfig.OTEL_COLLECTOR.getImageName(), ContainerConfig.OTEL_COLLECTOR.getImageVersion(),
                 List.of(OTLP_GRPC_PORT, OTLP_HTTP_PORT, HEALTH_CHECK_PORT, PROMETHEUS_PORT));
         withCopyToContainer(
                 MountableFile.forClasspathResource(
@@ -91,6 +100,25 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
     }
 
     /**
+     * Given a list of <code>PrometheusMetric</code> instances, return a sublist whose key matches <code>key</code>. Note
+     * that the key name must match the Prometheus conventions (see <a href="https://prometheus.io/docs/practices/naming/">
+     * here</a> for details.
+     *
+     * @param metrics List of PrometheusMetrics to filter.
+     * @param key The name of the metric to find
+     * @return a sublist of <code>metrics</code> that matches <code>key</code>
+     */
+    public List<PrometheusMetric> getMetricsByName(List<PrometheusMetric> metrics, String key) {
+        return metrics.stream()
+                .filter(m -> Objects.equals(m.getKey(), key))
+                .toList();
+    }
+
+    public List<OpenTelemetryLogRecord> getOpenTelemetryLogs() {
+        return new CollectorLogRecordParser().retrieveLogRecords(this.getLogs().split("\n"));
+    }
+
+    /**
      * Continually evaluates assertions provided in a consumer until the state obtained from the Jaeger endpoint
      * matches the expected state or until a timeout elapses. By default, polls the collector every second for 30 seconds.
      * Returns snapshot of the Jaeger traces that passed the assertions; typically ignored.
@@ -114,10 +142,10 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
         debugLog("assertTraces(...) validation starting.");
         Instant endTime = Instant.now().plus(timeout);
         AssertionError lastAssertionError = null;
+        List<JaegerTrace> traces = jaegerContainer.getTraces(serviceName);
 
         while (Instant.now().isBefore(endTime)) {
             try {
-                List<JaegerTrace> traces = jaegerContainer.getTraces(serviceName);
                 assertionConsumer.accept(traces);
                 debugLog("assertTraces(...) validation passed.");
                 return traces;
@@ -126,8 +154,37 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
                 lastAssertionError = assertionError;
                 Thread.sleep(1000);
             }
+            traces = jaegerContainer.getTraces(serviceName);
         }
 
+        debugLog("assertTraces(...) validation failed. State at final check:\n" + traces);
+        throw Objects.requireNonNullElseGet(lastAssertionError, AssertionError::new);
+    }
+
+    public List<OpenTelemetryLogRecord> assertOpenTelemetryLogs(Consumer<List<OpenTelemetryLogRecord>> assertionConsumer) throws InterruptedException {
+        return assertOpenTelemetryLogs(assertionConsumer, DEFAULT_TIMEOUT);
+    }
+
+    public List<OpenTelemetryLogRecord> assertOpenTelemetryLogs(Consumer<List<OpenTelemetryLogRecord>> assertionConsumer, Duration timeout) throws InterruptedException {
+        debugLog("assertOpenTelemetryLogs(...) validation starting.");
+        Instant endTime = Instant.now().plus(timeout);
+        AssertionError lastAssertionError = null;
+        List<OpenTelemetryLogRecord> logEntries = getOpenTelemetryLogs();
+
+        while (Instant.now().isBefore(endTime)) {
+            try {
+                assertionConsumer.accept(logEntries);
+                debugLog("assertOpenTelemetryLogs(...) validation passed.");
+                return logEntries;
+            } catch (AssertionError assertionError) {
+                debugLog("assertOpenTelemetryLogs(...) validation failed - retrying.");
+                lastAssertionError = assertionError;
+                Thread.sleep(1000);
+            }
+            logEntries = getOpenTelemetryLogs();
+        }
+
+        debugLog("assertOpenTelemetryLogs(...) validation failed. State at final check:\n" + logEntries);
         throw Objects.requireNonNullElseGet(lastAssertionError, AssertionError::new);
     }
 
@@ -158,11 +215,10 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
         Instant endTime = Instant.now().plus(timeout);
 
         AssertionError lastAssertionError = null;
+        List<PrometheusMetric> prometheusMetrics = fetchMetrics();
 
         while (Instant.now().isBefore(endTime)) {
             try {
-                List<PrometheusMetric> prometheusMetrics = fetchMetrics();
-
                 assertionConsumer.accept(prometheusMetrics);
 
                 debugLog("assertMetrics(..) validation passed.");
@@ -173,8 +229,11 @@ public class OpenTelemetryCollectorContainer extends BaseContainer<OpenTelemetry
                 lastAssertionError = assertionError;
                 Thread.sleep(1000);
             }
+            prometheusMetrics = fetchMetrics();
+
         }
 
+        debugLog("assertMetrics(...) validation. State at final check: \n" + prometheusMetrics);
         throw Objects.requireNonNullElseGet(lastAssertionError, AssertionError::new);
     }
 

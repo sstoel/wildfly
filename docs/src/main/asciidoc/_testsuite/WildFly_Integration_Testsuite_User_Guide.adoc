@@ -9,8 +9,7 @@ ifdef::env-github[]
 :warning-caption: :warning:
 endif::[]
 
-*See also:* <<WildFly_Testsuite_Test_Developer_Guide,WildFly
-Testsuite Test Developer Guide>>
+*See also:* <<WildFly_Testsuite_Test_Developer_Guide,WildFly Testsuite Test Developer Guide>>
 
 *Target Audience:* Those interested in running the testsuite or a subset
 thereof, with various configuration options.
@@ -42,7 +41,7 @@ can use:
 === Supported Maven phases
 
 Testsuite actions are bounds to various Maven phases up to `verify`.
-Running the build with earlier ﻿phases may fail in the submodules due to
+Running the build with earlier phases may fail in the submodules due to
 missed configuration steps. Therefore, the only Maven phases you may
 safely run, are:
 
@@ -256,21 +255,21 @@ your local one (typically in .m2/settings.xml).
 
 [source,xml,options="nowrap"]
 ----
-   <mirror>
-      <id>eap6-mirror-setting</id>
-      <mirrorOf>
-         *,!central-eap6,!central-eap6-plugins,!jboss-public-eap6,!jboss-public-eap6-plugins
-      </mirrorOf>
-      <name>Mirror Settings for EAP 6 build</name>
-      <url>file:///opt/jboss/eap6-maven-repo</url>
-    </mirror>
-  </mirrors>
+   <mirror>
+      <id>eap6-mirror-setting</id>
+      <mirrorOf>
+         *,!central-eap6,!central-eap6-plugins,!jboss-public-eap6,!jboss-public-eap6-plugins
+      </mirrorOf>
+      <name>Mirror Settings for EAP 6 build</name>
+      <url>file:///opt/jboss/eap6-maven-repo</url>
+    </mirror>
+  </mirrors>
 ----
 
 \2) Build EAP. You won't use the resulting EAP build, though. The
 purpose is to get the artifacts which the testsuite depends on.
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 mvn clean install -s settings.xml -Dmaven.repo.local=local-repo-eap
 ----
@@ -278,7 +277,7 @@ mvn clean install -s settings.xml -Dmaven.repo.local=local-repo-eap
 \3) Run the testsuite. Assuming that EAP is located in `/opt/eap6`, you
 would run:
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 ./integration-tests.sh -DallTests -Djboss.dist=/opt/eap6
 ----
@@ -292,7 +291,7 @@ would run:
 
 |-Ddebug |AS instances run by Arquillian |8787 |-Das.debug.port=...
 
-|-Djpda |alias for -Ddebug |  | 
+|-Djpda |alias for -Ddebug |  |
 
 |-DdebugClient |Test JVMs (currently Surefire) |5050
 |-Ddebug.port.surefire=...
@@ -303,12 +302,12 @@ would run:
 [[examples-1]]
 ==== Examples
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 ./integration-tests.sh install -DdebugClient -Ddebug.port.surefire=4040
- 
+
 ...
- 
+
 -------------------------------------------------------
  T E S T S
 -------------------------------------------------------
@@ -318,21 +317,21 @@ Listening for transport dt_socket at address: 4040
 [source,options="nowrap"]
 ----
 ./integration-tests.sh install -DdebugClient -Ddebug.port.surefire
- 
+
 ...
- 
+
 -------------------------------------------------------
  T E S T S
 -------------------------------------------------------
 Listening for transport dt_socket at address: 5050
 ----
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 ./integration-tests.sh install -Ddebug
 ----
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 ./integration-tests.sh install -Ddebug -Das.debug.port=5005
 ----
@@ -350,56 +349,20 @@ http://jira.codehaus.org/browse/SUREFIRE-781.
 Depending on which test group(s) you run, multiple AS instances may be
 started. In that case, you need to attach the debugger multiple times.
 
-[[running-tests-with-custom-database]]
-=== Running tests with custom database
+==== Debugging clustering tests
 
-To run with different database, specify the `-Dds` and use these
-properties (with the following defaults):
+With the implementation of https://issues.redhat.com/browse/WFLY-276[WFLY-276] for the clustering test suite module,
+these tests can be run with the debugger as well.
+Here are some tips on how to effectively debug:
 
-[source,java,options="nowrap"]
-----
--Dds.jdbc.driver=
--Dds.jdbc.driver.version=
--Dds.jdbc.url=
--Dds.jdbc.user=test
--Dds.jdbc.pass=test
--Dds.jdbc.driver.jar=${ds.db}-jdbc-driver.jar
-----
+1. Prepare your IDE with 4 remote debugger sessions templates: `node1` with port 8787, `node2` with port 8788, `node3` with port 8789, and `node4` with port 8790.
+2. Using `mvn`, run a single test (`-Dtest=..`) in the debug mode (`-Ddebug` / `-Djpda`)
+3. Connect the debugger to each node as they are starting since the JVM is configured to wait for the debugger connection to proceed.
+4. Keep connecting to starting nodes as some tests change the topology during the test.
 
-`driver` is JDBC driver class. JDBC `url`, `user` and `pass` is as
-expected.
+NOTE: Container start timeout in Arquillian is currently set to 60 seconds,
+you may need to increase the timeout depending on your swiftness with connecting the remote debugger.
 
-`driver.version` is used for automated JDBC driver downloading. Users
-can set up internal Maven repository hosting JDBC drivers, with
-artifacts with
-
-GAV = `jdbcdrivers:${ds.db}:${ds.jdbc.driver.version`}
-
-Internally, JBoss has such repo at
-http://nexus.qa.jboss.com:8081/nexus/content/repositories/thirdparty/jdbcdrivers/
-.
-
-The `ds.db` value is set depending on ds. E.g. `-Dds=mssql2005` sets
-`ds.db=mssql` (since they have the same driver). `-Dds.db` may be
-overriden to use different driver.
-
-[line-through]*In case you don't want to use such driver, set just
--Dds.db= (empty) and provide the driver to the AS manually.* +
-_Not supported; work in progress on parameter to provide JDBC Driver
-jar._
-
-[[default-values]]
-==== Default values
-
-For WildFly continuous integration, there are some predefined values for
-some of databases, which can be set using:
-
-[source,java,options="nowrap"]
-----
--Dds.db=<database-identifier>
-----
-
-Where database-identifier is one of: `h2`, `mysql51`
 
 [[running-tests-with-ipv6]]
 === Running tests with IPv6
@@ -411,7 +374,7 @@ and the following defaults, overridable by respective parameter:
 
 [cols=",,,",options="header"]
 |=======================================================================
-|Parameter |IPv4 default |IPv6 default | 
+|Parameter |IPv4 default |IPv6 default |
 
 |-Dnode0 |127.0.0.1 |::1 |Single-node tests.
 
@@ -461,7 +424,7 @@ Test reports are created in the form known from EAP 5. To create them,
 simply run the testsuite, which will create Surefire XML files.
 
 Creation of the reports is bound to the `site` Maven phase, so it must
-be run separatedly afterwards. Use one of these:
+be run separately afterward. Use one of these:
 
 [source,options="nowrap"]
 ----
@@ -531,15 +494,15 @@ mvn dependency:purge-local-repository build-helper:remove-project-artifact -Dbui
 In case the build happens in a shared environment (e.g. network disk),
 it's recommended to use local repository:
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
-cp /home/hudson/.m2/settings.xml .
-sed "s|<settings>|<settings><localRepository>/home/ozizka/hudson-repos/$JOBNAME</localRepository>|" -i settings.xml
+cp /home/jenkins/.m2/settings.xml .
+sed "s|<settings>|<settings><localRepository>/home/jenkins/jenkins-repos/$JOBNAME</localRepository>|" -i settings.xml
 ----
 
 Or:
 
-[source,java,options="nowrap"]
+[source,shell,options="nowrap"]
 ----
 mvn clean install ... -Dmaven.repo.local=localrepo
 ----

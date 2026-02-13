@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
     -->
-    <version>36.0.0.Beta1-SNAPSHOT</version>
+    <version>40.0.0.Beta1-SNAPSHOT</version>
   </parent>
 
   <artifactId>wildfly-microprofile-lra-participant</artifactId>
@@ -62,6 +62,18 @@
     <dependency>
       <groupId>org.jboss.narayana.lra</groupId>
       <artifactId>lra-proxy-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.smallrye.stork</groupId>
+      <artifactId>stork-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.smallrye.stork</groupId>
+      <artifactId>stork-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.smallrye.stork</groupId>
+      <artifactId>stork-service-discovery-static-list</artifactId>
     </dependency>
     <dependency>
       <groupId>jakarta.ws.rs</groupId>

@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -102,4 +102,18 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>allow-security-manager</id>
+            <activation>
+                <jdk>[17,24)</jdk>
+            </activation>
+
+            <properties>
+                <!-- Required to enable the security manager for testing -->
+                <surefire.system.args>-Djava.security.manager=allow</surefire.system.args>
+            </properties>
+        </profile>
+    </profiles>
 </project>

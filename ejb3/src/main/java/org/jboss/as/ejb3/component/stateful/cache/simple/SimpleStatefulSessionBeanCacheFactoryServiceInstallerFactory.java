@@ -6,8 +6,8 @@
 package org.jboss.as.ejb3.component.stateful.cache.simple;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Function;
-import java.util.function.Supplier;
 
 import org.jboss.as.ejb3.component.stateful.StatefulComponentDescription;
 import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCache;
@@ -16,6 +16,7 @@ import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanCacheFactor
 import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanInstance;
 import org.jboss.as.ejb3.component.stateful.cache.StatefulSessionBeanInstanceFactory;
 import org.jboss.as.server.ServerEnvironment;
+import org.wildfly.clustering.function.Supplier;
 import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
 
@@ -46,8 +47,8 @@ public class SimpleStatefulSessionBeanCacheFactoryServiceInstallerFactory<K, V e
                     }
 
                     @Override
-                    public Duration getTimeout() {
-                        return configuration.getTimeout();
+                    public Optional<Duration> getMaxIdle() {
+                        return configuration.getMaxIdle();
                     }
 
                     @Override

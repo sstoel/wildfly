@@ -5,25 +5,26 @@
 
 package org.wildfly.extension.clustering.server.group;
 
-import java.util.function.BiFunction;
+import java.util.function.Function;
 
-import org.jboss.as.controller.capability.CapabilityServiceSupport;
+import org.jboss.as.controller.ServiceNameFactory;
 import org.wildfly.clustering.server.dispatcher.CommandDispatcherFactory;
 import org.wildfly.clustering.server.service.ClusteringServiceDescriptor;
+import org.wildfly.service.Installer.StartWhen;
 import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
 
 /**
  * @author Paul Ferraro
  */
-public enum GroupServiceInstallerFactory implements BiFunction<CapabilityServiceSupport, String, ServiceInstaller> {
+public enum GroupServiceInstallerFactory implements Function<String, ServiceInstaller> {
     INSTANCE;
 
     @Override
-    public ServiceInstaller apply(CapabilityServiceSupport support, String name) {
+    public ServiceInstaller apply(String name) {
         return ServiceInstaller.builder(ServiceDependency.on(ClusteringServiceDescriptor.COMMAND_DISPATCHER_FACTORY, name).map(CommandDispatcherFactory::getGroup))
-                .provides(support.getCapabilityServiceName(ClusteringServiceDescriptor.GROUP, name))
-                .asPassive()
+                .provides(ServiceNameFactory.resolveServiceName(ClusteringServiceDescriptor.GROUP, name))
+                .startWhen(StartWhen.AVAILABLE)
                 .build();
     }
 }

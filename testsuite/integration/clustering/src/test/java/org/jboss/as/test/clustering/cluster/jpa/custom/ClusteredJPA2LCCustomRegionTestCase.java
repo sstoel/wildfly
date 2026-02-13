@@ -206,11 +206,11 @@ public class ClusteredJPA2LCCustomRegionTestCase extends AbstractClusteringTestC
 
         // lifespan
         Long expirationLifespan = getExpirationLifespan(node0, regionName);
-        Assert.assertEquals(String.format("Cache '%s' should have attribute expiration.lifespan=99992", regionName), expirationLifespan.longValue(), 99992);
+        Assert.assertEquals(String.format("Cache '%s' should have attribute expiration.lifespan=99993", regionName), expirationLifespan.longValue(), 99993);
 
         // max_idle
         Long expirationMaxIdle = getExpirationMaxIdle(node0, regionName);
-        Assert.assertEquals(String.format("Cache '%s' should have attribute expiration.maxIdle=99993", regionName), expirationMaxIdle.longValue(), 99993);
+        Assert.assertEquals(String.format("Cache '%s' should have attribute expiration.maxIdle=99992", regionName), expirationMaxIdle.longValue(), 99992);
 
         // wake_up_interval
         Long expirationWakeUpInterval = getExpirationWakeUpInterval(node0, regionName);
@@ -285,7 +285,7 @@ public class ClusteredJPA2LCCustomRegionTestCase extends AbstractClusteringTestC
 
     public static class ServerSetupTask extends CLIServerSetupTask {
         public ServerSetupTask() {
-            this.builder.node(TWO_NODES)
+            this.builder.node(NODE_1_2.toArray(new String[0]))
                     .setup("/subsystem=infinispan/cache-container=hibernate/replicated-cache=entity-replicated-template:add()")
                     .teardown("/subsystem=infinispan/cache-container=hibernate/replicated-cache=entity-replicated-template:remove()")
                     ;

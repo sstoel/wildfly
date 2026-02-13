@@ -5,9 +5,11 @@
 
 package org.wildfly.test.integration.observability.opentelemetry;
 
+import java.net.MalformedURLException;
+
+import org.arquillian.testcontainers.api.Testcontainer;
+import org.arquillian.testcontainers.api.TestcontainersRequired;
 import org.jboss.arquillian.junit.Arquillian;
-import org.jboss.arquillian.testcontainers.api.DockerRequired;
-import org.jboss.arquillian.testcontainers.api.Testcontainer;
 import org.jboss.as.test.shared.CdiUtils;
 import org.jboss.as.test.shared.TestSuiteEnvironment;
 import org.jboss.as.test.shared.observability.containers.OpenTelemetryCollectorContainer;
@@ -19,19 +21,17 @@ import org.junit.runner.RunWith;
 import org.wildfly.test.integration.observability.JaxRsActivator;
 import org.wildfly.test.integration.observability.opentelemetry.application.OtelService1;
 
-import java.net.MalformedURLException;
-
 // This is copied from testsuite/integration/microprofile/src/test/java/org/wildfly/test/integration/observability/opentelemetry/BaseOpenTelemetryTest.java
 // this will be removed once promoted to ts/integ/mp
 @RunWith(Arquillian.class)
-@DockerRequired
+@TestcontainersRequired
 public abstract class BaseOpenTelemetryTest {
     @Testcontainer
     protected OpenTelemetryCollectorContainer otelCollector;
 
     private static final String MP_CONFIG = "otel.sdk.disabled=false\n" +
-            // Lower the interval from 60 seconds to 100 millis
-            "otel.metric.export.interval=100";
+            // Lower the interval from 60 seconds to 2 seconds
+            "otel.metric.export.interval=2000";
 
     static WebArchive buildBaseArchive(String name) {
         return ShrinkWrap

@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -103,17 +103,6 @@
             <dependency>
                 <groupId>${ee.maven.groupId}</groupId>
                 <artifactId>wildfly-bean-validation</artifactId>
-                <version>${ee.maven.version}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
-                <groupId>${ee.maven.groupId}</groupId>
-                <artifactId>wildfly-client-all</artifactId>
                 <version>${ee.maven.version}</version>
                 <exclusions>
                     <exclusion>
@@ -961,80 +950,11 @@
             </dependency>
 
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-annotations</artifactId>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
                 <version>${version.com.fasterxml.jackson}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-core</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>${version.com.fasterxml.jackson.databind}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.dataformat</groupId>
-                <artifactId>jackson-dataformat-yaml</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.datatype</groupId>
-                <artifactId>jackson-datatype-jdk8</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.fasterxml.jackson.datatype</groupId>
-                <artifactId>jackson-datatype-jsr310</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
-                <artifactId>jackson-jakarta-rs-base</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.jakarta.rs</groupId>
-                <artifactId>jackson-jakarta-rs-json-provider</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.fasterxml.jackson.module</groupId>
-                <artifactId>jackson-module-jakarta-xmlbind-annotations</artifactId>
-                <version>${version.com.fasterxml.jackson}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
 
             <dependency>
@@ -1170,12 +1090,6 @@
                         <artifactId>*</artifactId>
                     </exclusion>
                 </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>com.squareup</groupId>
-                <artifactId>protoparser</artifactId>
-                <version>${version.com.squareup.protoparser}</version>
             </dependency>
 
             <dependency>
@@ -1364,6 +1278,12 @@
                 <groupId>io.reactivex.rxjava3</groupId>
                 <artifactId>rxjava</artifactId>
                 <version>${version.io.reactivex.rxjava3}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.smallrye.reactive</groupId>
+                <artifactId>mutiny</artifactId>
+                <version>${version.io.smallrye.smallrye-mutiny}</version>
             </dependency>
 
             <dependency>
@@ -1747,6 +1667,10 @@
                         <artifactId>javax.inject</artifactId>
                     </exclusion>
                     <exclusion>
+                        <groupId>org.apache.activemq</groupId>
+                        <artifactId>artemis-lockmanager-api</artifactId>
+                    </exclusion>
+                    <exclusion>
                         <groupId>org.apache.commons</groupId>
                         <artifactId>commons-lang3</artifactId>
                     </exclusion>
@@ -2007,6 +1931,10 @@
                     <exclusion>
                         <groupId>io.netty</groupId>
                         <artifactId>netty-codec</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.apache.activemq</groupId>
+                        <artifactId>artemis-lockmanager-api</artifactId>
                     </exclusion>
                     <exclusion>
                         <groupId>org.apache.geronimo.specs</groupId>
@@ -2839,18 +2767,6 @@
 
             <dependency>
                 <groupId>org.glassfish</groupId>
-                <artifactId>jakarta.enterprise.concurrent</artifactId>
-                <version>${version.org.glassfish.jakarta.enterprise.concurrent}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.glassfish</groupId>
                 <artifactId>jakarta.faces</artifactId>
                 <version>${version.jakarta.faces}</version>
                 <exclusions>
@@ -2951,17 +2867,6 @@
                 </exclusions>
             </dependency>
 
-            <dependency>
-                <groupId>org.glassfish.soteria</groupId>
-                <artifactId>jakarta.security.enterprise</artifactId>
-                <version>${version.org.glassfish.soteria}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
             <dependency>
                 <groupId>org.glassfish.soteria</groupId>
                 <artifactId>soteria.spi.bean.decorator.weld</artifactId>
@@ -3715,17 +3620,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.jboss.spec.jakarta.el</groupId>
-                <artifactId>jboss-el-api_5.0_spec</artifactId>
-                <version>${version.org.jboss.spec.jakarta.el.jboss-el-api_5.0_spec}</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-            <dependency>
                 <groupId>org.jboss.spec.jakarta.xml.soap</groupId>
                 <artifactId>jboss-saaj-api_3.0_spec</artifactId>
                 <version>${version.org.jboss.spec.jakarta.xml.soap.saaj-api_3.0_spec}</version>
@@ -4082,6 +3976,12 @@
                 <groupId>org.opensaml</groupId>
                 <artifactId>opensaml-profile-api</artifactId>
                 <version>${version.org.opensaml.opensaml}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-core</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.opensaml</groupId>
@@ -4093,6 +3993,10 @@
                 <artifactId>opensaml-saml-impl</artifactId>
                 <version>${version.org.opensaml.opensaml}</version>
                 <exclusions>
+                    <exclusion>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-core</artifactId>
+                    </exclusion>
                     <exclusion>
                         <groupId>org.apache.velocity</groupId>
                         <artifactId>velocity</artifactId>
@@ -4343,6 +4247,30 @@
 
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
+                <artifactId>checksums</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>checksums-spi</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
                 <artifactId>crt-core</artifactId>
                 <version>${version.software.amazon.awssdk}</version>
                 <exclusions>
@@ -4367,7 +4295,55 @@
 
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
+                <artifactId>http-auth</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>http-auth-aws</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>http-auth-spi</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
                 <artifactId>http-client-spi</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>identity-spi</artifactId>
                 <version>${version.software.amazon.awssdk}</version>
                 <exclusions>
                     <exclusion>
@@ -4428,6 +4404,30 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>regions</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>retries</artifactId>
+                <version>${version.software.amazon.awssdk}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>retries-spi</artifactId>
                 <version>${version.software.amazon.awssdk}</version>
                 <exclusions>
                     <exclusion>

@@ -5,7 +5,7 @@
   -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -15,20 +15,34 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>36.0.0.Beta1-SNAPSHOT</version>
+        <version>40.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-integ-clustering</artifactId>
     <name>WildFly Test Suite: Integration - Clustering</name>
 
     <properties>
+        <!-- Common server configuration -->
         <jbossas.ts.integ.dir>${basedir}/..</jbossas.ts.integ.dir>
         <jbossas.ts.dir>${jbossas.ts.integ.dir}/..</jbossas.ts.dir>
         <jbossas.project.dir>${jbossas.ts.dir}/..</jbossas.project.dir>
-        <surefire.forked.process.timeout>5400</surefire.forked.process.timeout>
-        <test-group>org/jboss/as/test/clustering/cluster</test-group>
+        <!-- n.b. override ${surefire.system.args} with omitted ${surefire.jpda.args} which must be unique per node! -->
+        <surefire.system.args>${modular.jdk.testsuite.args} -Dorg.jboss.ejb.client.wildfly-testsuite-hack=true ${surefire.memory.args} -Djboss.dist=${jboss.dist} ${surefire.jacoco.args} -Dmaven.repo.local=${settings.localRepository}</surefire.system.args>
+        <!-- n.b. override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} which must be unique per node! -->
+        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
+        <surefire.jpda.args.node1/>
+        <surefire.jpda.args.node2/>
+        <surefire.jpda.args.node3/>
+        <surefire.jpda.args.node4/>
+
+        <!-- Common infinispan server configuration -->
         <version.org.infinispan.server>${version.org.infinispan}</version.org.infinispan.server>
         <version.org.infinispan.server.driver>${version.org.infinispan}</version.org.infinispan.server.driver>
+        <infinispan.server.home.override/>
+        <infinispan.server.profile.override/>
+
+        <surefire.forked.process.timeout>5400</surefire.forked.process.timeout>
+        <test-group>org/jboss/as/test/clustering/cluster</test-group>
         <ts.surefire.clustering.ha.additionalExcludes>nothing-by-default</ts.surefire.clustering.ha.additionalExcludes>
         <!-- properties to enable plugins shared by various bootable jar executions -->
         <glow.phase>none</glow.phase>
@@ -38,9 +52,21 @@
         <ts.config-as.clustering.phase>test-compile</ts.config-as.clustering.phase>
         <!-- Disable the default surefire test execution. All profiles use custom executions. -->
         <surefire.default-test.phase>none</surefire.default-test.phase>
-        <infinispan.server.home.override/>
-        <infinispan.server.profile.override/>
+        <!-- Use expansion bom since it managed Awaitility -->
+        <dependency.management.import.test.artifact>wildfly-standard-test-expansion-bom</dependency.management.import.test.artifact>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>${full.maven.groupId}</groupId>
+                <artifactId>${dependency.management.import.test.artifact}</artifactId>
+                <version>${full.maven.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Jakarta specification dependencies -->
@@ -156,25 +182,13 @@
 
         <!-- Test dependencies -->
         <dependency>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup</groupId>
-            <artifactId>protoparser</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${legacy.version.com.squareup.okhttp}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.squareup.okio</groupId>
-            <artifactId>okio</artifactId>
-            <version>${legacy.version.com.squareup.okio}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -253,6 +267,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.hibernate.orm</groupId>
             <artifactId>hibernate-core</artifactId>
             <scope>test</scope>
@@ -290,16 +309,6 @@
         <dependency>
             <groupId>org.infinispan</groupId>
             <artifactId>infinispan-component-annotations</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.infinispan</groupId>
-            <artifactId>infinispan-query-dsl</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.infinispan</groupId>
-            <artifactId>infinispan-remote-query-client</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -614,9 +623,66 @@
                     </execution>
                 </executions>
             </plugin>
+            <!-- Extend general surefire configuration defined in pom.xml of the integration module -->
+            <!-- This configuration is then inherited in all executions in this module providing the default, per node: -->
+            <!-- distribution directory, address, JPDA arguments and shared Infinispan server configuration -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <systemPropertyVariables combine.children="append">
+                        <wildfly1>wildfly-1</wildfly1>
+                        <wildfly2>wildfly-2</wildfly2>
+                        <wildfly3>wildfly-3</wildfly3>
+                        <wildfly4>wildfly-4</wildfly4>
+                        <wildfly-load-balancer1>wildfly-load-balancer-1</wildfly-load-balancer1>
+                        <node0>${node0}</node0>
+                        <node1>${node1}</node1>
+                        <node2>${node2}</node2>
+                        <node3>${node3}</node3>
+                        <server.jvm.args>${server.jvm.args}</server.jvm.args>
+                        <surefire.jpda.args.node1>${surefire.jpda.args.node1}</surefire.jpda.args.node1>
+                        <surefire.jpda.args.node2>${surefire.jpda.args.node2}</surefire.jpda.args.node2>
+                        <surefire.jpda.args.node3>${surefire.jpda.args.node3}</surefire.jpda.args.node3>
+                        <surefire.jpda.args.node4>${surefire.jpda.args.node4}</surefire.jpda.args.node4>
+                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
+                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
     <profiles>
+        <!-- Override default jpda.profile which sets unique arguments per node -->
+        <!-- These are redundant in testsuite/pom.xml:553, tracker to prune one https://issues.redhat.com/browse/WFLY-21121 -->
+        <profile>
+            <id>jpda.profile</id>
+            <activation>
+                <property>
+                    <name>jpda</name>
+                </property>
+            </activation>
+            <properties>
+                <surefire.jpda.args.node1>-agentlib:jdwp=transport=dt_socket,address=*:8787,server=y,suspend=y</surefire.jpda.args.node1>
+                <surefire.jpda.args.node2>-agentlib:jdwp=transport=dt_socket,address=*:8788,server=y,suspend=y</surefire.jpda.args.node2>
+                <surefire.jpda.args.node3>-agentlib:jdwp=transport=dt_socket,address=*:8789,server=y,suspend=y</surefire.jpda.args.node3>
+                <surefire.jpda.args.node4>-agentlib:jdwp=transport=dt_socket,address=*:8790,server=y,suspend=y</surefire.jpda.args.node4>
+            </properties>
+        </profile>
+        <profile>
+            <id>debug.profile</id>
+            <activation>
+                <property>
+                    <name>debug</name>
+                </property>
+            </activation>
+            <properties>
+                <surefire.jpda.args.node1>-agentlib:jdwp=transport=dt_socket,address=*:8787,server=y,suspend=y</surefire.jpda.args.node1>
+                <surefire.jpda.args.node2>-agentlib:jdwp=transport=dt_socket,address=*:8788,server=y,suspend=y</surefire.jpda.args.node2>
+                <surefire.jpda.args.node3>-agentlib:jdwp=transport=dt_socket,address=*:8789,server=y,suspend=y</surefire.jpda.args.node3>
+                <surefire.jpda.args.node4>-agentlib:jdwp=transport=dt_socket,address=*:8790,server=y,suspend=y</surefire.jpda.args.node4>
+            </properties>
+        </profile>
 
         <!-- Common step to prepare servers in use by all non-Galleon tests -->
         <profile>
@@ -722,7 +788,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <execution>
                                 <id>ts.config-as.clustering</id>
                                 <phase>${ts.config-as.clustering.phase}</phase>
@@ -761,7 +827,6 @@
                     <plugin>
                         <groupId>com.googlecode.maven-download-plugin</groupId>
                         <artifactId>download-maven-plugin</artifactId>
-                        <version>1.3.0</version>
                         <executions>
                             <execution>
                                 <id>ts.config-as.configure-infinispan-server</id>
@@ -770,7 +835,7 @@
                                     <goal>wget</goal>
                                 </goals>
                                 <configuration>
-                                    <url>https://downloads.jboss.org/infinispan/${version.org.infinispan.server}/infinispan-server-${version.org.infinispan.server}.zip</url>
+                                    <url>https://github.com/infinispan/infinispan/releases/download/${version.org.infinispan.server}/infinispan-server-${version.org.infinispan.server}.zip</url>
                                     <unpack>true</unpack>
                                 </configuration>
                             </execution>
@@ -816,9 +881,6 @@
                 <plugins>
                     <plugin>
                         <artifactId>maven-resources-plugin</artifactId>
-                        <!-- FIXME Remove version override once rest of WF upgrades to this or newer version -->
-                        <!-- Bring in version with fix for https://issues.apache.org/jira/browse/MRESOURCES-236 -->
-                        <version>3.2.0</version>
                         <executions>
                             <!-- Copy over infinispan server distribution from custom path -->
                             <execution>
@@ -875,7 +937,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>${version.surefire.plugin}</version>
-                        <executions combine.children="append">
+                        <executions>
                             <!-- Multi-node clustering tests -->
                             <execution>
                                 <id>ts.surefire.clustering.ha</id>
@@ -905,30 +967,10 @@
                                         <exclude>${test-group}/**/byteman/*TestCase.java</exclude>
                                         <exclude>%regex[${test-group}/(${ts.surefire.clustering.ha.additionalExcludes})/.*TestCase.class]</exclude>
                                     </excludes>
-                                    <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <!-- required by arquillian.xml -->
-                                        <wildfly1>wildfly-1</wildfly1>
-                                        <wildfly2>wildfly-2</wildfly2>
-                                        <wildfly3>wildfly-3</wildfly3>
-                                        <wildfly4>wildfly-4</wildfly4>
-                                        <wildfly-load-balancer1>wildfly-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -952,7 +994,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>${version.surefire.plugin}</version>
-                        <executions combine.children="append">
+                        <executions>
                             <!-- Multi-node clustering tests -->
                             <execution>
                                 <id>ts.surefire.clustering.ha-infinispan-server</id>
@@ -972,28 +1014,9 @@
                                     </includes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <!-- required by arquillian.xml -->
-                                        <wildfly1>wildfly-1</wildfly1>
-                                        <wildfly2>wildfly-2</wildfly2>
-                                        <wildfly3>wildfly-3</wildfly3>
-                                        <wildfly4>wildfly-4</wildfly4>
-                                        <wildfly-load-balancer1>wildfly-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1017,7 +1040,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>${version.surefire.plugin}</version>
-                        <executions combine.children="append">
+                        <executions>
                             <!-- Multi-node clustering tests -->
                             <execution>
                                 <id>ts.surefire.clustering.fullha</id>
@@ -1036,28 +1059,10 @@
                                     </includes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <!-- required by arquillian.xml -->
-                                        <wildfly1>wildfly-1</wildfly1>
-                                        <wildfly2>wildfly-2</wildfly2>
-                                        <wildfly3>wildfly-3</wildfly3>
-                                        <wildfly4>wildfly-4</wildfly4>
-                                        <wildfly-load-balancer1>wildfly-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
+                                        <server.jvm.args>${server.jvm.args} -Djboss.messaging.cluster.password=testsuite-messaging-password</server.jvm.args>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3} -Djboss.messaging.cluster.password=testsuite-messaging-password</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1081,7 +1086,7 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
                         <version>${version.surefire.plugin}</version>
-                        <executions combine.children="append">
+                        <executions>
                             <!-- Single node clustering tests. -->
                             <execution>
                                 <id>ts.surefire.clustering.single</id>
@@ -1095,11 +1100,12 @@
                                         <include>org/jboss/as/test/clustering/single/**/*TestCase.java</include>
                                     </includes>
                                     <excludes>
-                                        <exclude>org/jboss/as/test/clustering/single/infinispan/**/*TestCase.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/single/infinispan/InfinispanModulesTestSuite.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/single/infinispan/cdi/**/*TestCase.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/single/infinispan/query/**/*TestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/single/web/NonHaWebSessionPersistenceTestCase.java</exclude>
                                     </excludes>
                                     <systemPropertyVariables combine.children="append">
-                                        <wildfly1>wildfly-1</wildfly1>
                                         <arquillian.launch>single</arquillian.launch>
                                         <jboss.server.config.file.name>standalone.xml</jboss.server.config.file.name>
                                     </systemPropertyVariables>
@@ -1118,7 +1124,6 @@
                                         <include>org/jboss/as/test/clustering/single/web/NonHaWebSessionPersistenceTestCase.java</include>
                                     </includes>
                                     <systemPropertyVariables combine.children="append">
-                                        <wildfly1>wildfly-1</wildfly1>
                                         <arquillian.launch>node-non-ha</arquillian.launch>
                                         <jboss.server.config.file.name>standalone.xml</jboss.server.config.file.name>
                                     </systemPropertyVariables>
@@ -1143,7 +1148,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <execution>
                                 <id>ts.surefire.clustering.single.testable</id>
                                 <phase>test</phase>
@@ -1159,13 +1164,8 @@
                                         <classpathDependencyExclude>org.jboss.arquillian.extension:arquillian-extension-byteman</classpathDependencyExclude>
                                     </classpathDependencyExcludes>
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <mcast>${mcast}</mcast>
                                         <arquillian.xml>arquillian-testable.xml</arquillian.xml>
                                         <jboss.server.config.file.name>standalone-ha.xml</jboss.server.config.file.name>
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1202,7 +1202,6 @@
                                     <!-- Needed for EJB client tests -->
                                     <useSystemClassLoader>true</useSystemClassLoader>
                                     <useManifestOnlyJar>true</useManifestOnlyJar>
-                                    <forkMode>once</forkMode>
                                     <environmentVariables>
                                         <BYTEMAN_HOME/>
                                     </environmentVariables>
@@ -1210,21 +1209,11 @@
                                         <include>${test-group}/**/byteman/*TestCase.java</include>
                                     </includes>
                                     <systemPropertyVariables combine.children="append">
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
+                                        <!-- Append required byteman args (-Djboss.modules.system.pkgs, -Xbootclasspath) to standard ${server.jvm.args} -->
+                                        <server.jvm.args>${server.jvm.args} ${surefire.byteman.args}</server.jvm.args>
                                         <arquillian.xml>arquillian-byteman.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Usual server JVM args plus additional Byteman args (-Djboss.modules.system.pkgs, -Xbootclasspath)-->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} ${surefire.byteman.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1248,7 +1237,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-surefire-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <execution>
                                 <id>ts.surefire.clustering.byteman</id>
                                 <phase>none</phase>
@@ -1286,21 +1275,9 @@
                                     <runOrder>alphabetical</runOrder>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                     <!-- Tests to execute. -->
                                     <includes>
@@ -1316,12 +1293,13 @@
                                         <exclude>org/jboss/as/test/clustering/cluster/cdi/**</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/infinispan/embedded/*TestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/infinispan/remote/*TestCase.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/cluster/jgroups/tls/**</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/singleton/SingletonPartitionTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/CoarseImmutableWebFailoverTestCase.java</exclude>
-                                        <exclude>org/jboss/as/test/clustering/cluster/web/CoarseWebFailoverTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/CoarseNonTransactionalWebFailoverTestCase.java</exclude>
-                                        <exclude>org/jboss/as/test/clustering/cluster/web/FineNonTransactionalWebFailoverTestCase.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/cluster/web/CoarseWebFailoverTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/FineImmutableWebFailoverTestCase.java</exclude>
+                                        <exclude>org/jboss/as/test/clustering/cluster/web/FineNonTransactionalWebFailoverTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/FineWebFailoverTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/ReplicationForNegotiationAuthenticatorTestCase.java</exclude>
                                         <exclude>org/jboss/as/test/clustering/cluster/web/context/InvalidateConversationTestCase.java</exclude>
@@ -1375,21 +1353,9 @@
                                     </includes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1407,21 +1373,9 @@
                                     </includes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -1443,21 +1397,9 @@
                                     </excludes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2156,7 +2098,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <execution>
                                 <id>ts.config-as.clustering.mod_cluster</id>
                                 <phase>process-test-classes</phase>
@@ -2305,13 +2247,6 @@
                                         <!-- Override the standard module path that points at the shared module set from dist.
                                         Have all the servers use wildfly-1 for the modules -->
                                         <module.path>${project.build.directory}/wildfly-1/modules${path.separator}${basedir}/target/modules</module.path>
-                                        <!-- required by arquillian.xml -->
-                                        <wildfly1>wildfly-1</wildfly1>
-                                        <wildfly2>wildfly-2</wildfly2>
-                                        <wildfly3>wildfly-3</wildfly3>
-                                        <wildfly4>wildfly-4</wildfly4>
-                                        <wildfly-load-balancer1>wildfly-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2327,13 +2262,11 @@
                                         <!-- Override the standard module path that points at the shared module set from dist.
                                         Have all the servers use wildfly-jpa-dist-1 for the modules -->
                                         <module.path>${project.build.directory}/wildfly-jpa-dist-1/modules${path.separator}${basedir}/target/modules</module.path>
-                                        <!-- required by arquillian.xml -->
                                         <wildfly1>wildfly-jpa-dist-1</wildfly1>
                                         <wildfly2>wildfly-jpa-dist-2</wildfly2>
                                         <wildfly3>wildfly-jpa-dist-3</wildfly3>
                                         <wildfly4>wildfly-jpa-dist-4</wildfly4>
                                         <wildfly-load-balancer1>wildfly-jpa-dist-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2350,25 +2283,12 @@
                                         <include>${test-group}/**/modcluster/*TestCase.java</include>
                                     </includes>
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                         <!-- Override the standard module path that points at the shared module set from dist.
                                         Have all the servers use wildfly-clustering-mod_cluster-1 for the modules -->
                                         <module.path>${project.build.directory}/wildfly-clustering-mod_cluster-1/modules${path.separator}${basedir}/target/modules</module.path>
-                                        <!-- arquillian.xml -->
                                         <wildfly1>wildfly-clustering-mod_cluster-1</wildfly1>
                                         <wildfly2>wildfly-clustering-mod_cluster-2</wildfly2>
                                         <wildfly3>wildfly-clustering-mod_cluster-3</wildfly3>
@@ -2401,31 +2321,17 @@
                                     </excludes>
                                     <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <node0>${node0}</node0>
-                                        <node1>${node1}</node1>
-                                        <node2>${node2}</node2>
-                                        <node3>${node3}</node3>
-                                        <mcast>${mcast}</mcast>
-                                        <mcast1>${mcast1}</mcast1>
-                                        <mcast2>${mcast2}</mcast2>
-                                        <mcast3>${mcast3}</mcast3>
                                         <arquillian.xml>arquillian.xml</arquillian.xml>
                                         <arquillian.launch>clustering-all</arquillian.launch>
                                         <jboss.server.config.file.name>standalone-full-ha.xml</jboss.server.config.file.name>
-                                        <!-- Override ${server.jvm.arg} to only include ${jvm.args.ip} but *not* include ${jvm.args.ip.server} -->
-                                        <server.jvm.args>${surefire.system.args} ${jvm.args.ip} ${jvm.args.other} ${jvm.args.timeouts} ${jvm.args.dirs} ${extra.server.jvm.args} -Dnode0=${node0} -Dnode1=${node1} -Dnode2=${node2} -Dnode3=${node3}</server.jvm.args>
-                                        <infinispan.server.home>${infinispan.server.home.template}</infinispan.server.home>
-                                        <infinispan.server.profile>${infinispan.server.profile.override}</infinispan.server.profile>
                                         <!-- Override the standard module path that points at the shared module set from dist.
                                         Have all the servers use wildfly-clustering-ejb-1 for the modules -->
                                         <module.path>${project.build.directory}/wildfly-clustering-ejb-1/modules${path.separator}${basedir}/target/modules</module.path>
-                                        <!-- required by arquillian.xml -->
                                         <wildfly1>wildfly-clustering-ejb-1</wildfly1>
                                         <wildfly2>wildfly-clustering-ejb-2</wildfly2>
                                         <wildfly3>wildfly-clustering-ejb-3</wildfly3>
                                         <wildfly4>wildfly-clustering-ejb-4</wildfly4>
                                         <wildfly-load-balancer1>wildfly-clustering-ejb-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2441,13 +2347,11 @@
                                         <!-- Override the standard module path that points at the shared module set from dist.
                                         Have all the servers use wildfly-clustering-jsf-1 for the modules -->
                                         <module.path>${project.build.directory}/wildfly-clustering-jsf-1/modules${path.separator}${basedir}/target/modules</module.path>
-                                        <!-- required by arquillian.xml -->
                                         <wildfly1>wildfly-clustering-jsf-1</wildfly1>
                                         <wildfly2>wildfly-clustering-jsf-2</wildfly2>
                                         <wildfly3>wildfly-clustering-jsf-3</wildfly3>
                                         <wildfly4>wildfly-clustering-jsf-4</wildfly4>
                                         <wildfly-load-balancer1>wildfly-clustering-jsf-load-balancer-1</wildfly-load-balancer1>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2565,7 +2469,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <!-- Turn off the standard execution -->
                             <execution>
                                 <id>ts.config-as.clustering</id>
@@ -2638,14 +2542,12 @@
                                 </goals>
                                 <configuration>
                                     <systemPropertyVariables>
-                                        <!-- required by arquillian.xml -->
                                         <wildfly1>wildfly-mp-dist-1</wildfly1>
                                         <wildfly2>wildfly-mp-dist-2</wildfly2>
                                         <wildfly3>wildfly-mp-dist-3</wildfly3>
                                         <wildfly4>wildfly-mp-dist-4</wildfly4>
                                         <wildfly-load-balancer1>wildfly-mp-dist-load-balancer-1</wildfly-load-balancer1>
                                         <jboss.server.config.file.name>standalone-microprofile-ha.xml</jboss.server.config.file.name>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2656,16 +2558,13 @@
                                     <goal>test</goal>
                                 </goals>
                                 <configuration>
-                                    <!-- Parameters to test cases. -->
                                     <systemPropertyVariables>
-                                        <!-- required by arquillian.xml -->
                                         <wildfly1>wildfly-mp-dist-1</wildfly1>
                                         <wildfly2>wildfly-mp-dist-2</wildfly2>
                                         <wildfly3>wildfly-mp-dist-3</wildfly3>
                                         <wildfly4>wildfly-mp-dist-4</wildfly4>
                                         <wildfly-load-balancer1>wildfly-mp-dist-load-balancer-1</wildfly-load-balancer1>
                                         <jboss.server.config.file.name>standalone-microprofile-ha.xml</jboss.server.config.file.name>
-                                        <!-- end required by arquillian.xml -->
                                     </systemPropertyVariables>
                                 </configuration>
                             </execution>
@@ -2864,7 +2763,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-antrun-plugin</artifactId>
-                        <executions combine.children="append">
+                        <executions>
                             <execution>
                                 <id>ts.config-as.clustering</id>
                                 <phase>none</phase>
@@ -2979,7 +2878,6 @@
                         <executions>
                             <execution>
                                 <id>ts.surefire.clustering.ha</id>
-                                <!--<phase>none</phase>-->
                                 <configuration>
                                     <excludes>
                                         <!-- This next section is a duplication of the usual excludes from the ts.clustering.cluster.ha.profile.
@@ -2999,7 +2897,6 @@
                             </execution>
                             <execution>
                                 <id>ts.surefire.clustering.fullha</id>
-                                <!--<phase>none</phase>-->
                                 <configuration>
                                     <excludes>
                                         <!-- Requires the /subsystem=messaging-activemq/server=default to exist for its setup tasks -->

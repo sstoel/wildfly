@@ -117,7 +117,7 @@ Then we need to define `outbound-socket-binding`-s for remote hosts:
 /socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=remote-host2:add(host=sv2.foo.com, port=8009)
 ----
 
-and than we add them as hosts to reverse proxy handler:
+and then we add them as hosts to reverse proxy handler:
 
 [source,options="nowrap"]
 ----
@@ -137,4 +137,4 @@ This is all there is to it. If you point your browser to http://localhost:8080/a
 you should be able to see the proxied content.
 
 The full details of all configuration options available can be found in
-the link:wildscribe/subsystem/undertow/index.html[subsystem reference^].
+the link:feature-pack/doc/reference/subsystem/undertow/index.html[/subsystem=undertow model reference].

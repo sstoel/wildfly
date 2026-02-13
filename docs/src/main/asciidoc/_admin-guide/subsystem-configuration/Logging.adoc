@@ -19,7 +19,7 @@ handlers). Each handler declares the log format and output.
 --
 
 [TIP]
-The WildFly Model Reference provides a complete description of the link:./wildscribe/subsystem/logging/index.html[management API for the `logging` subsystem].
+The WildFly Model Reference provides a complete description of the link:feature-pack/doc/reference/subsystem/logging/index.html[/subsystem=logging model reference].
 
 Here is an example of the `logging` subsystem XML configuration:
 
@@ -29,8 +29,8 @@ Here is an example of the `logging` subsystem XML configuration:
    <console-handler name="CONSOLE" autoflush="true">
        <level name="DEBUG"/>
        <formatter>
-           <named-formatter name="COLOR-PATTERN"/>
-       </formatter>
+           <named-formatter name="COLOR-PATTERN"/>
+       </formatter>
    </console-handler>
    <periodic-rotating-file-handler name="FILE" autoflush="true">
        <formatter>
@@ -51,11 +51,11 @@ Here is an example of the `logging` subsystem XML configuration:
        </handlers>
    </root-logger>
    <formatter name="PATTERN">
-       <pattern-formatter pattern="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/>
-   </formatter>
-   <formatter name="COLOR-PATTERN">
-       <pattern-formatter pattern="%K{level}%d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/>
-   </formatter>
+       <pattern-formatter pattern="%d{yyyy-MM-dd HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/>
+   </formatter>
+   <formatter name="COLOR-PATTERN">
+       <pattern-formatter pattern="%K{level}%d{HH:mm:ss,SSS} %-5p [%c] (%t) %s%e%n"/>
+   </formatter>
 </subsystem>
 ----
 

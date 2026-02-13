@@ -4,6 +4,7 @@
  */
 package org.wildfly.clustering.web.undertow.session;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
@@ -28,6 +29,7 @@ public class DistributableImmutableSession implements Session {
     private final long creationTime;
     private final long lastAccessedTime;
     private final int maxInactiveInterval;
+    private final boolean invalid;
 
     public DistributableImmutableSession(SessionManager manager, ImmutableSession session) {
         this.manager = manager;
@@ -35,8 +37,9 @@ public class DistributableImmutableSession implements Session {
         this.attributes = Map.copyOf(session.getAttributes());
         ImmutableSessionMetaData metaData = session.getMetaData();
         this.creationTime = metaData.getCreationTime().toEpochMilli();
-        this.lastAccessedTime = metaData.getLastAccessStartTime().toEpochMilli();
-        this.maxInactiveInterval = (int) metaData.getTimeout().getSeconds();
+        this.lastAccessedTime = metaData.getLastAccessStartTime().orElse(metaData.getCreationTime()).toEpochMilli();
+        this.maxInactiveInterval = metaData.getMaxIdle().map(Duration::getSeconds).orElse(-1L).intValue();
+        this.invalid = !session.isValid();
     }
 
     @Override
@@ -102,5 +105,12 @@ public class DistributableImmutableSession implements Session {
     @Override
     public String changeSessionId(HttpServerExchange exchange, SessionConfig config) {
         return null;
+    }
+
+    /*
+     * New method in io.undertow.server.session.Session that can add the @Override annotation when Undertow is upgraded
+     */
+    public boolean isInvalid() {
+        return this.invalid;
     }
 }

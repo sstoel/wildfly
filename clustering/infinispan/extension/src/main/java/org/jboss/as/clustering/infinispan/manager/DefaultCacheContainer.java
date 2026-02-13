@@ -7,39 +7,36 @@ package org.jboss.as.clustering.infinispan.manager;
 
 import static org.infinispan.util.logging.Log.CONFIG;
 
-import java.lang.annotation.Annotation;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletionStage;
 
 import javax.security.auth.Subject;
 
 import org.infinispan.AdvancedCache;
 import org.infinispan.Cache;
-import org.infinispan.cache.impl.AbstractDelegatingAdvancedCache;
 import org.infinispan.commons.dataconversion.MediaType;
 import org.infinispan.commons.util.AggregatedClassLoader;
 import org.infinispan.configuration.cache.CacheMode;
 import org.infinispan.configuration.cache.Configuration;
+import org.infinispan.configuration.cache.EncodingConfiguration;
 import org.infinispan.factories.GlobalComponentRegistry;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.infinispan.manager.EmbeddedCacheManagerAdmin;
 import org.infinispan.manager.impl.AbstractDelegatingEmbeddedCacheManager;
-import org.infinispan.notifications.cachelistener.filter.CacheEventConverter;
-import org.infinispan.notifications.cachelistener.filter.CacheEventFilter;
 import org.infinispan.remoting.transport.Address;
-import org.infinispan.remoting.transport.LocalModeAddress;
 import org.jboss.as.clustering.infinispan.dataconversion.MediaTypeFactory;
 import org.jboss.as.clustering.infinispan.marshalling.MarshallerFactory;
 import org.jboss.as.clustering.infinispan.marshalling.UserMarshallerFactory;
 import org.jboss.modules.ModuleLoader;
+import org.wildfly.clustering.cache.infinispan.embedded.AdvancedCacheDecorator;
 import org.wildfly.clustering.cache.infinispan.embedded.marshall.EncoderRegistry;
 import org.wildfly.clustering.cache.infinispan.marshalling.MarshalledValueTranscoder;
 import org.wildfly.clustering.cache.infinispan.marshalling.MediaTypes;
+import org.wildfly.clustering.cache.infinispan.marshalling.UserMarshaller;
 import org.wildfly.clustering.marshalling.ByteBufferMarshalledKeyFactory;
 import org.wildfly.clustering.marshalling.ByteBufferMarshalledValueFactory;
 import org.wildfly.clustering.marshalling.ByteBufferMarshaller;
@@ -66,19 +63,19 @@ public class DefaultCacheContainer extends AbstractDelegatingEmbeddedCacheManage
     @Override
     public Address getAddress() {
         Address address = super.getAddress();
-        return (address != null) ? address : LocalModeAddress.INSTANCE;
+        return (address != null) ? address : Address.LOCAL;
     }
 
     @Override
     public Address getCoordinator() {
         Address coordinator = super.getCoordinator();
-        return (coordinator != null) ? coordinator : LocalModeAddress.INSTANCE;
+        return (coordinator != null) ? coordinator : Address.LOCAL;
     }
 
     @Override
     public List<Address> getMembers() {
         List<Address> members = super.getMembers();
-        return (members != null) ? members : Collections.singletonList(LocalModeAddress.INSTANCE);
+        return (members != null) ? members : Collections.singletonList(Address.LOCAL);
     }
 
     @Override
@@ -113,15 +110,15 @@ public class DefaultCacheContainer extends AbstractDelegatingEmbeddedCacheManage
         Configuration configuration = cache.getCacheConfiguration();
         CacheMode mode = configuration.clustering().cacheMode();
         boolean hasStore = configuration.persistence().usingStores();
-        // Bypass deployment-specific media types for local cache w/out a store or if using a non-ProtoStream marshaller
-        if ((!mode.isClustered() && !hasStore) || !this.cm.getCacheManagerConfiguration().serialization().marshaller().mediaType().equals(MediaTypes.WILDFLY_PROTOSTREAM.get())) {
+        // Bypass deployment-specific media types for heap-based local cache w/out a store or if using a non-ProtoStream marshaller
+        if ((!mode.isClustered() && !hasStore && configuration.memory().storage().canStoreReferences()) || !this.cm.getCacheManagerConfiguration().serialization().marshaller().mediaType().equals(MediaTypes.WILDFLY_PROTOSTREAM.get())) {
             return new DefaultCache<>(this, cache);
         }
         ClassLoader loader = WildFlySecurityManager.getCurrentContextClassLoaderPrivileged();
         Map.Entry<MediaType, MediaType> types = MediaTypeFactory.INSTANCE.apply(loader);
         MediaType keyType = types.getKey();
         MediaType valueType = (!mode.isInvalidation() || hasStore) ? types.getValue() : MediaType.APPLICATION_OBJECT;
-        EncoderRegistry registry = (EncoderRegistry) GlobalComponentRegistry.of(this.cm).getComponent(org.infinispan.marshall.core.EncoderRegistry.class);
+        EncoderRegistry registry = (EncoderRegistry) GlobalComponentRegistry.componentOf(this.cm, org.infinispan.marshall.core.EncoderRegistry.class);
         synchronized (registry) {
             boolean registerKeyMediaType = !registry.isConversionSupported(keyType, MediaType.APPLICATION_OBJECT);
             boolean registerValueMediaType = !registry.isConversionSupported(valueType, MediaType.APPLICATION_OBJECT);
@@ -136,14 +133,16 @@ public class DefaultCacheContainer extends AbstractDelegatingEmbeddedCacheManage
                 ByteBufferMarshaller marshaller = this.marshallerFactory.createByteBufferMarshaller(this.loader, List.of(WildFlySecurityManager.doUnchecked(action)));
                 if (registerKeyMediaType) {
                     MarshalledValueFactory<ByteBufferMarshaller> keyFactory = new ByteBufferMarshalledKeyFactory(marshaller);
-                    registry.registerTranscoder(new MarshalledValueTranscoder<>(keyType, keyFactory));
+                    registry.registerTranscoder(new MarshalledValueTranscoder<>(keyType, keyFactory, new UserMarshaller(keyType, marshaller)));
                 }
                 if (registerValueMediaType) {
                     MarshalledValueFactory<ByteBufferMarshaller> valueFactory = new ByteBufferMarshalledValueFactory(marshaller);
-                    registry.registerTranscoder(new MarshalledValueTranscoder<>(valueType, valueFactory));
+                    registry.registerTranscoder(new MarshalledValueTranscoder<>(valueType, valueFactory, new UserMarshaller(valueType, marshaller)));
                 }
             }
-            return new DefaultCache<>(this, cache.getAdvancedCache().withMediaType(keyType, valueType)) {
+            AdvancedCache<K, V> advancedCache = cache.getAdvancedCache();
+            EncodingConfiguration encoding = configuration.encoding();
+            return new DefaultCache<>(this, encoding.keyDataType().mediaType().equals(keyType) && encoding.valueDataType().mediaType().equals(valueType) ? advancedCache : advancedCache.withMediaType(keyType, valueType)) {
                 @Override
                 public void stop() {
                     super.stop();
@@ -240,7 +239,7 @@ public class DefaultCacheContainer extends AbstractDelegatingEmbeddedCacheManage
         return this.getCacheManagerConfiguration().cacheManagerName();
     }
 
-    private static class DefaultCache<K, V> extends AbstractDelegatingAdvancedCache<K, V> {
+    private static class DefaultCache<K, V> extends AdvancedCacheDecorator<K, V> {
         private final EmbeddedCacheManager manager;
 
         DefaultCache(EmbeddedCacheManager manager, Cache<K, V> cache) {
@@ -248,115 +247,13 @@ public class DefaultCacheContainer extends AbstractDelegatingEmbeddedCacheManage
         }
 
         DefaultCache(EmbeddedCacheManager manager, AdvancedCache<K, V> cache) {
-            super(cache);
+            super(cache, decorated -> new DefaultCache<>(manager, decorated));
             this.manager = manager;
         }
 
         @Override
         public EmbeddedCacheManager getCacheManager() {
             return this.manager;
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (!(object instanceof Cache)) return false;
-            Cache<?, ?> cache = (Cache<?, ?>) object;
-            return this.manager.equals(cache.getCacheManager()) && this.getName().equals(cache.getName());
-        }
-
-        @Override
-        public int hashCode() {
-            return this.cache.hashCode();
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public AdvancedCache rewrap(AdvancedCache delegate) {
-            return new DefaultCache<>(this.manager, delegate);
-        }
-
-        @Override
-        public void addListener(Object listener) {
-            AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public Void run() {
-                    DefaultCache.super.addListener(listener);
-                    return null;
-                }
-            });
-        }
-
-        @Override
-        public CompletionStage<Void> addListenerAsync(Object listener) {
-            return AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public CompletionStage<Void> run() {
-                    return DefaultCache.super.addListenerAsync(listener);
-                }
-            });
-        }
-
-        @Override
-        public <C> void addListener(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter) {
-            AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public Void run() {
-                    DefaultCache.super.addListener(listener, filter, converter);
-                    return null;
-                }
-            });
-        }
-
-        @Override
-        public <C> CompletionStage<Void> addListenerAsync(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter) {
-            return AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public CompletionStage<Void> run() {
-                    return DefaultCache.super.addListenerAsync(listener, filter, converter);
-                }
-            });
-        }
-
-        @Override
-        public <C> void addFilteredListener(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter, Set<Class<? extends Annotation>> filterAnnotations) {
-            AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public Void run() {
-                    DefaultCache.super.addFilteredListener(listener, filter, converter, filterAnnotations);
-                    return null;
-                }
-            });
-        }
-
-        @Override
-        public <C> CompletionStage<Void> addFilteredListenerAsync(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter, Set<Class<? extends Annotation>> filterAnnotations) {
-            return AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public CompletionStage<Void> run() {
-                    return DefaultCache.super.addFilteredListenerAsync(listener, filter, converter, filterAnnotations);
-                }
-            });
-        }
-
-        @Override
-        public <C> void addStorageFormatFilteredListener(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter, Set<Class<? extends Annotation>> filterAnnotations) {
-            AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public Void run() {
-                    DefaultCache.super.addStorageFormatFilteredListener(listener, filter, converter, filterAnnotations);
-                    return null;
-                }
-            });
-        }
-
-        @Override
-        public <C> CompletionStage<Void> addStorageFormatFilteredListenerAsync(Object listener, CacheEventFilter<? super K, ? super V> filter, CacheEventConverter<? super K, ? super V, C> converter, Set<Class<? extends Annotation>> filterAnnotations) {
-            return AccessController.doPrivileged(new PrivilegedAction<>() {
-                @Override
-                public CompletionStage<Void> run() {
-                    return DefaultCache.super.addStorageFormatFilteredListenerAsync(listener, filter, converter, filterAnnotations);
-                }
-            });
         }
     }
 }
