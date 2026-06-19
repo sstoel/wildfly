@@ -3,7 +3,7 @@
   ~ Copyright The WildFly Authors
   ~ SPDX-License-Identifier: Apache-2.0
   -->
-<infinispan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<infinispan
         xmlns="urn:infinispan:config:15.1"
         xmlns:server="urn:infinispan:server:15.1">
 
@@ -35,7 +35,7 @@
         </interfaces>
 
         <socket-bindings default-interface="public" port-offset="${infinispan.socket.binding.port-offset:0}">
-            <socket-binding name="default" port="${infinispan.bind.port:11222}"/>
+            <socket-binding name="default" port="${infinispan.bind.port:11322}"/>
         </socket-bindings>
 
         <security>

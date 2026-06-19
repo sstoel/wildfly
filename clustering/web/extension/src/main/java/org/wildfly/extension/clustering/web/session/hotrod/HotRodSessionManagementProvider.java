@@ -6,7 +6,7 @@
 package org.wildfly.extension.clustering.web.session.hotrod;
 
 import java.util.function.Consumer;
-import java.util.function.Supplier;
+import java.util.function.Function;
 
 import jakarta.servlet.ServletContext;
 
@@ -22,6 +22,7 @@ import org.jboss.modules.Module;
 import org.wildfly.clustering.cache.infinispan.marshalling.MediaTypes;
 import org.wildfly.clustering.cache.infinispan.marshalling.UserMarshaller;
 import org.wildfly.clustering.cache.infinispan.remote.RemoteCacheConfiguration;
+import org.wildfly.clustering.cache.infinispan.remote.transaction.RemoteTransactionManagerLookup;
 import org.wildfly.clustering.infinispan.client.service.HotRodServiceDescriptor;
 import org.wildfly.clustering.infinispan.client.service.RemoteCacheConfigurationServiceInstallerFactory;
 import org.wildfly.clustering.infinispan.client.service.RemoteCacheServiceInstallerFactory;
@@ -35,8 +36,8 @@ import org.wildfly.clustering.web.service.deployment.WebDeploymentServiceDescrip
 import org.wildfly.clustering.web.service.routing.RouteLocatorProvider;
 import org.wildfly.clustering.web.service.session.DistributableSessionManagementConfiguration;
 import org.wildfly.clustering.web.service.session.SessionManagerFactoryConfiguration;
-import org.wildfly.common.function.Functions;
 import org.wildfly.extension.clustering.web.session.AbstractSessionManagementProvider;
+import org.wildfly.service.BlockingLifecycle;
 import org.wildfly.subsystem.service.DeploymentServiceInstaller;
 import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
@@ -55,6 +56,9 @@ public class HotRodSessionManagementProvider extends AbstractSessionManagementPr
             "value" : {
                 "media-type" : "application/octet-stream"
             }
+        },
+        "locking" : {
+            "isolation" : "REPEATABLE_READ"
         },
         "mode" : "SYNC",
         "transaction" : {
@@ -78,8 +82,7 @@ public class HotRodSessionManagementProvider extends AbstractSessionManagementPr
         Consumer<RemoteCacheConfigurationBuilder> configurator = new Consumer<>() {
             @Override
             public void accept(RemoteCacheConfigurationBuilder builder) {
-                // Near caching not compatible with max-idle expiration.
-                builder.forceReturnValues(false).marshaller(marshaller).nearCacheMode(NearCacheMode.DISABLED).transactionMode(TransactionMode.NONE);
+                builder.forceReturnValues(false).marshaller(marshaller).nearCacheMode(NearCacheMode.DISABLED).transactionMode(TransactionMode.NON_XA).transactionManagerLookup(RemoteTransactionManagerLookup.INSTANCE);
                 if (templateName != null) {
                     builder.templateName(templateName);
                 } else {
@@ -90,18 +93,17 @@ public class HotRodSessionManagementProvider extends AbstractSessionManagementPr
         DeploymentServiceInstaller configurationInstaller = new RemoteCacheConfigurationServiceInstallerFactory(configurator).apply(deploymentCacheConfiguration);
         DeploymentServiceInstaller cacheInstaller = RemoteCacheServiceInstallerFactory.INSTANCE.apply(deploymentCacheConfiguration);
 
-        ServiceDependency<RemoteCache<?, ?>> remoteCache = deploymentCacheConfiguration.getServiceDependency(HotRodServiceDescriptor.REMOTE_CACHE);
-        RemoteCacheConfiguration cacheConfiguration = new RemoteCacheConfiguration() {
+        DataFormat format = DataFormat.builder().keyType(MediaType.APPLICATION_OCTET_STREAM).keyMarshaller(marshaller).valueType(MediaType.APPLICATION_OCTET_STREAM).valueMarshaller(marshaller).build();
+        ServiceDependency<SessionManagerFactory<ServletContext, C>> factory = deploymentCacheConfiguration.getServiceDependency(HotRodServiceDescriptor.REMOTE_CACHE).map(new Function<>() {
             @Override
-            public <CK, CV> RemoteCache<CK, CV> getCache() {
-                RemoteCache<?, ?> cache = remoteCache.get();
-                return cache.withDataFormat(DataFormat.builder().keyType(MediaType.APPLICATION_OCTET_STREAM).keyMarshaller(marshaller).valueType(MediaType.APPLICATION_OCTET_STREAM).valueMarshaller(marshaller).build());
-            }
-        };
-        Supplier<SessionManagerFactory<ServletContext, C>> factory = new Supplier<>() {
-            @Override
-            public SessionManagerFactory<ServletContext, C> get() {
-                return new HotRodSessionManagerFactory<>(new HotRodSessionManagerFactory.Configuration<C>() {
+            public SessionManagerFactory<ServletContext, C> apply(RemoteCache<?, ?> cache) {
+                RemoteCacheConfiguration config = new RemoteCacheConfiguration() {
+                    @Override
+                    public <CK, CV> RemoteCache<CK, CV> getCache() {
+                        return cache.withDataFormat(format);
+                    }
+                };
+                return new HotRodSessionManagerFactory<>(new HotRodSessionManagerFactory.Configuration<>() {
                     @Override
                     public SessionManagerFactoryConfiguration<C> getSessionManagerFactoryConfiguration() {
                         return configuration;
@@ -109,15 +111,14 @@ public class HotRodSessionManagementProvider extends AbstractSessionManagementPr
 
                     @Override
                     public RemoteCacheConfiguration getCacheConfiguration() {
-                        return cacheConfiguration;
+                        return config;
                     }
                 });
             }
-        };
-        DeploymentServiceInstaller installer = ServiceInstaller.builder(factory)
+        });
+        DeploymentServiceInstaller installer = ServiceInstaller.BlockingBuilder.of(factory)
                 .provides(WebDeploymentServiceDescriptor.SESSION_MANAGER_FACTORY.resolve(configuration.getDeploymentUnit()))
-                .requires(remoteCache)
-                .onStop(Functions.closingConsumer())
+                .withLifecycle(BlockingLifecycle.autoClose())
                 .build();
 
         return DeploymentServiceInstaller.combine(configurationInstaller, cacheInstaller, installer);

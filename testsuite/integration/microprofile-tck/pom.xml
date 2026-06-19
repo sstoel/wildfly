@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-integ-mp</artifactId>
@@ -27,7 +27,9 @@
         <jbossas.ts.integ.dir>${basedir}/..</jbossas.ts.integ.dir>
         <jbossas.ts.dir>${jbossas.ts.integ.dir}/..</jbossas.ts.dir>
         <jbossas.project.dir>${jbossas.ts.dir}/..</jbossas.project.dir>
-        <wildfly.build.output.dir>build/target/${server.output.dir.prefix}-${server.output.dir.version}</wildfly.build.output.dir>
+        <!-- For expansion tests we always use the 'build' module for pre-built installations, not 'ee-build'
+             So exclude ${testsuite.default.build.project.prefix} from the path -->
+        <wildfly.build.output.dir>${testsuite.default.build.project.root}build/target/${server.output.dir.prefix}-${server.output.dir.qualifier}${server.output.dir.version}</wildfly.build.output.dir>
         <maven.repo.local>${settings.localRepository}</maven.repo.local>
         <microprofile.jvm.args>-server -Xms64m -Xmx512m ${modular.jdk.args} -Dmaven.repo.local=${maven.repo.local}</microprofile.jvm.args>
         <!-- Properties that set the phase used for different plugin executions.
@@ -58,18 +60,6 @@
         <version.rest-client>${version.org.eclipse.microprofile.rest.client.api}</version.rest-client>
         <version.telemetry>${version.org.eclipse.microprofile.telemetry}</version.telemetry>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.wildfly</groupId>
-                <artifactId>${dependency.management.import.test.artifact}</artifactId>
-                <version>${ee.maven.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <!-- TODO confirm if this is needed -->
@@ -112,13 +102,6 @@
                 <groupId>org.wildfly.glow</groupId>
                 <artifactId>wildfly-glow-arquillian-plugin</artifactId>
                 <configuration>
-                    <feature-packs>
-                        <feature-pack>
-                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                            <version>${testsuite.full.galleon.pack.version}</version>
-                        </feature-pack>
-                    </feature-packs>
                     <config-name>${ts.microprofile-tck-glow.config.name}</config-name>
                     <dependenciesToScan>
                         <dependency>${ts.microprofile-tck-tests-dependency}</dependency>
@@ -142,7 +125,6 @@
             <plugin>
                 <groupId>org.wildfly.plugins</groupId>
                 <artifactId>wildfly-maven-plugin</artifactId>
-                <version>${version.org.wildfly.plugin}</version>
                 <configuration>
                     <overwrite-provisioned-server>true</overwrite-provisioned-server>
                     <record-provisioning-state>false</record-provisioning-state>
@@ -248,7 +230,21 @@
             </build>
         </profile>
 
-        <!-- Test against the ee 9 feature pack -->
+        <profile>
+            <id>preview-server-tests-config</id>
+            <activation>
+                <property>
+                    <name>preview-server-tests</name>
+                </property>
+            </activation>
+            <properties>
+                <!-- Use the WFP dependencies -->
+                <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
+                <dependency.management.import.test.artifact>wildfly-preview-test-expansion-bom</dependency.management.import.test.artifact>
+            </properties>
+        </profile>
+
+        <!-- Test against the ee 9 feature-pack -->
         <profile>
             <id>preview.test.profile</id>
             <activation>
@@ -261,11 +257,6 @@
                 <maven.repo.local>${settings.localRepository}</maven.repo.local>
                 <!-- Disable the standard copy-based provisioning -->
                 <ts.copy-wildfly.phase>none</ts.copy-wildfly.phase>
-                <!-- Use the WFP dependencyManagement set.
-                     This is set in this profile in a parent module, but the explicit global override
-                     in this module takes precedence. -->
-                <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
-                <dependency.management.import.test.artifact>wildfly-preview-test-expansion-bom</dependency.management.import.test.artifact>
             </properties>
             <build>
                 <plugins>
@@ -319,7 +310,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <!-- Provision a server slimmed to only what we want for a particular TCK. -->
                             <execution>
@@ -393,8 +383,6 @@
                 <maven.repo.local>${settings.localRepository}</maven.repo.local>
                 <!-- Disable the standard copy-based provisioning -->
                 <ts.copy-wildfly.phase>none</ts.copy-wildfly.phase>
-                <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
-                <dependency.management.import.test.artifact>wildfly-preview-test-expansion-bom</dependency.management.import.test.artifact>
             </properties>
             <build>
                 <plugins>

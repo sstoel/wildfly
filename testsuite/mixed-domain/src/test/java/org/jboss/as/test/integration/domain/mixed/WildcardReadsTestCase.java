@@ -33,24 +33,25 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.test.integration.domain.management.util.DomainTestSupport;
-import org.jboss.as.test.shared.TimeoutUtil;
+import org.jboss.as.test.integration.domain.management.util.DomainTestUtils;
+import org.jboss.as.test.integration.management.util.MgmtOperationException;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 import org.jboss.dmr.ValueExpression;
+import org.jboss.logging.Logger;
 import org.junit.AfterClass;
-import org.junit.Before;
 import org.junit.Test;
 
 /**
@@ -59,7 +60,7 @@ import org.junit.Test;
  * @author Brian Stansberry
  */
 public class WildcardReadsTestCase {
-
+    private static final Logger LOG = Logger.getLogger(WildcardReadsTestCase.class);
     private static final PathElement HOST_WILD = PathElement.pathElement(HOST);
     private static final PathElement HOST_PRIMARY = PathElement.pathElement(HOST, "primary");
     private static final PathElement HOST_SECONDARY = PathElement.pathElement(HOST, "secondary");
@@ -76,49 +77,33 @@ public class WildcardReadsTestCase {
     private static final Set<String> VALID_STATES = new HashSet<>(Arrays.asList("running", "stopped"));
 
     private static DomainTestSupport support;
-    private static Boolean primaryServerOneStarted;
     protected static Version.AsVersion version;
 
-    @Before
-    public void init() throws Exception {
-        support = KernelBehaviorTestSuite.getSupport(this.getClass());
-        version = this.getClass().getAnnotation(Version.class).value();
-
-        if (primaryServerOneStarted == null) {
-            String state = readPrimaryServerOneState();
-            primaryServerOneStarted = "running".equalsIgnoreCase(state);
+    public static void setup(Class<?> testClass) {
+        support = KernelBehaviorTestSuite.getSupport(testClass);
+        version = testClass.getAnnotation(Version.class).value();
+        try {
+            DomainTestUtils.startServer(support.getDomainPrimaryLifecycleUtil().getDomainClient(),
+                    HOST_PRIMARY.getValue(),
+                    SERVER_ONE.getValue());
+            DomainTestUtils.waitUntilState(support.getDomainPrimaryLifecycleUtil().getDomainClient(),
+                    PathAddress.pathAddress(HOST_PRIMARY, SERVER_CONFIG_ONE),
+                    "STARTED"
+                    );
+        } catch (IOException | MgmtOperationException e) {
+            LOG.error("Failed to wait for primary/server-one to start", e);
+            fail("Failed to wait for primary/server-one to start");
         }
-        if (!primaryServerOneStarted) {
-            ModelNode op = Util.createEmptyOperation("start", PathAddress.pathAddress(HOST_PRIMARY, SERVER_CONFIG_ONE));
-            executeForResult(op, ModelType.STRING);
-
-            String state;
-            long timeout = System.currentTimeMillis() + TimeoutUtil.adjust(30000);
-            while (!"running".equalsIgnoreCase(state = readPrimaryServerOneState())
-                    && System.currentTimeMillis() < timeout) {
-                TimeUnit.MILLISECONDS.sleep(25);
-            }
-            assertNotNull("Could not start primary/server-one", state);
-            assertEquals("Could not start primary/server-one", "running", state.toLowerCase(Locale.ENGLISH));
-        }
-    }
-
-    private static String readPrimaryServerOneState() throws IOException {
-        ModelNode op = Util.getReadAttributeOperation(PathAddress.pathAddress(HOST_PRIMARY, SERVER_ONE), "server-state");
-        ModelNode response = support.getDomainPrimaryLifecycleUtil().getDomainClient().execute(op);
-        if (SUCCESS.equals(response.get(OUTCOME).asString())) {
-            return response.get(RESULT).asString();
-        }
-        return null;
     }
 
     @AfterClass
     public static synchronized void afterClass() {
-        if (primaryServerOneStarted == Boolean.FALSE) {
-            ModelNode op = Util.createEmptyOperation("stop", PathAddress.pathAddress(HOST_PRIMARY, SERVER_CONFIG_ONE));
+        try {
+            ModelNode op = Util.createEmptyOperation("stop", PathAddress.pathAddress(HOST_PRIMARY, SERVER_ONE));
             executeForResult(op, ModelType.STRING);
+        } finally {
+            KernelBehaviorTestSuite.afterClass();
         }
-        KernelBehaviorTestSuite.afterClass();
     }
 
     @Test

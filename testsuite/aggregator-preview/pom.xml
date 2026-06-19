@@ -7,7 +7,7 @@
 
 <!--
     This module provides various profiles that enable the execution of other modules that test functionality provided
-    via WildFly Preview (i.e. provisioned via wildfly-preview feature pack).
+    via WildFly Preview (i.e. provisioned via wildfly-preview feature-pack).
 
     It should not be used as the parent of those modules.
 -->
@@ -23,7 +23,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -32,7 +32,7 @@
 
     <name>WildFly Test Suite: Preview Aggregator</name>
     <description>Controls execution of testsuite modules relevant to testing functionality
-        available via the wildfly-preview feature pack</description>
+        available via the wildfly-preview feature-pack</description>
 
     <properties>
         <!-- Don't try to deploy the module -->
@@ -92,7 +92,7 @@
                 <module>../integration/microprofile-tck</module>
                 <module>../integration/vdx</module>
                 <module>../integration/rbac</module>
-                <module>../integration/legacy</module>
+                <module>../integration/hornetq-client</module>
                 <module>../preview</module>
                 <!-- TODO WFLY-20375 Probably just use ts.layers for these next two
                      and remove them from here. -->

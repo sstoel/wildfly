@@ -11,7 +11,7 @@ on:
 env:
   # The modules to check for dependencies. If there is more than one they are comma separated
   MODULES_TO_CHECK: ee-feature-pack/galleon-shared,ee-feature-pack/galleon-local,galleon-pack/galleon-shared,galleon-pack/galleon-local,galleon-pack,ee-feature-pack/common,microprofile/galleon-common,servlet-feature-pack/common,elytron-oidc-client/galleon-common
-  ADDITIONAL_BUILD_MODULES: boms/common-ee,boms/common-expansion,boms/standard-ee,boms/standard-expansion,boms/standard-test
+  ADDITIONAL_BUILD_MODULES: boms/common-ee,boms/common-expansion,boms/standard-legacy-ee,boms/standard-preview-ee,boms/standard-ee,boms/standard-expansion,boms/standard-test
 jobs:
   check:
     runs-on: ubuntu-latest
@@ -32,7 +32,7 @@ jobs:
           echo "artifacts=${ARTIFACTS}" >> $GITHUB_OUTPUT
 
       - name: Clone base version
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.prepare.outputs.base }}
           path: base
@@ -53,7 +53,7 @@ jobs:
             ${{ runner.os }}-maven-
 
       - name: Clone PR version
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           path: pr
 
@@ -185,7 +185,7 @@ jobs:
           done
           echo "${newVersionFiles}" > ${ARTIFACTS}/newVersions
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: input-artifacts
           path: ${{ steps.prepare.outputs.artifacts }}

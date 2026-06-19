@@ -211,9 +211,10 @@ public class InfinispanTransformersTestCase extends AbstractSubsystemTest {
                             }
                         }
                     }
-                    if (this.subsystemVersion.getMajor() > 14 && InfinispanSubsystemModel.VERSION_20_0_0.requiresTransformation(this.subsystemVersion)) {
+                    if (!InfinispanSubsystemModel.VERSION_16_0_0.requiresTransformation(this.subsystemVersion)) {
                         if (cacheModel.hasDefined(ComponentResourceRegistration.PARTITION_HANDLING.getPathElement().getKeyValuePair())) {
                             ModelNode partitionHandlingModel = cacheModel.get(ComponentResourceRegistration.PARTITION_HANDLING.getPathElement().getKeyValuePair());
+                            // This is now a runtime-only attribute
                             partitionHandlingModel.get("enabled").set(new ModelNode());
                         }
                     }
@@ -263,6 +264,11 @@ public class InfinispanTransformersTestCase extends AbstractSubsystemTest {
         PathAddress containerAddress = subsystemAddress.append(CacheContainerResourceDefinitionRegistrar.REGISTRATION.getPathElement());
         PathAddress remoteContainerAddress = subsystemAddress.append(RemoteCacheContainerResourceDefinitionRegistrar.REGISTRATION.getPathElement());
         List<String> rejectedRemoteContainerAttributes = new LinkedList<>();
+
+        if (InfinispanSubsystemModel.VERSION_22_0_0.requiresTransformation(this.subsystemVersion)) {
+            config.addFailedAttribute(containerAddress.append(CacheResourceRegistration.REPLICATED.pathElement("repl")), new FailedOperationTransformationConfig.NewAttributesConfig(SegmentedCacheResourceDefinitionRegistrar.SEGMENTS));
+            config.addFailedAttribute(containerAddress.append(CacheResourceRegistration.INVALIDATION.pathElement("invalid")), new FailedOperationTransformationConfig.NewAttributesConfig(SegmentedCacheResourceDefinitionRegistrar.SEGMENTS));
+        }
 
         if (InfinispanSubsystemModel.VERSION_16_0_0.requiresTransformation(this.subsystemVersion)) {
             config.addFailedAttribute(containerAddress.append(CacheResourceRegistration.REPLICATED.pathElement("repl"), ComponentResourceRegistration.PARTITION_HANDLING.getPathElement()), new FailedOperationTransformationConfig.NewAttributesConfig(PartitionHandlingResourceDefinitionRegistrar.MERGE_POLICY));

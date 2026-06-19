@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-jms-client-bom-builder</artifactId>
@@ -93,12 +93,12 @@
                                 <!-- artemis jakarta jms client, the main artifact -->
                                 <!-- replaces org.apache.activemq:artemis-jms-client -->
                                 <dependency>
-                                    <groupId>org.apache.activemq</groupId>
+                                    <groupId>org.apache.artemis</groupId>
                                     <artifactId>artemis-jakarta-client</artifactId>
                                 </dependency>
                                 <!-- required to allow Artemis client to connect to HornetQ servers -->
                                 <dependency>
-                                    <groupId>org.apache.activemq</groupId>
+                                    <groupId>org.apache.artemis</groupId>
                                     <artifactId>artemis-hqclient-protocol</artifactId>
                                 </dependency>
                                 <!-- Required by the artemis-core-client, replaces geronimo's json spec artifact -->

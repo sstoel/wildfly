@@ -29,7 +29,10 @@ import org.apache.activemq.artemis.api.jms.JMSFactoryType;
 import org.jboss.as.controller.AbstractAddStepHandler;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
+import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
+import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
+import org.jboss.as.controller.registry.ImmutableManagementResourceRegistration;
 import org.jboss.as.controller.registry.Resource;
 import org.jboss.as.network.OutboundSocketBinding;
 import org.jboss.as.network.SocketBinding;
@@ -76,7 +79,7 @@ public class ExternalConnectionFactoryAdd extends AbstractAddStepHandler {
         final ExternalConnectionFactoryConfiguration config = createConfiguration(context, name, model);
         JMSFactoryType jmsFactoryType = ConnectionFactoryType.valueOf(ConnectionFactoryAttributes.Regular.FACTORY_TYPE.resolveModelAttribute(context, model).asString()).getType();
         List<String> connectorNames = Common.CONNECTORS.unwrap(context, model);
-        ServiceBuilder<?> builder = context.getServiceTarget()
+        ServiceBuilder<?> builder = context.getCapabilityServiceTarget()
                 .addService(serviceName)
                 .addAliases(JMSServices.getConnectionFactoryBaseServiceName(MessagingServices.getActiveMQServiceName()).append(name));
         ExternalConnectionFactoryService service;
@@ -137,7 +140,7 @@ public class ExternalConnectionFactoryAdd extends AbstractAddStepHandler {
         builder.install();
         for (String entry : Common.ENTRIES.unwrap(context, model)) {
             MessagingLogger.ROOT_LOGGER.debugf("Referencing %s with JNDI name %s", serviceName, entry);
-            BinderServiceUtil.installBinderService(context.getServiceTarget(), entry, service, serviceName);
+            BinderServiceUtil.installBinderService(context.getCapabilityServiceTarget(), entry, service, serviceName);
         }
     }
 
@@ -246,8 +249,10 @@ public class ExternalConnectionFactoryAdd extends AbstractAddStepHandler {
     }
 
     @Override
-    protected void populateModel(final ModelNode operation, final ModelNode model) throws OperationFailedException {
-        for (AttributeDefinition attr : attributes) {
+    protected void populateModel(final OperationContext context, final ModelNode operation, final Resource resource) throws  OperationFailedException {
+        ImmutableManagementResourceRegistration registration = context.getResourceRegistration();
+        ModelNode model = resource.getModel();
+        for (AttributeDefinition attr : registration.getOperationEntry(PathAddress.EMPTY_ADDRESS, ModelDescriptionConstants.ADD).getOperationDefinition().getParameters()) {
             if (DESERIALIZATION_BLACKLIST.equals(attr)) {
                 if (operation.hasDefined(DESERIALIZATION_BLACKLIST.getName())) {
                     DESERIALIZATION_BLOCKLIST.validateAndSet(operation, model);

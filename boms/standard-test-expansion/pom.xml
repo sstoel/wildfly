@@ -13,7 +13,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -225,13 +225,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.awaitility</groupId>
-                <artifactId>awaitility</artifactId>
-                <version>${version.org.awaitility.awaitility}</version>
-                <scope>test</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>org.hamcrest</groupId>
                 <artifactId>hamcrest-all</artifactId>
                 <version>${version.org.hamcrest.legacy}</version>
@@ -265,7 +258,7 @@
             <dependency>
                 <groupId>org.jboss.weld.se</groupId>
                 <artifactId>weld-se-core</artifactId>
-                <version>${version.org.jboss.weld.weld}</version>
+                <version>${version.org.jboss.weld.se.weld-se-core}</version>
                 <scope>test</scope>
             </dependency>
 

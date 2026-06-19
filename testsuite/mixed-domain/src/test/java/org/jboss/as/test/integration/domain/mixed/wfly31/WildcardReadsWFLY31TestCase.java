@@ -21,6 +21,7 @@ public class WildcardReadsWFLY31TestCase extends WildcardReadsTestCase {
     @BeforeClass
     public static void beforeClass() {
         KernelBehaviorWFLY31TestSuite.initializeDomain();
+        WildcardReadsTestCase.setup(WildcardReadsWFLY31TestCase.class);
     }
 
 }

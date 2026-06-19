@@ -11,8 +11,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 
-import org.jboss.as.clustering.controller.EnumAttributeDefinition;
-import org.jboss.as.clustering.controller.ISOStandardDurationAttributeDefinition;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -32,10 +30,13 @@ import org.jboss.modules.Module;
 import org.wildfly.clustering.ejb.infinispan.timer.InfinispanTimerManagementProvider;
 import org.wildfly.clustering.ejb.timer.TimerManagementConfiguration;
 import org.wildfly.clustering.ejb.timer.TimerManagementProvider;
+import org.wildfly.clustering.function.Supplier;
 import org.wildfly.clustering.infinispan.service.InfinispanCacheConfigurationAttributeGroup;
 import org.wildfly.clustering.marshalling.ByteBufferMarshaller;
 import org.wildfly.clustering.server.service.CacheConfigurationAttributeGroup;
 import org.wildfly.subsystem.resource.ChildResourceDefinitionRegistrar;
+import org.wildfly.subsystem.resource.DurationAttributeDefinition;
+import org.wildfly.subsystem.resource.EnumAttributeDefinition;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrar;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrationContext;
 import org.wildfly.subsystem.resource.ResourceDescriptor;
@@ -56,7 +57,9 @@ public class InfinispanTimerManagementResourceDefinitionRegistrar implements Chi
     private static final RuntimeCapability<Void> CAPABILITY = RuntimeCapability.Builder.of(TimerManagementProvider.SERVICE_DESCRIPTOR).build();
 
     static final CacheConfigurationAttributeGroup CACHE_ATTRIBUTE_GROUP = new InfinispanCacheConfigurationAttributeGroup(CAPABILITY);
-    static final EnumAttributeDefinition<TimerContextMarshallerFactory> MARSHALLER = new EnumAttributeDefinition.Builder<>("marshaller", TimerContextMarshallerFactory.JBOSS).build();
+    static final EnumAttributeDefinition<TimerContextMarshallerFactory> MARSHALLER = EnumAttributeDefinition.nameBuilder("marshaller", TimerContextMarshallerFactory.class)
+            .setDefaultValue(TimerContextMarshallerFactory.JBOSS)
+            .build();
     static final AttributeDefinition MAX_ACTIVE_TIMERS = new SimpleAttributeDefinitionBuilder("max-active-timers", ModelType.INT)
             .setAllowExpression(true)
             .setRequired(false)
@@ -64,7 +67,7 @@ public class InfinispanTimerManagementResourceDefinitionRegistrar implements Chi
             .setValidator(new IntRangeValidator(1))
             .build();
 
-    static final ISOStandardDurationAttributeDefinition IDLE_THRESHOLD = new ISOStandardDurationAttributeDefinition.Builder("idle-threshold")
+    static final DurationAttributeDefinition IDLE_THRESHOLD = DurationAttributeDefinition.builder("idle-threshold")
             .setRequired(false)
             .setStability(Stability.COMMUNITY)
             .build();
@@ -104,6 +107,6 @@ public class InfinispanTimerManagementResourceDefinitionRegistrar implements Chi
                 return idleThreshold;
             }
         };
-        return CapabilityServiceInstaller.builder(CAPABILITY, new InfinispanTimerManagementProvider(config, CACHE_ATTRIBUTE_GROUP.resolve(context, model))).build();
+        return CapabilityServiceInstaller.BlockingBuilder.of(CAPABILITY, Supplier.of(new InfinispanTimerManagementProvider(config, CACHE_ATTRIBUTE_GROUP.resolve(context, model)))).build();
     }
 }

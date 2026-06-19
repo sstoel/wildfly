@@ -41,8 +41,8 @@ of configuration options available via the WildFly management model.
 [[installation-guides]]
 == Installation Guides
 
-* The link:WildFly_and_WildFly_Preview{outfilesuffix}[WildFly and WildFly Preview] document introduces the different
-appserver variants produced by the WildFly project: the standard WildFly variant and the early-look tech preview
+* The link:Different_Flavors_of_WildFly{outfilesuffix}[Different Flavors of WildFly] document introduces the different
+appserver variants produced by the WildFly project: the standard WildFly variant, the WildFly EE 10 variant and the early-look tech preview
 WildFly Preview variant.
 * The link:Installation_Guide{outfilesuffix}[Installation Guide] helps you identify
 the kind of WildFly installation that best fits your application's deployment needs:
@@ -53,7 +53,7 @@ a WildFly zip installation, a WildFly server provisioned with Galleon or a WildF
 into a bootable JAR.
 
 * The link:Galleon_Guide{outfilesuffix}[Galleon Provisioning Guide] shows you how to 
-provision a customized WildFly server using Galleon.
+provision a customized WildFly server using the Galleon CLI tool.
 
 * The link:Getting_Started_on_OpenShift{outfilesuffix}[Getting Started with WildFly on OpenShift Guide] shows you how to use WildFly on OpenShift.
 
@@ -74,7 +74,7 @@ you how to create a cluster, how to configure the web container and Jakarta Ente
 container for clustering and how to configure load balancing
 and failover.
 
-* The link:feature-pack/doc/index.html[Feature pack documentation] provides information about the WildFly feature pack, including all standalone server and managed domain
+* The link:feature-pack/doc/index.html[Feature-pack documentation] provides information about the WildFly feature-pack, including all standalone server and managed domain
 configuration options, using information generated directly from the WildFly management model.
 
 [[developer-guides]]
@@ -119,6 +119,6 @@ features which have been removed from WildFly.
 
 * link:Glossary.html[Glossary]
 * https://wildfly.org[project page]
-* https://issues.redhat.com/browse/WFLY[issue tracker]
+* https://redhat.atlassian.net/browse/WFLY[issue tracker]
 * https://groups.google.com/g/wildfly[user forum]
 * https://github.com/wildfly/wildfly/[Source code at GitHub]

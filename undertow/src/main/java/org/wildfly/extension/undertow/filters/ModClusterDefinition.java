@@ -271,7 +271,7 @@ public class ModClusterDefinition extends AbstractFilterDefinition {
             .setRestartAllServices()
             .setAllowExpression(true)
             .setMeasurementUnit(MeasurementUnit.BYTES)
-            .setDefaultValue(new ModelNode(Http2Channel.DEFAULT_INITIAL_WINDOW_SIZE))
+            .setDefaultValue(new ModelNode(UndertowOptions.DEFAULT_HTTP2_SETTINGS_INITIAL_WINDOW_SIZE))
             .setValidator(new IntRangeValidator(1))
             .build();
 
@@ -354,7 +354,7 @@ public class ModClusterDefinition extends AbstractFilterDefinition {
             Predicate managementAccessPredicate = (managementAccessPredicateString != null) ? PredicateParser.parse(managementAccessPredicateString, this.getClass().getClassLoader()) : null;
 
             ModClusterServiceConfigurator configurator = new ModClusterServiceConfigurator(address);
-            configurator.configure(context, model).build(context.getServiceTarget()).setInitialMode(ServiceController.Mode.ON_DEMAND).install();
+            configurator.configure(context, model).build(context.getCapabilityServiceTarget()).setInitialMode(ServiceController.Mode.ON_DEMAND).install();
 
             this.removers.put(address, this.registry.capture(ServiceDependency.on(configurator.getServiceName())).install(context));
 

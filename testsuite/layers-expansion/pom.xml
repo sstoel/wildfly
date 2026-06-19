@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-layers-expansion</artifactId>
@@ -24,6 +24,11 @@
     <name>WildFly Test Suite: Galleon Layers -- Expansion</name>
 
     <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.wildfly.core</groupId>
             <artifactId>wildfly-core-testsuite-shared</artifactId>
@@ -89,7 +94,7 @@
         <!-- default configs provisioned with passive+ -->
         <std.default.install.dir>${project.build.directory}/std-configs</std.default.install.dir>
 
-        <!-- This module tests expanded funtionality, so use a bom that includes expansion dependencies -->
+        <!-- This module tests expanded functionality, so use a bom that includes expansion dependencies -->
 		<dependency.management.import.artifact>wildfly-standard-expansion-bom</dependency.management.import.artifact>
         <dependency.management.import.test.artifact>wildfly-standard-test-expansion-bom</dependency.management.import.test.artifact>
     </properties>
@@ -110,7 +115,7 @@
             </properties>
         </profile>
 
-        <!-- Test against wildfly-preview feature pack -->
+        <!-- Test against wildfly-preview feature-pack -->
         <profile>
             <id>preview.profile</id>
             <activation>
@@ -126,6 +131,31 @@
                 <surefire.default-test.phase>test</surefire.default-test.phase>
                 <!-- Use the transformed artifact repo -->
                 <maven.repo.local>${settings.localRepository}</maven.repo.local>
+                <dependency.management.import.test.artifact>wildfly-preview-test-expansion-bom</dependency.management.import.test.artifact>
+            </properties>
+        </profile>
+
+        <!-- We don't support test profiles that assume configuration of two feature
+             packs - wildfly on top of  an explicit wildfly-ee variant. It's too complex
+              to set up.-->
+        <profile>
+            <id>latest-ee-full-server-tests</id>
+            <activation>
+                <property><name>latest-ee-full-server-tests</name></property>
+            </activation>
+            <properties>
+                <provisioning.phase>none</provisioning.phase>
+                <surefire.default-test.phase>none</surefire.default-test.phase>
+            </properties>
+        </profile>
+        <profile>
+            <id>legacy-ee-full-server-tests</id>
+            <activation>
+                <property><name>legacy-ee-full-server-tests</name></property>
+            </activation>
+            <properties>
+                <provisioning.phase>none</provisioning.phase>
+                <surefire.default-test.phase>none</surefire.default-test.phase>
             </properties>
         </profile>
 
@@ -140,6 +170,20 @@
             <properties>
                 <provisioning.phase>none</provisioning.phase>
                 <surefire.default-test.phase>none</surefire.default-test.phase>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>preview-server-tests-config</id>
+            <activation>
+                <property>
+                    <name>preview-server-tests</name>
+                </property>
+            </activation>
+            <properties>
+                <!-- Use the WFP dependencies -->
+                <dependency.management.import.artifact>wildfly-preview-expansion-bom</dependency.management.import.artifact>
+                <dependency.management.import.test.artifact>wildfly-preview-test-expansion-bom</dependency.management.import.test.artifact>
             </properties>
         </profile>
     </profiles>
@@ -178,9 +222,9 @@
                                     <install-dir>${layers.install.dir}/datasources-web-server-observability</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -207,9 +251,9 @@
                                     <install-dir>${layers.install.dir}/jakarta-data</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -235,9 +279,9 @@
                                     <install-dir>${layers.install.dir}/jaxrs-server-observability</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -264,9 +308,9 @@
                                     <install-dir>${layers.install.dir}/test-standalone-reference</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <included-configs>
                                                 <config>
@@ -288,9 +332,9 @@
                                     <install-dir>${layers.install.dir}/observability</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -316,9 +360,9 @@
                                     <install-dir>${layers.install.dir}/opentelemetry</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -347,9 +391,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-platform</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -375,9 +419,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-config</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -403,9 +447,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-health</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -431,9 +475,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-openapi</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -459,9 +503,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-fault-tolerance</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -487,9 +531,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-jwt</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -515,9 +559,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-lra-coordinator</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -543,9 +587,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-lra-participant</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -571,9 +615,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-reactive-messaging-amqp</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -599,9 +643,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-reactive-messaging-kafka</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -627,9 +671,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-standalone</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -664,9 +708,9 @@
                                     <install-dir>${layers.install.dir}/microprofile-standalone-ha</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -705,7 +749,7 @@
                                     <feature-packs>
                                         <feature-pack>
                                             <groupId>${full.maven.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
                                             <version>${full.maven.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
@@ -736,9 +780,9 @@
                                     <install-dir>${layers.install.dir}/test-all-layers</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -851,9 +895,9 @@
                                     <install-dir>${layers.install.dir}/test-all-layers-jpa-distributed</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -967,9 +1011,9 @@
                                     <install-dir>${layers.install.dir}/test-all-layers</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -1081,9 +1125,9 @@
                                     <install-dir>${layers.install.dir}/test-all-layers-jpa-distributed</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                         </feature-pack>
@@ -1186,9 +1230,9 @@
                                     <install-dir>${std.default.install.dir}/standalone</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                             <included-configs>
@@ -1211,9 +1255,9 @@
                                     <install-dir>${std.default.install.dir}/standalone-ha</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                             <included-configs>
@@ -1237,9 +1281,9 @@
                                     <install-dir>${std.default.install.dir}/standalone-full</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                             <included-configs>
@@ -1263,9 +1307,9 @@
                                     <install-dir>${std.default.install.dir}/standalone-full-ha</install-dir>
                                     <feature-packs>
                                         <feature-pack>
-                                            <groupId>${testsuite.full.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.full.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.full.galleon.pack.version}</version>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
                                             <inherit-configs>false</inherit-configs>
                                             <inherit-packages>false</inherit-packages>
                                             <included-configs>

@@ -16,13 +16,13 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>wildfly-feature-pack-product-conf</artifactId>
 
-    <name>WildFly: Feature Pack Product Configuration</name>
+    <name>WildFly: Feature-Pack Product Configuration</name>
     <description>Provides an artifact whose MANIFEST.MF includes entries that provide installation name and version information.</description>
 
     <build>

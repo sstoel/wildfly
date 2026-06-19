@@ -4,7 +4,9 @@
  */
 package org.jboss.as.test.integration.domain.mixed;
 
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.CORE_SERVICE;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.HOST;
+import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.MANAGEMENT;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,10 +14,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
 
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.PathElement;
+import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.controller.client.helpers.domain.DomainClient;
 import org.jboss.as.controller.operations.common.Util;
 import org.jboss.as.test.integration.domain.management.util.DomainLifecycleUtil;
@@ -24,7 +27,6 @@ import org.jboss.as.test.integration.domain.management.util.DomainTestUtils;
 import org.jboss.as.test.integration.domain.management.util.WildFlyManagedConfiguration;
 import org.jboss.as.test.integration.management.util.MgmtOperationException;
 import org.jboss.as.test.shared.util.AssumeTestGroupUtil;
-import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.as.version.Stability;
 import org.jboss.dmr.ModelNode;
 import org.junit.Assert;
@@ -37,7 +39,6 @@ import org.junit.Assume;
 public class MixedDomainTestSupport extends DomainTestSupport {
 
     public static final String STANDARD_DOMAIN_CONFIG = "copied-primary-config/domain.xml";
-    private static final String JBOSS_DOMAIN_SERVER_ARGS = "jboss.domain.server.args";
     private static final int TEST_VM_VERSION;
 
     static {
@@ -115,6 +116,18 @@ public class MixedDomainTestSupport extends DomainTestSupport {
             startAndAdjust();
         } else {
             super.start();
+
+            try {
+                DomainLifecycleUtil primaryUtil = getDomainPrimaryLifecycleUtil();
+                assertNoBootErrors(primaryUtil.getDomainClient(), PathAddress.pathAddress(HOST, "primary"));
+
+                DomainLifecycleUtil secondaryUtil = getDomainSecondaryLifecycleUtil();
+                if (secondaryUtil != null) {
+                    assertNoBootErrors(secondaryUtil.getDomainClient(), PathAddress.pathAddress(HOST, "secondary"));
+                }
+            } catch (IOException | MgmtOperationException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         if (!legacyConfig) {
@@ -131,32 +144,11 @@ public class MixedDomainTestSupport extends DomainTestSupport {
             PathAddress pa = PathAddress.pathAddress(hostElement, PathElement.pathElement("server-config", "server-one"));
             DomainTestUtils.executeForResult(Util.getUndefineAttributeOperation(pa, "auto-start"), client);
             DomainTestUtils.executeForResult(Util.createEmptyOperation("start", pa), client);
+            DomainTestUtils.waitUntilState(client, pa, "STARTED");
+            assertNoBootErrors(client, PathAddress.pathAddress(hostElement, PathElement.pathElement("server", "server-one")));
         } catch (IOException | MgmtOperationException e) {
             throw new RuntimeException(e);
         }
-
-        long timeout = TimeoutUtil.adjust(20000);
-        long expired = System.currentTimeMillis() + timeout;
-        ModelNode op = Util.getReadAttributeOperation(PathAddress.pathAddress(hostElement, PathElement.pathElement("server", "server-one")), "server-state");
-        do {
-            try {
-                ModelNode state = DomainTestUtils.executeForResult(op, client);
-                if ("running".equalsIgnoreCase(state.asString())) {
-                    return;
-                }
-            } catch (IOException | MgmtOperationException e) {
-                // ignore and try again
-            }
-
-            try {
-                TimeUnit.MILLISECONDS.sleep(250L);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                Assert.fail();
-            }
-        } while (System.currentTimeMillis() < expired);
-
-        Assert.fail("Secondary server-one did not start within " + timeout + " ms");
     }
 
     private void configureSecondaryJavaHome() {
@@ -204,16 +196,35 @@ public class MixedDomainTestSupport extends DomainTestSupport {
             primaryUtil.executeAwaitConnectionClosed(Util.createEmptyOperation("reload", PathAddress.pathAddress(HOST, "primary")));
             primaryUtil.connect();
             primaryUtil.awaitHostController(System.currentTimeMillis());
+            primaryUtil.awaitServers(System.currentTimeMillis());
+            assertNoBootErrors(primaryUtil.getDomainClient(), PathAddress.pathAddress(HOST, "primary"));
 
             //Start the secondary hosts
             DomainLifecycleUtil secondaryUtil = getDomainSecondaryLifecycleUtil();
             if (secondaryUtil != null) {
                 //secondaryUtil.getConfiguration().addHostCommandLineProperty("-agentlib:jdwp=transport=dt_socket,address=8787,server=y,suspend=y");
                 secondaryUtil.start();
+                assertNoBootErrors(primaryUtil.getDomainClient(), PathAddress.pathAddress(HOST, "secondary"));
             }
 
         } catch (Exception e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Asserts that the host controller or managed server at the given address did not report any boot errors.
+     *
+     * @param client  the client to use
+     * @param address the address of the host or managed server
+     */
+    static void assertNoBootErrors(ModelControllerClient client, PathAddress address) throws IOException, MgmtOperationException {
+        PathAddress bootErrorsAddr = address.append(PathElement.pathElement(CORE_SERVICE, MANAGEMENT));
+        ModelNode op = Util.createEmptyOperation("read-boot-errors", bootErrorsAddr);
+        ModelNode result = DomainTestUtils.executeForResult(op, client);
+        if (result.isDefined()) {
+            List<ModelNode> errors = result.asList();
+            Assert.assertTrue("Boot errors detected at " + address.toCLIStyleString() + ": " + result, errors.isEmpty());
         }
     }
 

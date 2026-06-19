@@ -58,7 +58,7 @@
         </interfaces>
 
         <socket-bindings default-interface="public" port-offset="${infinispan.socket.binding.port-offset:0}">
-            <socket-binding name="default" port="${infinispan.bind.port:11222}"/>
+            <socket-binding name="default" port="${infinispan.bind.port:11322}"/>
         </socket-bindings>
 
         <security>
@@ -72,6 +72,11 @@
             </security-realms>
         </security>
 
-        <endpoints socket-binding="default" security-realm="default"/>
+        <endpoints>
+            <endpoint socket-binding="default" security-realm="default">
+                <hotrod-connector/>
+                <rest-connector/>
+            </endpoint>
+        </endpoints>
     </server>
 </infinispan>

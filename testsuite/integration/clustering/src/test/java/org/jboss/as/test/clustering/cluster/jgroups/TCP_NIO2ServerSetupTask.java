@@ -4,12 +4,12 @@
  */
 package org.jboss.as.test.clustering.cluster.jgroups;
 
-import static org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase.NODE_1_2;
+import static org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase.*;
 
 import org.jboss.as.test.shared.ManagementServerSetupTask;
 
 /**
- * {@link org.jboss.as.arquillian.api.ServerSetupTask}s that replaces a TCP transport with TCP_NIO2.
+ * {@link org.jboss.as.arquillian.api.ServerSetupTask} that replaces a TCP transport with TCP_NIO2 transport.
  *
  * @author Radoslav Husar
  */
@@ -21,12 +21,6 @@ public class TCP_NIO2ServerSetupTask extends ManagementServerSetupTask {
                                 .startBatch()
                                 .add("/subsystem=jgroups/stack=tcp/transport=TCP:remove")
                                 .add("/subsystem=jgroups/stack=tcp/transport=TCP_NIO2:add(socket-binding=jgroups-tcp)")
-                                .endBatch()
-                                .build())
-                        .tearDownScript(createScriptBuilder()
-                                .startBatch()
-                                .add("/subsystem=jgroups/stack=tcp/transport=TCP_NIO2:remove")
-                                .add("/subsystem=jgroups/stack=tcp/transport=TCP:add(socket-binding=jgroups-tcp)")
                                 .endBatch()
                                 .build())
                         .build())

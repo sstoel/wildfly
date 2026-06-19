@@ -17,7 +17,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-jpa</artifactId>
@@ -26,7 +26,7 @@
         <dependencies>
             <dependency>
                 <groupId>${project.groupId}</groupId>
-                <artifactId>wildfly-standard-test-bom</artifactId>
+                <artifactId>${dependency.management.import.test.artifact}</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
@@ -36,10 +36,11 @@
 
     <dependencies>
         <dependency>
-            <groupId>org.jboss.spec.jakarta.el</groupId>
-            <artifactId>jboss-el-api_5.0_spec</artifactId>
+            <groupId>org.kohsuke.metainf-services</groupId>
+            <artifactId>metainf-services</artifactId>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -204,4 +205,23 @@
             <artifactId>jakarta.inject-api</artifactId>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>latest.ee.specific.dependencies</id>
+            <activation>
+                <property>
+                    <!-- This profile exists to make it is easy to stop doing what WildFly does downstream.
+                         It's not meant to be turned off/on by external callers. -->
+                    <name>!WRONGLY.disable.latest.ee.specific.dependencies</name>
+                </property>
+            </activation>
+            <dependencies>
+                <dependency>
+                    <groupId>jakarta.enterprise</groupId>
+                    <artifactId>jakarta.enterprise.cdi-el-api</artifactId>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>

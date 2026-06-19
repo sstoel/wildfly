@@ -13,12 +13,12 @@ import org.infinispan.configuration.cache.AsyncStoreConfiguration;
 import org.infinispan.configuration.cache.PersistenceConfigurationBuilder;
 import org.infinispan.configuration.cache.StoreConfiguration;
 import org.infinispan.configuration.cache.StoreConfigurationBuilder;
-import org.jboss.as.clustering.controller.PropertiesAttributeDefinition;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
 import org.jboss.as.controller.PathAddress;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
+import org.jboss.as.controller.descriptions.ModelDescriptionConstants;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.as.controller.registry.ManagementResourceRegistration;
 import org.jboss.dmr.ModelNode;
@@ -26,6 +26,8 @@ import org.jboss.dmr.ModelType;
 import org.wildfly.clustering.server.service.BinaryServiceConfiguration;
 import org.wildfly.subsystem.resource.AttributeDefinitionProvider;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrationContext;
+import org.wildfly.subsystem.resource.PropertiesAttributeDefinition;
+import org.wildfly.subsystem.resource.PropertiesAttributeDefinition.PropertyValueContextPersistence;
 import org.wildfly.subsystem.resource.ResourceDescriptor;
 import org.wildfly.subsystem.resource.ResourceModelResolver;
 import org.wildfly.subsystem.service.ServiceDependency;
@@ -36,7 +38,9 @@ import org.wildfly.subsystem.service.ServiceDependency;
  */
 public class StoreResourceDefinitionRegistrar<C extends StoreConfiguration, B extends StoreConfigurationBuilder<C, B>> extends PersistenceResourceDefinitionRegistrar {
 
-    static final PropertiesAttributeDefinition PROPERTIES = new PropertiesAttributeDefinition.Builder().build();
+    static final PropertiesAttributeDefinition PROPERTIES = new PropertiesAttributeDefinition.Builder()
+            .setPropertyPersistence(new PropertyValueContextPersistence(ModelDescriptionConstants.NAME))
+            .build();
 
     enum Attribute implements AttributeDefinitionProvider {
         MAX_BATCH_SIZE("max-batch-size", ModelType.INT, new ModelNode(100)),
@@ -44,7 +48,7 @@ public class StoreResourceDefinitionRegistrar<C extends StoreConfiguration, B ex
         PRELOAD("preload", ModelType.BOOLEAN, ModelNode.FALSE),
         PURGE("purge", ModelType.BOOLEAN, ModelNode.FALSE),
         SHARED("shared", ModelType.BOOLEAN, ModelNode.FALSE),
-        SEGMENTED("segmented", ModelType.BOOLEAN, ModelNode.TRUE),
+        SEGMENTED("segmented", ModelType.BOOLEAN, ModelNode.FALSE),
         ;
         private final AttributeDefinition definition;
 

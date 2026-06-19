@@ -2661,7 +2661,7 @@ performance (throughput and response time) will occur compared to TLSv1.2. Upgra
 should improve performance. For this reason, the use of TLSv1.3 is currently disabled by default. TLSv1.3 can
 be enabled by configuring the new `cipher-suite-names` attribute in the SSL Context resource definition in the
 Elytron subsystem as described in the previous two sections. It is recommended to test for performance
-degradation prior to enabling TLSv1.3 in a production environment. See https://issues.redhat.com/browse/WFWIP-160[WFWIP-160]
+degradation prior to enabling TLSv1.3 in a production environment. See https://redhat.atlassian.net/browse/WFWIP-160[WFWIP-160]
 for more details.
 
 *Note:* When using TLSv1.3, it is important to keep in mind that session IDs have become essentially obsolete.
@@ -2671,9 +2671,6 @@ the first handshake in order to receive the `NewSessionTicket` that can be used 
 change once https://bugs.openjdk.java.net/browse/JDK-8209953[JDK-8209953] is resolved.
 
 ==== Dynamic client SSLContext
-
-The `dynamic-client-ssl-context` resource is only available in the `community` stability level. For more information on how to configure stability levels, please refer to the link:Admin_Guide{outfilesuffix}[Admin Guide], particularly the
-link:Admin_Guide{outfilesuffix}#Feature_stability_levels[Feature stability levels] section.
 
 Using the Elytron subsystem, it is possible to configure an SSLContext that will delegate to alternate instances based on host and port you are connecting to.
 

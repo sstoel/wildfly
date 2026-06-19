@@ -13,7 +13,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -153,6 +153,13 @@
             </dependency>
 
             <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${version.org.awaitility.awaitility}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>org.codehaus.plexus</groupId>
                 <artifactId>plexus-utils</artifactId>
                 <version>${version.org.codehaus.plexus.plexus-utils}</version>
@@ -261,7 +268,7 @@
             <dependency>
                 <groupId>org.jboss.resteasy</groupId>
                 <artifactId>resteasy-client-utils</artifactId>
-                <version>${version.org.jboss.resteasy}</version>
+                <version>${version.org.jboss.resteasy.client-utils}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -378,13 +385,6 @@
                 <version>${version.org.wildfly.glow}</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.htmlunit</groupId>
-                <artifactId>htmlunit</artifactId>
-                <version>${version.org.htmlunit}</version>
-                <scope>test</scope>
-            </dependency>
-
             <!-- The below BOM's are imported last as to not override any dependencies above -->
             <dependency>
                 <groupId>org.jboss.arquillian</groupId>
@@ -392,6 +392,22 @@
                 <version>${version.org.jboss.arquillian.core}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.htmlunit</groupId>
+                <artifactId>htmlunit</artifactId>
+                <version>${version.org.htmlunit.htmlunit}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.httpcomponents</groupId>
+                        <artifactId>httpmime</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>commons-logging</groupId>
+                        <artifactId>commons-logging</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
             <dependency>
                 <groupId>org.jboss.arquillian.jakarta</groupId>

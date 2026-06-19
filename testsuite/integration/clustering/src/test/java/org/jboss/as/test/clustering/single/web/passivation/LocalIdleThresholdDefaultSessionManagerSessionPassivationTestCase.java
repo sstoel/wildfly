@@ -6,12 +6,12 @@
 package org.jboss.as.test.clustering.single.web.passivation;
 
 import org.jboss.arquillian.container.test.api.Deployment;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.test.shared.ManagementServerSetupTask;
-import org.jboss.as.test.shared.SnapshotRestoreSetupTask;
+import org.jboss.as.version.Stability;
 import org.jboss.shrinkwrap.api.Archive;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Validates the correctness of session passivation events for a distributed session manager using a local,
@@ -19,16 +19,14 @@ import org.junit.runner.RunWith;
  *
  * @author Radoslav Husar
  */
-@RunWith(Arquillian.class)
-@ServerSetup({
-        SnapshotRestoreSetupTask.class, // MUST be first!
-        LocalIdleThresholdDefaultSessionManagerSessionPassivationTestCase.ServerSetupTask.class
-})
+@ExtendWith(ArquillianExtension.class)
+@ServerSetup(LocalIdleThresholdDefaultSessionManagerSessionPassivationTestCase.ServerSetupTask.class)
 public class LocalIdleThresholdDefaultSessionManagerSessionPassivationTestCase extends LocalIdleThresholdSessionPassivationTestCase {
 
     static class ServerSetupTask extends ManagementServerSetupTask {
         ServerSetupTask() {
             super(createContainerConfigurationBuilder()
+                    .requireStability(Stability.COMMUNITY)
                     .setupScript(createScriptBuilder()
                             .startBatch()
                             .add("/subsystem=distributable-web/infinispan-session-management=default:write-attribute(name=idle-threshold, value=PT1S)")

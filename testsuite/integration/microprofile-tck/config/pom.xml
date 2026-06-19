@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-integ-mp-config</artifactId>
@@ -61,6 +61,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>org.wildfly.core</groupId>
+            <artifactId>wildfly-core-testsuite-shared</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <scope>compile</scope>
@@ -102,7 +107,6 @@
             <plugin>
                 <groupId>org.wildfly.plugins</groupId>
                 <artifactId>wildfly-maven-plugin</artifactId>
-                <version>${version.org.wildfly.plugin}</version>
                 <executions>
                     <execution>
                         <id>configure-weld-subsystem</id>
@@ -133,7 +137,7 @@
                             <packaging-scripts>
                                 <cli-session>
                                     <javaOpts>
-                                        <opt>-Dmaven.repo.local=${maven.repo.local}</opt>
+                                        <opt>-Dmaven.repo.local=${settings.localRepository}</opt>
                                     </javaOpts>
                                     <scripts>
                                         <script>${basedir}/src/test/resources/configure-weld-subsystem.cli</script>

@@ -103,7 +103,7 @@ public abstract class AbstractEntityManager implements EntityManager {
         } finally {
             if (isTraceEnabled) {
                 long elapsed = System.currentTimeMillis() - start;
-                ROOT_LOGGER.tracef("createQuery took %dms", elapsed);
+                ROOT_LOGGER.tracef("createQuery criteriaQuery took %dms", elapsed);
             }
         }
     }
@@ -196,7 +196,7 @@ public abstract class AbstractEntityManager implements EntityManager {
             start = System.currentTimeMillis();
         try {
             final EntityManager underlyingEntityManager = getEntityManager();
-            T result = getEntityManager().find(entityClass, primaryKey);
+            T result = underlyingEntityManager.find(entityClass, primaryKey);
             detachNonTxInvocation(underlyingEntityManager);
             return result;
         } finally {
@@ -294,7 +294,7 @@ public abstract class AbstractEntityManager implements EntityManager {
         }
     }
 
-    private static String getClassName(Object entity) {
+    protected static String getClassName(Object entity) {
         return entity != null ? entity.getClass().getName() : "null";
     }
 
@@ -489,7 +489,7 @@ public abstract class AbstractEntityManager implements EntityManager {
             start = System.currentTimeMillis();
         try {
             final EntityManager underlyingEntityManager = getEntityManager();
-            T result = getEntityManager().getReference(entityClass, primaryKey);
+            T result = underlyingEntityManager.getReference(entityClass, primaryKey);
             detachNonTxInvocation(underlyingEntityManager);
             return result;
         } finally {
@@ -825,6 +825,10 @@ public abstract class AbstractEntityManager implements EntityManager {
         }
     }
 
+    protected boolean isTraceEnabled() {
+        return isTraceEnabled;
+    }
+
 
     // used by TransactionScopedEntityManager to auto detach loaded entities
     // after each non-Jakarta Transactions invocation
@@ -838,7 +842,7 @@ public abstract class AbstractEntityManager implements EntityManager {
     // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-Jakarta Transactions invocation.
     protected Query detachQueryNonTxInvocation(EntityManager underlyingEntityManager, Query underLyingQuery) {
         if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
-            return new QueryNonTxInvocationDetacher(underlyingEntityManager, underLyingQuery);
+            return QueryNonTxInvocationDetacher.create(underlyingEntityManager, underLyingQuery);
         }
         return underLyingQuery;
     }
@@ -847,14 +851,14 @@ public abstract class AbstractEntityManager implements EntityManager {
     // used by TransactionScopedEntityManager to detach entities loaded by a query in a non-Jakarta Transactions invocation.
     protected <T> TypedQuery<T> detachTypedQueryNonTxInvocation(EntityManager underlyingEntityManager, TypedQuery<T> underLyingQuery) {
         if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
-            return new TypedQueryNonTxInvocationDetacher<>(underlyingEntityManager, underLyingQuery);
+            return TypedQueryNonTxInvocationDetacher.create(underlyingEntityManager, underLyingQuery);
         }
         return underLyingQuery;
     }
 
     private StoredProcedureQuery detachStoredProcedureQueryNonTxInvocation(EntityManager underlyingEntityManager, StoredProcedureQuery underlyingStoredProcedureQuery) {
         if (!this.isExtendedPersistenceContext() && !this.isInTx() && !skipQueryDetach()) {
-            return new StoredProcedureQueryNonTxInvocationDetacher(underlyingEntityManager, underlyingStoredProcedureQuery);
+            return StoredProcedureQueryNonTxInvocationDetacher.create(underlyingEntityManager, underlyingStoredProcedureQuery);
         }
         return underlyingStoredProcedureQuery;
     }
@@ -862,13 +866,13 @@ public abstract class AbstractEntityManager implements EntityManager {
 
     // JPA 7.9.1 if invoked without a Jakarta Transactions transaction and a transaction scoped persistence context is used,
     // will throw TransactionRequiredException for any calls to entity manager remove/merge/persist/refresh.
-    private void transactionIsRequired() {
+    protected void transactionIsRequired() {
         if (!this.isExtendedPersistenceContext() && !this.isInTx()) {
             throw JpaLogger.ROOT_LOGGER.transactionRequired();
         }
     }
 
-    private static String getLockModeAsString(LockModeType lockMode) {
+    protected static String getLockModeAsString(LockModeType lockMode) {
         if (lockMode == null)
             return NULL_LOCK_MODE;
         switch (lockMode) {

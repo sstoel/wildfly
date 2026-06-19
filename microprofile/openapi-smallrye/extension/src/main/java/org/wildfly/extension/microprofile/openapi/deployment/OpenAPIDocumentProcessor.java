@@ -10,11 +10,13 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.eclipse.microprofile.config.spi.ConfigProviderResolver;
 import org.eclipse.microprofile.openapi.models.ExternalDocumentation;
 import org.eclipse.microprofile.openapi.models.OpenAPI;
 import org.eclipse.microprofile.openapi.models.info.Contact;
@@ -39,6 +41,7 @@ import org.wildfly.microprofile.openapi.OpenAPIModelRegistry;
 import org.wildfly.microprofile.openapi.OpenAPIModelRegistry.Registration;
 import org.wildfly.microprofile.openapi.host.HostOpenAPIModelConfiguration;
 import org.wildfly.microprofile.openapi.host.OpenAPIHttpHandlerServiceInstaller;
+import org.wildfly.service.BlockingLifecycle;
 import org.wildfly.service.Installer.StartWhen;
 import org.wildfly.subsystem.service.ServiceDependency;
 import org.wildfly.subsystem.service.ServiceInstaller;
@@ -91,7 +94,7 @@ public class OpenAPIDocumentProcessor implements DeploymentUnitProcessor {
 
         if (DeploymentTypeMarker.isType(DeploymentType.WAR, unit)) {
             DeploymentOpenAPIModelConfiguration configuration = new DeploymentUnitOpenAPIModelConfiguration(unit);
-            OpenAPIModelConfiguration hostConfiguration = new HostOpenAPIModelConfiguration(configuration.getServerName(), configuration.getHostName());
+            OpenAPIModelConfiguration hostConfiguration = new HostOpenAPIModelConfiguration(ConfigProviderResolver.instance(), configuration.getServerName(), configuration.getHostName(), Set.of());
 
             if (configuration.isEnabled()) {
                 OpenApiConfig config = OpenApiConfig.fromConfig(configuration.getMicroProfileConfig());
@@ -146,10 +149,10 @@ public class OpenAPIDocumentProcessor implements DeploymentUnitProcessor {
                                     return registry.register(contextName, model);
                                 }
                             });
-                            ServiceInstaller.builder(registration)
+                            ServiceInstaller.BlockingBuilder.of(registration)
                                     .requires(deployment)
                                     .startWhen(StartWhen.INSTALLED)
-                                    .onStop(OpenAPIModelRegistry.Registration::close)
+                                    .withLifecycle(BlockingLifecycle.autoClose())
                                     .build()
                                     .install(context);
                         }

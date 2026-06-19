@@ -6,7 +6,9 @@ package org.jboss.as.test.clustering.cluster;
 
 import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.apache.http.Header;
@@ -20,8 +22,8 @@ import org.jboss.as.arquillian.api.WildFlyContainerController;
 import org.jboss.as.test.clustering.NodeUtil;
 import org.jboss.as.test.shared.TimeoutUtil;
 import org.jboss.logging.Logger;
-import org.junit.After;
-import org.junit.Before;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Base implementation for every clustering test which guarantees a framework contract as follows:
@@ -73,10 +75,9 @@ public abstract class AbstractClusteringTestCase {
 
     // Infinispan Server
     public static final String INFINISPAN_SERVER_HOME = System.getProperty("infinispan.server.home");
-    public static final String INFINISPAN_SERVER_PROFILE = System.getProperty("infinispan.server.profile");
-    public static final String INFINISPAN_SERVER_PROFILE_DEFAULT = String.format("infinispan-%s.xml", Version.getMajorMinor());
+    public static final String INFINISPAN_SERVER_PROFILE = Optional.ofNullable(System.getProperty("infinispan.server.profile")).filter(Predicate.not(String::isBlank)).orElse(String.format("infinispan-%s.xml", Version.getMajorMinor()));
     public static final String INFINISPAN_SERVER_ADDRESS = "127.0.0.1";
-    public static final int INFINISPAN_SERVER_PORT = 11222;
+    public static final int INFINISPAN_SERVER_PORT = 11322;
     public static final String INFINISPAN_APPLICATION_USER = "testsuite-application-user";
     public static final String INFINISPAN_APPLICATION_PASSWORD = "testsuite-application-password";
 
@@ -160,14 +161,20 @@ public abstract class AbstractClusteringTestCase {
      * (2) all requested containers are running and,
      * (3) all requested deployments are deployed thus allowing all necessary test resource injection.
      */
-    @Before
+    @BeforeEach
     public void beforeTestMethod() throws Exception {
         this.containerRegistry.getContainers().forEach(container -> {
             if (container.getState() == Container.State.STARTED && !this.containers.contains(container.getName())) {
-                // Even though we should be able to just stop the container object this currently fails with:
-                // WFARQ-47 Calling "container.stop();" always ends exceptionally "Caught exception closing ManagementClient: java.lang.NullPointerException"
-                this.stop(container.getName());
-                log.debugf("Stopped container '%s' which was started but not requested for this test.", container.getName());
+                try {
+                    // Also keep use graceful shutdown here instead of plain "container.stop()"; e.g. for EJB client topology handling
+                    this.stop(container.getName());
+                } catch (Exception ex) {
+                    // TODO Workaround for https://issues.redhat.com/browse/WFLY-21519
+                    // The actual exception is LifecycleException (checked), sneakily rethrown by Arquillian's UncheckedThrow util
+                    // after WildFlyContainerLifecycleController sets the container state to STOPPED_FAILED.
+                    log.errorf(ex, "Failed to stop container %s! This container might be tainted for future tests!", container.getName());
+                }
+                log.infof("Stopped container %s which was started but not requested for this test.", container.getName());
             }
         });
 
@@ -178,7 +185,7 @@ public abstract class AbstractClusteringTestCase {
     /**
      * Guarantees that all deployments are undeployed after the test method has been executed.
      */
-    @After
+    @AfterEach
     public void afterTestMethod() throws Exception {
         this.start();
         this.undeploy();

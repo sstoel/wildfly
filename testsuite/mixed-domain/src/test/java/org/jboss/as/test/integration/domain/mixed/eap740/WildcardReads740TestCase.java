@@ -19,6 +19,7 @@ public class WildcardReads740TestCase extends WildcardReadsTestCase {
     @BeforeClass
     public static void beforeClass() {
         KernelBehavior740TestSuite.initializeDomain();
+        WildcardReadsTestCase.setup(WildcardReads740TestCase.class);
     }
 
 }

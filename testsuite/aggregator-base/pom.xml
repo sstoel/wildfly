@@ -7,7 +7,7 @@
 
 <!--
     This module provides various profiles that enable the execution of other modules that test functionality provided
-    via the base server (i.e. provisioned via wildfly-ee-galleon-pack feature pack artifact).
+    via the base server (i.e. provisioned via wildfly-ee-galleon-pack feature-pack artifact).
 
     It should not be used as the parent of those modules.
 -->
@@ -23,7 +23,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -32,7 +32,7 @@
 
     <name>WildFly Test Suite: Base Server Aggregator</name>
     <description>Controls execution of testsuite modules relevant to testing functionality
-                 available via the wildfly-ee-galleon-pack feature pack</description>
+                 available via the wildfly-ee-galleon-pack feature-pack</description>
 
     <properties>
         <!-- Don't try to deploy the module -->
@@ -73,7 +73,7 @@
                 <module>../test-product-conf</module> <!-- needed by manualmode -->
                 <module>../integration/manualmode</module>
                 <module>../integration/secman</module>
-                <module>../integration/legacy</module>
+                <module>../integration/hornetq-client</module>
                 <module>../domain</module>
                 <module>../scripts</module>
             </modules>
@@ -106,7 +106,7 @@
                 <module>../test-product-conf</module> <!-- needed by manualmode -->
                 <module>../integration/manualmode</module>
                 <module>../integration/secman</module>
-                <module>../integration/legacy</module>
+                <module>../integration/hornetq-client</module>
                 <module>../integration/elytron</module>
                 <module>../integration/elytron-oidc-client</module>
             </modules>
@@ -217,7 +217,7 @@
                 <module>../test-product-conf</module> <!-- needed by manualmode -->
                 <module>../integration/manualmode</module>
                 <module>../integration/secman</module>
-                <module>../integration/legacy</module>
+                <module>../integration/hornetq-client</module>
                 <module>../integration/elytron</module>
                 <module>../integration/elytron-oidc-client</module>
             </modules>
@@ -260,12 +260,12 @@
             </modules>
         </profile>
 
-        <!-- -Dts.legacy -->
+        <!-- -Dts.hornetq-client -->
         <profile>
-            <id>ts.integ.group.legacy</id>
-            <activation><property><name>ts.legacy</name></property></activation>
+            <id>ts.integ.group.hornetq.client</id>
+            <activation><property><name>ts.hornetq-client</name></property></activation>
             <modules>
-                <module>../integration/legacy</module>
+                <module>../integration/hornetq-client</module>
             </modules>
         </profile>
 

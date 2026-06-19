@@ -6,7 +6,7 @@
 package org.jboss.as.test.clustering.cluster.ejb.forwarding;
 
 import static org.jboss.as.test.shared.PermissionUtils.createPermissionsXmlAsset;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.FilePermission;
 import java.net.SocketPermission;
@@ -18,7 +18,7 @@ import javax.naming.NamingException;
 
 import org.jboss.arquillian.container.test.api.Deployment;
 import org.jboss.arquillian.container.test.api.TargetsContainer;
-import org.jboss.arquillian.junit.Arquillian;
+import org.jboss.arquillian.junit5.ArquillianExtension;
 import org.jboss.as.arquillian.api.ServerSetup;
 import org.jboss.as.test.clustering.cluster.AbstractClusteringTestCase;
 import org.jboss.as.test.clustering.cluster.ejb.forwarding.bean.common.CommonStatefulSB;
@@ -37,9 +37,9 @@ import org.jboss.logging.Logger;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ShrinkWrap;
 import org.jboss.shrinkwrap.api.spec.JavaArchive;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.wildfly.common.function.ExceptionSupplier;
 
 /**
@@ -58,11 +58,11 @@ import org.wildfly.common.function.ExceptionSupplier;
  * @author Richard Achmatowicz
  * @author Radoslav Husar
  */
-@RunWith(Arquillian.class)
+@ExtendWith(ArquillianExtension.class)
 @ServerSetup(AbstractRemoteEJBForwardingTestCase.ServerSetupTask.class)
 public abstract class AbstractRemoteEJBForwardingTestCase extends AbstractClusteringTestCase {
 
-    @BeforeClass
+    @BeforeAll
     public static void beforeClass() {
         IntermittentFailure.thisTestIsFailingIntermittently("https://issues.redhat.com/browse/WFLY-10607");
     }
@@ -254,15 +254,6 @@ public abstract class AbstractRemoteEJBForwardingTestCase extends AbstractCluste
                             .add("/subsystem=elytron/authentication-configuration=remote-ejb-configuration:add(authentication-name=remoteejbuser, security-domain=ApplicationDomain, realm=ApplicationRealm, forwarding-mode=authorization, credential-reference={clear-text=rem@teejbpasswd1})")
                             .add("/subsystem=elytron/authentication-context=remote-ejb-context:add(match-rules=[{authentication-configuration=remote-ejb-configuration, match-protocol=http-remoting}])")
                             .add("/subsystem=remoting/remote-outbound-connection=remote-ejb-connection:add(outbound-socket-binding-ref=binding-remote-ejb-connection, authentication-context=remote-ejb-context)")
-                            .endBatch()
-                            .build())
-                    .tearDownScript(createScriptBuilder()
-                            .startBatch()
-                            .add("/subsystem=remoting/remote-outbound-connection=remote-ejb-connection:remove")
-                            .add("/subsystem=elytron/authentication-configuration=remote-ejb-configuration:remove")
-                            .add("/subsystem=elytron/authentication-context=remote-ejb-context:remove")
-                            .add("/socket-binding-group=standard-sockets/remote-destination-outbound-socket-binding=binding-remote-ejb-connection:remove")
-                            .add("/subsystem=jgroups/channel=ee:write-attribute(name=cluster, value=ejb)")
                             .endBatch()
                             .build())
                     .build());

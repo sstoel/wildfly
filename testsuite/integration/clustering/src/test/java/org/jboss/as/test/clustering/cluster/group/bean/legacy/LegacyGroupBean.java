@@ -5,16 +5,20 @@
 
 package org.jboss.as.test.clustering.cluster.group.bean.legacy;
 
+import java.net.InetSocketAddress;
+
+import javax.naming.Context;
+import javax.naming.InitialContext;
+import javax.naming.NamingException;
+
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import jakarta.annotation.Resource;
 import jakarta.ejb.Local;
 import jakarta.ejb.Singleton;
 import jakarta.ejb.Startup;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 
+import org.jboss.logging.Logger;
 import org.wildfly.clustering.Registration;
 import org.wildfly.clustering.group.GroupListener;
 import org.wildfly.clustering.group.Membership;
@@ -24,6 +28,7 @@ import org.wildfly.clustering.group.Node;
 @Startup
 @Local(LegacyGroup.class)
 public class LegacyGroupBean implements LegacyGroup, GroupListener {
+    private static final Logger LOGGER = Logger.getLogger(LegacyGroupBean.class);
 
     @Resource(name = "clustering/group")
     private org.wildfly.clustering.group.Group group;
@@ -72,6 +77,8 @@ public class LegacyGroupBean implements LegacyGroup, GroupListener {
 
     @Override
     public Membership getMembership() {
+        // WFLY-21592 Verify that legacy Node.getSocketAddress() does not return null
+        LOGGER.infof("%s membership = %s", this.group.getName(), this.group.getMembership().getMembers().stream().map(Node::getSocketAddress).map(InetSocketAddress::toString).toList());
         return this.group.getMembership();
     }
 

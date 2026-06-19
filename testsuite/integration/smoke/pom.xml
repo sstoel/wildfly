@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -35,6 +35,12 @@
         <glow.phase.observability>none</glow.phase.observability>
         <glow.phase.sar>none</glow.phase.sar>
         <glow.phase.jakarta.data>none</glow.phase.jakarta.data>
+        <!-- Controls whether wildfly-maven-plugin non-bootable-jar provisioning is done -->
+        <server-provisioning-phase>generate-resources</server-provisioning-phase>
+
+        <!-- Annotation processor version used by the maven-compile plugin.
+             Overridden in profiles for legacy EE testing -->
+        <version.org.hibernate.jpamodelgen>${standard.version.org.hibernate}</version.org.hibernate.jpamodelgen>
     </properties>
 
     <dependencies>
@@ -53,6 +59,12 @@
         <dependency>
             <groupId>com.sun.istack</groupId>
             <artifactId>istack-commons-runtime</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -130,7 +142,7 @@
         </dependency>
 
         <dependency>
-            <groupId>io.undertow</groupId>
+            <groupId>io.undertow.ee</groupId>
             <artifactId>undertow-servlet</artifactId>
             <scope>test</scope>
         </dependency>
@@ -226,26 +238,32 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-commons</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-core-client</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-jakarta-client</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.artemis</groupId>
+            <artifactId>artemis-selector</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -466,7 +484,7 @@
                                      like org.wildfly.bom:wildfly-ee that includes this artifact.
                                      Perhaps it should switch; if it does this version config
                                      could be removed. -->
-                                <version>${version.org.hibernate}</version>
+                                <version>${version.org.hibernate.jpamodelgen}</version>
                             </path>
                         </annotationProcessorPaths>
                     </configuration>
@@ -485,6 +503,11 @@
                             <jboss.ee.dist.product.release.version>${ee.dist.product.release.version}</jboss.ee.dist.product.release.version>
                             <jboss.ee.dist.product.stability.level>${ee.dist.product.stability.level}</jboss.ee.dist.product.stability.level>
                             <jboss.ee.dist.product.min.stability.level>${ee.dist.product.min.stability.level}</jboss.ee.dist.product.min.stability.level>
+                            <!-- Legacy EE Dist properties -->
+                            <jboss.legacy.ee.dist.product.release.name>${legacy.dist.product.release.name}</jboss.legacy.ee.dist.product.release.name>
+                            <jboss.legacy.ee.dist.product.release.version>${ee.dist.product.release.version}</jboss.legacy.ee.dist.product.release.version>
+                            <jboss.legacy.ee.dist.product.stability.level>${ee.dist.product.stability.level}</jboss.legacy.ee.dist.product.stability.level>
+                            <jboss.legacy.ee.dist.product.min.stability.level>${ee.dist.product.min.stability.level}</jboss.legacy.ee.dist.product.min.stability.level>
                             <!-- Full Dist properties -->
                             <jboss.full.dist.product.release.name>${full.dist.product.release.name}</jboss.full.dist.product.release.name>
                             <jboss.full.dist.product.release.version>${full.dist.product.release.version}</jboss.full.dist.product.release.version>
@@ -538,8 +561,56 @@
                 <plugin>
                     <groupId>org.wildfly.plugins</groupId>
                     <artifactId>wildfly-maven-plugin</artifactId>
-                    <version>${version.org.wildfly.plugin}</version>
+                    <configuration>
+                        <overwrite-provisioned-server>true</overwrite-provisioned-server>
+                        <record-provisioning-state>false</record-provisioning-state>
+                        <log-provisioning-time>${galleon.log.time}</log-provisioning-time>
+                        <offline-provisioning>${galleon.offline}</offline-provisioning>
+                        <galleon-options>
+                            <jboss-maven-dist/>
+                            <jboss-fork-embedded>${galleon.fork.embedded}</jboss-fork-embedded>
+                            <optional-packages>passive+</optional-packages>
+                        </galleon-options>
+                    </configuration>
                     <executions>
+                        <execution>
+                            <id>server-provisioning</id>
+                            <goals>
+                                <goal>provision</goal>
+                            </goals>
+                            <phase>${server-provisioning-phase}</phase>
+                            <configuration>
+                                <provisioning-dir>${project.build.directory}/wildfly</provisioning-dir>
+                                <feature-packs>
+                                    <feature-pack>
+                                        <groupId>${testsuite.ee.feature.pack.groupId}</groupId>
+                                        <artifactId>${testsuite.ee.feature.pack.artifactId}</artifactId>
+                                        <version>${testsuite.ee.feature.pack.version}</version>
+                                        <inherit-configs>false</inherit-configs>
+                                        <inherit-packages>false</inherit-packages>
+                                        <included-configs>
+                                            <config>
+                                                <model>standalone</model>
+                                                <name>standalone.xml</name>
+                                            </config>
+                                            <config>
+                                                <model>standalone</model>
+                                                <name>standalone-full.xml</name>
+                                            </config>
+                                            <config>
+                                                <model>standalone</model>
+                                                <name>standalone-microprofile.xml</name>
+                                            </config>
+                                        </included-configs>
+                                        <included-packages>
+                                            <!-- Tests will add the jakarta data extension, so provision its packages too -->
+                                            <name>org.wildfly.extension.jakarta.data</name>
+                                            <name>jakarta.data.api</name>
+                                        </included-packages>
+                                    </feature-pack>
+                                </feature-packs>
+                            </configuration>
+                        </execution>
                         <execution>
                             <id>bootable-jar-provisioning</id>
                             <goals>
@@ -562,13 +633,6 @@
                 <groupId>org.wildfly.glow</groupId>
                 <artifactId>wildfly-glow-arquillian-plugin</artifactId>
                 <configuration>
-                    <feature-packs>
-                        <feature-pack>
-                            <groupId>${testsuite.ee.galleon.pack.groupId}</groupId>
-                            <artifactId>${testsuite.ee.galleon.pack.artifactId}</artifactId>
-                            <version>${testsuite.ee.galleon.pack.version}</version>
-                        </feature-pack>
-                    </feature-packs>
                     <config-name>standalone.xml</config-name>
                 </configuration>
                 <executions>
@@ -604,16 +668,9 @@
                         <goals>
                             <goal>scan</goal>
                         </goals>
-                        <!--<phase>${glow.phase.jakarta.data}</phase>-->
-                        <!--
-                        Glow Arquillian plugin generates a provisioning.xml that doesn't
-                        provision preview stability artifacts, so this doesn't work.
-                        See https://github.com/wildfly/wildfly-glow/issues/134
-                        Leave all the config here to ease promotion to community stability.
-                        -->
-                        <phase>none</phase>
+                        <phase>${glow.phase.jakarta.data}</phase>
                         <configuration>
-                            <expected-discovery>[cdi, ee-integration, h2-datasource, jakarta-data, jaxrs, jpa, jsonb, jsonp]==>ee-core-profile-server,h2-datasource,jakarta-data,jaxrs</expected-discovery>
+                            <expected-discovery>[cdi, ee-integration, h2-datasource, jakarta-data, jaxrs, jpa, jsonb, jsonp, transactions]==>ee-core-profile-server,h2-datasource,jakarta-data,jaxrs</expected-discovery>
                             <surefire-execution-for-included-classes>jakarta-data-layers.surefire</surefire-execution-for-included-classes>
                         </configuration>
                     </execution>
@@ -649,7 +706,6 @@
                         <!-- Turn off the standard galleon provisioning (doesn't work with mvnd) -->
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <execution>
                                 <id>server-provisioning</id>
@@ -664,6 +720,18 @@
             </build>
         </profile>
 
+        <profile>
+            <id>jboss.dist.profile</id>
+            <activation>
+                <property>
+                    <name>jboss.dist</name>
+                </property>
+            </activation>
+            <properties>
+                <!-- Turn off wildfly-maven-plugin's 'server-provisioning-phase -->
+                <server.provisioning.phase>none</server.provisioning.phase>
+            </properties>
+        </profile>
         <profile>
             <id>server-provisioning-profile</id>
             <activation>
@@ -690,58 +758,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
-                        <configuration>
-                            <overwrite-provisioned-server>true</overwrite-provisioned-server>
-                            <record-provisioning-state>false</record-provisioning-state>
-                            <log-provisioning-time>${galleon.log.time}</log-provisioning-time>
-                            <offline-provisioning>${galleon.offline}</offline-provisioning>
-                            <galleon-options>
-                                <jboss-maven-dist/>
-                                <jboss-fork-embedded>${galleon.fork.embedded}</jboss-fork-embedded>
-                                <optional-packages>passive+</optional-packages>
-                            </galleon-options>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>server-provisioning</id>
-                                <goals>
-                                    <goal>provision</goal>
-                                </goals>
-                                <phase>generate-resources</phase>
-                                <configuration>
-                                    <provisioning-dir>${project.build.directory}/wildfly</provisioning-dir>
-                                    <feature-packs>
-                                        <feature-pack>
-                                            <groupId>${testsuite.ee.galleon.pack.groupId}</groupId>
-                                            <artifactId>${testsuite.ee.galleon.pack.artifactId}</artifactId>
-                                            <version>${testsuite.ee.galleon.pack.version}</version>
-                                            <inherit-configs>false</inherit-configs>
-                                            <inherit-packages>false</inherit-packages>
-                                            <included-configs>
-                                                <config>
-                                                    <model>standalone</model>
-                                                    <name>standalone.xml</name>
-                                                </config>
-                                                <config>
-                                                    <model>standalone</model>
-                                                    <name>standalone-full.xml</name>
-                                                </config>
-                                                <config>
-                                                    <model>standalone</model>
-                                                    <name>standalone-microprofile.xml</name>
-                                                </config>
-                                            </included-configs>
-                                            <included-packages>
-                                                <!-- Tests will add the jakarta data extension, so provision its packages too -->
-                                                <name>org.wildfly.extension.jakarta.data</name>
-                                                <name>jakarta.data.api</name>
-                                            </included-packages>
-                                        </feature-pack>
-                                    </feature-packs>
-                                </configuration>
-                            </execution>
-                        </executions>
                     </plugin>
                 </plugins>
             </build>
@@ -788,6 +804,8 @@
                 <glow.phase.observability>test-compile</glow.phase.observability>
                 <glow.phase.sar>test-compile</glow.phase.sar>
                 <glow.phase.jakarta.data>test-compile</glow.phase.jakarta.data>
+                <!-- Disable the non-slimmed provisioning -->
+                <server-provisioning-phase>none</server-provisioning-phase>
             </properties>
             <build>
                 <plugins>
@@ -808,7 +826,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <configuration>
                             <overwrite-provisioned-server>true</overwrite-provisioned-server>
                         </configuration>
@@ -861,14 +878,7 @@
                                 <goals>
                                     <goal>provision</goal>
                                 </goals>
-                                <!--<phase>process-test-classes</phase>-->
-                                <!--
-                                Glow Arquillian plugin generates a provisioning.xml that doesn't
-                                provision preview stability artifacts, so this doesn't work.
-                                See https://github.com/wildfly/wildfly-glow/issues/134
-                                Leave all the config here to ease promotion to community stability.
-                                -->
-                                <phase>none</phase>
+                                <phase>process-test-classes</phase>
                                 <configuration>
                                     <provisioning-dir>${project.build.directory}/wildfly-jakarta-data</provisioning-dir>
                                     <record-provisioning-state>false</record-provisioning-state>
@@ -942,14 +952,7 @@
                             <!-- Tests against the install with jakarta data support -->
                             <execution>
                                 <id>jakarta-data-layers.surefire</id>
-                                <!--<phase>test</phase>-->
-                                <!--
-                                Glow Arquillian plugin generates a provisioning.xml that doesn't
-                                provision preview stability artifacts, so this doesn't work.
-                                See https://github.com/wildfly/wildfly-glow/issues/134
-                                Leave all the config here to ease promotion to community stability.
-                                -->
-                                <phase>none</phase>
+                                <phase>test</phase>
                                 <goals>
                                     <goal>test</goal>
                                 </goals>
@@ -963,6 +966,7 @@
                                         <!-- Override the standard module path that points at the shared module set from dist -->
                                         <module.path>${project.build.directory}/wildfly-jakarta-data/modules${path.separator}${basedir}/target/modules</module.path>
                                         <jboss.server.config.file.name>standalone.xml</jboss.server.config.file.name>
+                                        <jboss.args>${jboss.args} --stability=preview</jboss.args>
                                     </systemPropertyVariables>
                                     <environmentVariables>
                                         <JBOSS_HOME>${project.build.directory}/wildfly-jakarta-data</JBOSS_HOME>
@@ -996,6 +1000,8 @@
             <properties>
                 <ts.bootable-jar-packaging.phase>process-test-classes</ts.bootable-jar-packaging.phase>
                 <glow.phase.observability>test-compile</glow.phase.observability>
+                <!-- Disable the default provisioning -->
+                <server-provisioning-phase>none</server-provisioning-phase>
             </properties>
             <build>
                 <plugins>
@@ -1016,17 +1022,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
-                        <executions>
-                            <!-- Disable the default provisioning -->
-                            <execution>
-                                <id>server-provisioning</id>
-                                <goals>
-                                    <goal>provision</goal>
-                                </goals>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
                     </plugin>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -1083,6 +1078,8 @@
             <properties>
                 <ts.bootable-jar-packaging.phase>process-test-classes</ts.bootable-jar-packaging.phase>
                 <glow.phase.observability>test-compile</glow.phase.observability>
+                <!-- Disable the default provisioning -->
+                <server-provisioning-phase>none</server-provisioning-phase>
             </properties>
             <build>
                 <plugins>
@@ -1103,17 +1100,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
-                        <executions>
-                            <!-- Disable the default provisioning -->
-                            <execution>
-                                <id>server-provisioning</id>
-                                <goals>
-                                    <goal>provision</goal>
-                                </goals>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
                     </plugin>
 
                     <plugin>
@@ -1188,33 +1174,138 @@
         </profile>
 
         <profile>
-            <id>no.jakarta.data.preview.profile</id>
+            <id>latest-ee-full-server-tests</id>
             <activation>
-                <property>
-                    <name>preview-server-tests</name>
-                </property>
+                <property><name>latest-ee-full-server-tests</name></property>
             </activation>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-compiler-plugin</artifactId>
+                        <groupId>org.wildfly.plugins</groupId>
+                        <artifactId>wildfly-maven-plugin</artifactId>
                         <executions>
                             <execution>
-                                <id>default-testCompile</id>
+                                <id>server-provisioning</id>
+                                <goals>
+                                    <goal>provision</goal>
+                                </goals>
+                                <phase>${server-provisioning-phase}</phase>
                                 <configuration>
-                                    <testExcludes>
-                                        <!-- The classes generated with the standard WF hibernate-jpamodelgen
-                                             won't run with WFP's ORM version -->
-                                        <exclude>org/jboss/as/test/smoke/jakarta/data/**</exclude>
-                                    </testExcludes>
+                                    <feature-packs>
+                                        <feature-pack>
+                                            <groupId>${testsuite.ee.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.ee.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.ee.feature.pack.version}</version>
+                                            <included-packages>
+                                                <!-- Tests will add the jakarta data extension, so provision its packages too -->
+                                                <name>org.wildfly.extension.jakarta.data</name>
+                                                <name>jakarta.data.api</name>
+                                            </included-packages>
+                                        </feature-pack>
+                                        <!-- All this so we can declare the full FP -->
+                                        <feature-pack>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
+                                            <inherit-configs>false</inherit-configs>
+                                            <inherit-packages>false</inherit-packages>
+                                            <included-configs>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone.xml</name>
+                                                </config>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone-full.xml</name>
+                                                </config>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone-microprofile.xml</name>
+                                                </config>
+                                            </included-configs>
+                                        </feature-pack>
+                                    </feature-packs>
                                 </configuration>
                             </execution>
                         </executions>
                     </plugin>
                 </plugins>
             </build>
+        </profile>
 
+        <profile>
+            <id>legacy-ee-full-server-tests</id>
+            <activation>
+                <property><name>legacy-ee-full-server-tests</name></property>
+            </activation>
+            <properties>
+                <!-- Use the version of the hibernate-jpamodelgen annotation processor
+                     that aligns with the ORM version in the legacy EE FP. -->
+                <version.org.hibernate.jpamodelgen>${legacy.version.org.hibernate}</version.org.hibernate.jpamodelgen>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.wildfly.plugins</groupId>
+                        <artifactId>wildfly-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>server-provisioning</id>
+                                <goals>
+                                    <goal>provision</goal>
+                                </goals>
+                                <phase>${server-provisioning-phase}</phase>
+                                <configuration>
+                                    <feature-packs>
+                                        <feature-pack>
+                                            <groupId>${testsuite.ee.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.ee.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.ee.feature.pack.version}</version>
+                                            <included-packages>
+                                                <!-- Tests will add the jakarta data extension, so provision its packages too -->
+                                                <name>org.wildfly.extension.jakarta.data</name>
+                                                <name>jakarta.data.api</name>
+                                            </included-packages>
+                                        </feature-pack>
+                                        <!-- All this so we can declare the full FP -->
+                                        <feature-pack>
+                                            <groupId>${testsuite.full.feature.pack.groupId}</groupId>
+                                            <artifactId>${testsuite.full.feature.pack.artifactId}</artifactId>
+                                            <version>${testsuite.full.feature.pack.version}</version>
+                                            <included-configs>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone.xml</name>
+                                                </config>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone-full.xml</name>
+                                                </config>
+                                                <config>
+                                                    <model>standalone</model>
+                                                    <name>standalone-microprofile.xml</name>
+                                                </config>
+                                            </included-configs>
+                                        </feature-pack>
+                                    </feature-packs>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>legacy-ee-only-server-tests</id>
+            <activation>
+                <property><name>legacy-ee-only-server-tests</name></property>
+            </activation>
+            <properties>
+                <!-- Use the version of the hibernate-jpamodelgen annotation processor
+                     that aligns with the ORM version in the legacy EE FP. -->
+                <version.org.hibernate.jpamodelgen>${legacy.version.org.hibernate}</version.org.hibernate.jpamodelgen>
+            </properties>
         </profile>
     </profiles>
 

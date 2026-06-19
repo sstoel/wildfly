@@ -9,13 +9,13 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.infinispan.Cache;
-import org.jboss.as.clustering.controller.DurationAttributeDefinition;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.SimpleAttributeDefinitionBuilder;
 import org.jboss.as.controller.operations.validation.IntRangeValidator;
 import org.jboss.as.controller.registry.AttributeAccess;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
+import org.wildfly.subsystem.resource.DurationAttributeDefinition;
 import org.wildfly.subsystem.resource.ResourceDescriptor;
 import org.wildfly.subsystem.service.capture.FunctionExecutorRegistry;
 
@@ -23,9 +23,9 @@ import org.wildfly.subsystem.service.capture.FunctionExecutorRegistry;
  * Registers a resource definition for a scattered cache.
  * @author Paul Ferraro
  */
-public class ScatteredCacheResourceDefinitionRegistrar extends SegmentedCacheResourceDefinitionRegistrar {
+public class ScatteredCacheResourceDefinitionRegistrar extends SharedStateCacheResourceDefinitionRegistrar {
 
-    static final DurationAttributeDefinition BIAS_LIFESPAN = new DurationAttributeDefinition.Builder("bias-lifespan", ChronoUnit.MILLIS)
+    static final DurationAttributeDefinition BIAS_LIFESPAN = DurationAttributeDefinition.builder("bias-lifespan", ChronoUnit.MILLIS)
             .setDefaultValue(Duration.ofMinutes(5))
             .build();
     static final AttributeDefinition INVALIDATION_BATCH_SIZE = new SimpleAttributeDefinitionBuilder("invalidation-batch-size", ModelType.INT)

@@ -35,12 +35,12 @@ import org.junit.Assume;
  * For tests that need to run under a specific server stability level,
  * the server setup tasks from the inner classes can be used to change the stability level of the server to the desired level.
  * Once the test is done, the original stability level is restored.
- *
+ * <p/>
  * In order to not pollute the configuration with XML from a different stability level following the run of the test,
  * it takes a snapshot of the server configuration in the {@code setup()} method, and then restores to that snapshot in
  * the {@code teardown()} method
  */
-public abstract class StabilityServerSetupSnapshotRestoreTasks implements ServerSetupTask {
+public class StabilityServerSetupSnapshotRestoreTasks implements ServerSetupTask {
     private static final String SERVER_ENVIRONMENT = "server-environment";
 
     private final Stability desiredStability;
@@ -71,20 +71,18 @@ public abstract class StabilityServerSetupSnapshotRestoreTasks implements Server
         Stability reloadOpStability = getReloadEnhancedOperationStabilityLevel(managementClient);
         Assume.assumeTrue(desiredStability.enables(reloadOpStability));
 
-
         originalStability = readCurrentStability(managementClient.getControllerClient());
-
-        // We only want to reload to lower stability levels (e.g. when running the ts.preview tests, that contains
-        // some configuration at 'preview' level, so the reload to 'community' fails
-        Assume.assumeTrue(desiredStability.enables(originalStability));
 
         // Take a snapshot, indicating that when reloading we want to go back to the original stability
         snapshot = takeSnapshot(managementClient, originalStability);
 
-        // All good, let's do it!
-        reloadToDesiredStability(managementClient.getControllerClient(), desiredStability);
+        // We only want to reload to lower stability levels if necessary (e.g. when running the ts.preview tests,
+        // container that contains any configuration at 'preview' level the reload to 'community' would fail)
+        if (!originalStability.enables(desiredStability)) {
+            reloadToDesiredStability(managementClient.getControllerClient(), desiredStability);
+        }
 
-        // Do any additional setup from the sub-classes
+        // Do any additional setup from the subclasses
         doSetup(managementClient);
     }
 
@@ -211,6 +209,14 @@ public abstract class StabilityServerSetupSnapshotRestoreTasks implements Server
                     if (reloadToStability != null) {
                         parameters.setStability(reloadToStability);
                     }
+
+                    if (client.getMgmtAddress() != null) {
+                        parameters.setServerAddress(client.getMgmtAddress());
+                    }
+                    if (client.getMgmtPort() > 0) {
+                        parameters.setServerPort(client.getMgmtPort());
+                    }
+
                     ServerReload.executeReloadAndWaitForCompletion(client.getControllerClient(), parameters);
 
                     ModelNode node = new ModelNode();

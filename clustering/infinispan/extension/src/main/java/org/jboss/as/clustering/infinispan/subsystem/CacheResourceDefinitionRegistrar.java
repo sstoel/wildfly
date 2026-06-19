@@ -25,8 +25,6 @@ import org.infinispan.configuration.cache.TransactionConfiguration;
 import org.infinispan.configuration.cache.TransactionConfigurationBuilder;
 import org.infinispan.configuration.global.GlobalConfiguration;
 import org.infinispan.transaction.tm.EmbeddedTransactionManager;
-import org.jboss.as.clustering.controller.ModuleListAttributeDefinition;
-import org.jboss.as.clustering.controller.StatisticsEnabledAttributeDefinition;
 import org.jboss.as.clustering.naming.BinderServiceInstaller;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -49,12 +47,15 @@ import org.wildfly.clustering.server.service.ClusteringServiceDescriptor;
 import org.wildfly.clustering.server.service.LocalCacheServiceInstallerProvider;
 import org.wildfly.clustering.server.service.ProvidedBinaryServiceInstallerProvider;
 import org.wildfly.clustering.singleton.service.SingletonServiceTargetFactory;
+import org.wildfly.service.Installer;
 import org.wildfly.service.descriptor.BinaryServiceDescriptor;
 import org.wildfly.subsystem.resource.ChildResourceDefinitionRegistrar;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrar;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrationContext;
+import org.wildfly.subsystem.resource.ModuleListAttributeDefinition;
 import org.wildfly.subsystem.resource.ResourceDescriptor;
 import org.wildfly.subsystem.resource.ResourceModelResolver;
+import org.wildfly.subsystem.resource.StatisticsEnabledAttributeDefinition;
 import org.wildfly.subsystem.resource.capability.ResourceCapabilityReference;
 import org.wildfly.subsystem.resource.operation.ResourceOperationRuntimeHandler;
 import org.wildfly.subsystem.service.ResourceServiceConfigurator;
@@ -154,7 +155,7 @@ public class CacheResourceDefinitionRegistrar implements ChildResourceDefinition
                 return new AggregatedClassLoader(modules.stream().map(Module::getClassLoader).collect(Collectors.toUnmodifiableList()));
             }
         });
-        installers.add(ServiceInstaller.builder(loader).provides(config.resolveServiceName(CLASS_LOADER)).build());
+        installers.add(ServiceInstaller.BlockingBuilder.of(loader).provides(config.resolveServiceName(CLASS_LOADER)).startWhen(Installer.StartWhen.AVAILABLE).build());
 
         installers.add(new BinderServiceInstaller(InfinispanCacheBindingFactory.CACHE.apply(config), config.resolveServiceName(LazyCacheServiceInstaller.SERVICE_DESCRIPTOR)));
         installers.add(new BinderServiceInstaller(InfinispanCacheBindingFactory.CACHE_CONFIGURATION.apply(config), config.resolveServiceName(InfinispanServiceDescriptor.CACHE_CONFIGURATION)));

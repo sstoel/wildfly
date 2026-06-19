@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.function.BiFunction;
 import java.util.function.UnaryOperator;
 
-import org.jboss.as.clustering.controller.ModuleAttributeDefinition;
-import org.jboss.as.clustering.controller.StatisticsEnabledAttributeDefinition;
 import org.jboss.as.controller.AttributeDefinition;
 import org.jboss.as.controller.OperationContext;
 import org.jboss.as.controller.OperationFailedException;
@@ -35,8 +33,10 @@ import org.wildfly.clustering.server.service.ChannelServiceInstallerProvider;
 import org.wildfly.clustering.server.service.ClusteringServiceDescriptor;
 import org.wildfly.clustering.server.service.ProvidedUnaryServiceInstallerProvider;
 import org.wildfly.subsystem.resource.ManagementResourceRegistrationContext;
+import org.wildfly.subsystem.resource.ModuleAttributeDefinition;
 import org.wildfly.subsystem.resource.ResourceDescriptor;
 import org.wildfly.subsystem.resource.ResourceModelResolver;
+import org.wildfly.subsystem.resource.StatisticsEnabledAttributeDefinition;
 import org.wildfly.subsystem.resource.capability.CapabilityReference;
 import org.wildfly.subsystem.resource.capability.CapabilityReferenceAttributeDefinition;
 import org.wildfly.subsystem.resource.executor.MetricOperationStepHandler;
@@ -60,7 +60,7 @@ public class ChannelResourceDefinitionRegistrar extends AbstractChannelResourceD
             .setRequired(false)
             .setFlags(AttributeAccess.Flag.RESTART_RESOURCE_SERVICES)
             .build();
-    static final StatisticsEnabledAttributeDefinition STATISTICS_ENABLED = new StatisticsEnabledAttributeDefinition.Builder().build();
+    static final StatisticsEnabledAttributeDefinition STATISTICS_ENABLED = new StatisticsEnabledAttributeDefinition.Builder().setDeprecated(JGroupsSubsystemModel.VERSION_12_0_0.getVersion()).build();
 
     private final ServiceValueExecutorRegistry<JChannel> channelRegistry;
 
@@ -113,16 +113,10 @@ public class ChannelResourceDefinitionRegistrar extends AbstractChannelResourceD
                     public ServiceDependency<ChannelConfiguration> resolve(OperationContext context, ModelNode model) throws OperationFailedException {
                         String name = context.getCurrentAddressValue();
                         String clusterName = CLUSTER.resolveModelAttribute(context, model).asString(name);
-                        boolean statisticsEnabled = STATISTICS_ENABLED.resolve(context, model);
                         return STACK.resolve(context, model).combine(MODULE.resolve(context, model), new BiFunction<>() {
                             @Override
                             public ChannelConfiguration apply(ChannelFactory factory, Module module) {
                                 return new ChannelConfiguration() {
-                                    @Override
-                                    public boolean isStatisticsEnabled() {
-                                        return statisticsEnabled;
-                                    }
-
                                     @Override
                                     public ChannelFactory getChannelFactory() {
                                         return factory;

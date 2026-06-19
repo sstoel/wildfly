@@ -12,7 +12,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.jboss.as.controller.descriptions.ModelDescriptionConstants.PATH;
 import static org.jboss.as.controller.security.CredentialReference.handleCredentialReferenceUpdate;
 import static org.jboss.as.controller.security.CredentialReference.rollbackCredentialStoreUpdate;
-import static org.wildfly.extension.messaging.activemq.AddressSettingAdd.createDefaulAddressSettings;
+import static org.wildfly.extension.messaging.activemq.AddressSettingAdd.createDefaultAddressSettings;
 import static org.wildfly.extension.messaging.activemq.Capabilities.ACTIVEMQ_SERVER_CAPABILITY;
 import static org.wildfly.extension.messaging.activemq.Capabilities.DATA_SOURCE_CAPABILITY;
 import static org.wildfly.extension.messaging.activemq.Capabilities.ELYTRON_DOMAIN_CAPABILITY;
@@ -462,7 +462,7 @@ class ServerAdd extends AbstractAddStepHandler {
                 for (CoreQueueConfiguration queueConfiguration : configuration.getQueueConfigurations()) {
                     if (coreQueues.has(queueConfiguration.getName())) {
                         final ServiceName queueServiceName = activeMQServiceName.append(queueConfiguration.getName());
-                        final ServiceBuilder sb = context.getServiceTarget().addService(queueServiceName);
+                        final ServiceBuilder sb = context.getCapabilityServiceTarget().addService(queueServiceName);
                         sb.requires(ActiveMQActivationService.getServiceName(activeMQServiceName));
                         Supplier<ActiveMQBroker> serverSupplier = sb.requires(activeMQServiceName);
                         final QueueService queueService = new QueueService(serverSupplier, queueConfiguration, false, false);
@@ -692,13 +692,13 @@ class ServerAdd extends AbstractAddStepHandler {
                     boolean isRootAddressMatch = configuration.getWildcardConfiguration().getAnyWordsString().equals(match);
                     final AddressSettings settings = AddressSettingAdd.createSettings(context, config, isRootAddressMatch);
                     if (!merged && isRootAddressMatch) {
-                        settings.merge(createDefaulAddressSettings());
+                        settings.merge(createDefaultAddressSettings());
                         merged = true;
                     }
                     configuration.addAddressSetting(match, settings);
                 }
                 if (!merged) {
-                    configuration.addAddressSetting(configuration.getWildcardConfiguration().getAnyWordsString(), createDefaulAddressSettings());
+                    configuration.addAddressSetting(configuration.getWildcardConfiguration().getAnyWordsString(), createDefaultAddressSettings());
                 }
             }
         }

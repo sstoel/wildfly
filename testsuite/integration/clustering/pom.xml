@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <artifactId>wildfly-ts-integ-clustering</artifactId>
@@ -52,21 +52,7 @@
         <ts.config-as.clustering.phase>test-compile</ts.config-as.clustering.phase>
         <!-- Disable the default surefire test execution. All profiles use custom executions. -->
         <surefire.default-test.phase>none</surefire.default-test.phase>
-        <!-- Use expansion bom since it managed Awaitility -->
-        <dependency.management.import.test.artifact>wildfly-standard-test-expansion-bom</dependency.management.import.test.artifact>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>${full.maven.groupId}</groupId>
-                <artifactId>${dependency.management.import.test.artifact}</artifactId>
-                <version>${full.maven.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <!-- Jakarta specification dependencies -->
@@ -192,6 +178,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>commons-beanutils</groupId>
+            <artifactId>commons-beanutils</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
             <scope>test</scope>
@@ -247,17 +238,22 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-core-client</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
+            <artifactId>artemis-commons</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-jakarta-client</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.activemq</groupId>
+            <groupId>org.apache.artemis</groupId>
             <artifactId>artemis-selector</artifactId>
             <scope>test</scope>
         </dependency>
@@ -313,7 +309,7 @@
         </dependency>
         <dependency>
             <groupId>org.infinispan</groupId>
-            <artifactId>infinispan-server-testdriver-junit4</artifactId>
+            <artifactId>infinispan-server-testdriver-junit5</artifactId>
             <version>${version.org.infinispan.server.driver}</version>
             <scope>test</scope>
             <exclusions>
@@ -338,28 +334,14 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jboss.arquillian.extension</groupId>
-            <artifactId>arquillian-extension-byteman</artifactId>
-            <version>1.1.0</version>
+            <groupId>org.jboss.byteman</groupId>
+            <artifactId>byteman-bmunit5</artifactId>
+            <version>${version.org.jboss.byteman}</version>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.sun</groupId>
-                    <artifactId>tools</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.jboss.arquillian.core</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.jboss.arquillian.container</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.jboss.arquillian.junit</groupId>
-            <artifactId>arquillian-junit-container</artifactId>
+            <groupId>org.jboss.arquillian.junit5</groupId>
+            <artifactId>arquillian-junit5-container</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -400,6 +382,16 @@
         <dependency>
             <groupId>org.wildfly.core</groupId>
             <artifactId>wildfly-cli</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-suite</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -455,13 +447,6 @@
                 <groupId>org.wildfly.glow</groupId>
                 <artifactId>wildfly-glow-arquillian-plugin</artifactId>
                 <configuration>
-                    <feature-packs>
-                        <feature-pack>
-                            <groupId>${testsuite.ee.galleon.pack.groupId}</groupId>
-                            <artifactId>${testsuite.ee.galleon.pack.artifactId}</artifactId>
-                            <version>${testsuite.ee.galleon.pack.version}</version>
-                        </feature-pack>
-                    </feature-packs>
                     <profile>ha</profile>
                 </configuration>
                 <executions>
@@ -543,7 +528,7 @@
                             <packaging-scripts>
                                 <cli-session>
                                     <javaOpts>
-                                        <opt>-Dmaven.repo.local=${maven.repo.local}</opt>
+                                        <opt>-Dmaven.repo.local=${settings.localRepository}</opt>
                                     </javaOpts>
                                     <scripts>
                                         <script>clustering-ha-bootable-jar.cli</script>
@@ -577,7 +562,7 @@
                             <packaging-scripts>
                                 <cli-session>
                                     <javaOpts>
-                                        <opt>-Dmaven.repo.local=${maven.repo.local}</opt>
+                                        <opt>-Dmaven.repo.local=${settings.localRepository}</opt>
                                     </javaOpts>
                                     <scripts>
                                         <script>clustering-ha-bootable-jar.cli</script>
@@ -611,7 +596,7 @@
                             <packaging-scripts>
                                 <cli-session>
                                     <javaOpts>
-                                        <opt>-Dmaven.repo.local=${maven.repo.local}</opt>
+                                        <opt>-Dmaven.repo.local=${settings.localRepository}</opt>
                                     </javaOpts>
                                     <scripts>
                                         <script>clustering-load-balancer-bootable-jar.cli</script>
@@ -698,7 +683,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <execution>
                                 <id>ts.config-as.configure-wildfly</id>
@@ -1160,9 +1144,6 @@
                                     <includes>
                                         <include>org/jboss/as/test/clustering/single/infinispan/InfinispanModulesTestSuite.java</include>
                                     </includes>
-                                    <classpathDependencyExcludes>
-                                        <classpathDependencyExclude>org.jboss.arquillian.extension:arquillian-extension-byteman</classpathDependencyExclude>
-                                    </classpathDependencyExcludes>
                                     <systemPropertyVariables>
                                         <arquillian.xml>arquillian-testable.xml</arquillian.xml>
                                         <jboss.server.config.file.name>standalone-ha.xml</jboss.server.config.file.name>
@@ -1469,17 +1450,10 @@
                         <groupId>org.wildfly.glow</groupId>
                         <artifactId>wildfly-glow-arquillian-plugin</artifactId>
                         <configuration>
-                            <feature-packs>
-                                <feature-pack>
-                                    <groupId>${testsuite.ee.galleon.pack.groupId}</groupId>
-                                    <artifactId>${testsuite.ee.galleon.pack.artifactId}</artifactId>
-                                    <version>${testsuite.ee.galleon.pack.version}</version>
-                                </feature-pack>
-                            </feature-packs>
                             <profile>ha</profile>
                         </configuration>
                         <executions>
-                            
+
                             <!-- wildfly-server -->
                             <!-- Provision the configuration that the ts.surefire.clustering.all
                             surefire execution tests. -->
@@ -1555,7 +1529,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.microprofile</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-mod-cluster -->
                             <execution>
                                 <id>scan-clustering-cloud-profile-mod-cluster</id>
@@ -1629,7 +1603,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.mod_cluster</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-jpa-dist -->
                             <execution>
                                 <id>scan-clustering-jpa-dist</id>
@@ -1665,7 +1639,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.all.jpa2lc</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-ejb -->
                             <execution>
                                 <id>scan-clustering-ejb</id>
@@ -1703,7 +1677,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.ejb</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-jaxrs-jsf -->
                             <execution>
                                 <id>scan-clustering-jaxrs-jsf</id>
@@ -1731,7 +1705,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.jsf</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-singleton-ha -->
                             <execution>
                                 <id>scan-clustering-singleton-ha</id>
@@ -1759,7 +1733,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.singleton-ha</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-web-passivation -->
                             <execution>
                                 <id>scan-clustering-web-passivation</id>
@@ -1773,7 +1747,7 @@
                                     <surefireExecutionForIncludedClasses>ts.surefire.clustering.web-passivation</surefireExecutionForIncludedClasses>
                                 </configuration>
                             </execution>
-                            
+
                             <!-- wildfly-server-singleton-local -->
                             <execution>
                                 <id>scan-clustering-singleton-local</id>
@@ -1792,7 +1766,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <configuration>
                             <overwrite-provisioned-server>true</overwrite-provisioned-server>
                         </configuration>
@@ -2426,7 +2399,9 @@
                                     <resources>
                                         <resource>
                                             <directory>../../shared/src/main/resources</directory>
-                                            <includes><include>*.properties</include></includes>
+                                            <includes>
+                                                <include>*.properties</include>
+                                            </includes>
                                         </resource>
                                     </resources>
                                 </configuration>
@@ -2453,7 +2428,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <execution>
                                 <id>ts.config-as.configure-wildfly</id>
@@ -2741,7 +2715,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <execution>
                                 <id>ts.config-as.configure-lb</id>

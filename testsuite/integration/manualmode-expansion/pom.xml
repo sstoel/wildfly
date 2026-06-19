@@ -16,7 +16,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>40.0.0.Beta1-SNAPSHOT</version>
+        <version>41.0.0.Beta1-SNAPSHOT</version>
     </parent>
 
     <!-- ********************************************************************************** -->
@@ -40,18 +40,6 @@
         <dependency.management.import.test.artifact>wildfly-standard-test-expansion-bom</dependency.management.import.test.artifact>
         <channel.provisioning.phase>process-test-resources</channel.provisioning.phase>
     </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>${full.maven.groupId}</groupId>
-                <artifactId>${dependency.management.import.test.artifact}</artifactId>
-                <version>${full.maven.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -154,7 +142,6 @@
             <plugin>
                 <groupId>org.wildfly.plugins</groupId>
                 <artifactId>wildfly-maven-plugin</artifactId>
-                <version>${version.org.wildfly.plugin}</version>
                 <executions>
                     <execution>
                         <phase>none</phase>
@@ -210,7 +197,7 @@
                                 <feature-pack>
                                     <transitive>true</transitive>
                                     <groupId>${ee.maven.groupId}</groupId>
-                                    <artifactId>wildfly-ee-galleon-pack</artifactId>
+                                    <artifactId>${testsuite.ee.only.feature.pack.artifactId}</artifactId>
                                     <version>${ee.maven.version}</version>
                                     <included-packages>
                                         <name>docs.examples.configs</name>
@@ -258,7 +245,8 @@
                         <node2>${node2}</node2>
                         <node3>${node3}</node3>
                         <mcast>${mcast}</mcast>
-                        <dist.output.dir>dist/target/${server.output.dir.prefix}-${server.output.dir.version}</dist.output.dir>
+                        <!-- Tell ProvisioningConsistenceTestCase the location of the pre-built server -->
+                        <dist.output.dir>${testsuite.default.build.project.root}dist/target/${server.output.dir.prefix}-${server.output.dir.qualifier}${server.output.dir.version}</dist.output.dir>
                         <build.output.dir>${wildfly.build.output.dir}</build.output.dir>
                     </systemPropertyVariables>
                 </configuration>
@@ -327,7 +315,6 @@
                     <plugin>
                         <groupId>org.wildfly.plugins</groupId>
                         <artifactId>wildfly-maven-plugin</artifactId>
-                        <version>${version.org.wildfly.plugin}</version>
                         <executions>
                             <execution>
                                 <id>channel-provisioning-comparison</id>
@@ -351,24 +338,9 @@
             </properties>
         </profile>
         <profile>
-            <id>internal.wildfly.channels</id>
+            <id>latest-ee-only-server-tests</id>
             <activation>
-                <property>
-                    <name>internal.wildfly.channels</name>
-                </property>
-            </activation>
-            <properties>
-                <!-- Disable channel-provisioning executions to avoid interference between external settings and the test -->
-                <channel.provisioning.phase>none</channel.provisioning.phase>
-            </properties>
-        </profile>
-        <profile>
-            <id>ignore-ee-feature-pack</id>
-            <activation>
-                <property>
-                    <name>testsuite.ee.galleon.pack.artifactId</name>
-                    <value>wildfly-ee-galleon-pack</value>
-                </property>
+                <property><name>latest-ee-only-server-tests</name></property>
             </activation>
             <properties>
                 <!-- Don't run expansion tests if we're configured to test wildfly-ee -->
@@ -378,12 +350,9 @@
             </properties>
         </profile>
         <profile>
-            <id>ignore-ee-alt-dist</id>
+            <id>legacy-ee-only-server-tests</id>
             <activation>
-                <property>
-                    <name>testsuite.default.build.project.prefix</name>
-                    <value>ee-</value>
-                </property>
+                <property><name>legacy-ee-only-server-tests</name></property>
             </activation>
             <properties>
                 <!-- Don't run expansion tests if we're configured to test wildfly-ee -->
