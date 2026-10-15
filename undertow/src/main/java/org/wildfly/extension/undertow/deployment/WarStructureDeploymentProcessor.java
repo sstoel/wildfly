@@ -11,8 +11,11 @@ import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.jar.Manifest;
 
 import io.undertow.util.FileUtils;
 import org.jboss.as.controller.services.path.PathManager;
@@ -54,6 +57,8 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
 
     public static final String WEB_INF_LIB = "WEB-INF/lib";
     public static final String WEB_INF_CLASSES = "WEB-INF/classes";
+    // The name prefix of the resource roots of the directories on the Bundle-ClassPath of an OSGi web application
+    public static final String BUNDLE_CLASS_PATH_DIRECTORY_PREFIX = "Bundle-ClassPath:";
     public static final String META_INF = "META-INF";
 
     private static final String WEB_INF_EXTERNAL_MOUNTS = "WEB-INF/undertow-external-mounts.conf";
@@ -180,6 +185,8 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
      */
     private List<ResourceRoot> createResourceRoots(final VirtualFile deploymentRoot, final DeploymentUnit deploymentUnit) throws IOException, DeploymentUnitProcessingException {
         final List<ResourceRoot> entries = new ArrayList<ResourceRoot>();
+        // The web resources of an OSGi web application (WAB) are those on its Bundle-ClassPath (OSGi Enterprise 128.3.7)
+        final Set<String> bundleClassPath = getBundleClassPath(deploymentUnit);
         // WEB-INF classes
         final VirtualFile webinfClasses = deploymentRoot.getChild(WEB_INF_CLASSES);
         if (webinfClasses.exists()) {
@@ -196,6 +203,10 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
                 try {
 
                     String relativeName = archive.getPathNameRelativeTo(deploymentRoot);
+                    // A JAR that is not on the Bundle-ClassPath of a WAB is not part of the web application
+                    if (bundleClassPath != null && !bundleClassPath.contains(relativeName)) {
+                        continue;
+                    }
                     MountedDeploymentOverlay overlay = overlays.get(relativeName);
                     Closeable closable = null;
                     if(overlay != null) {
@@ -213,6 +224,58 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
                 }
             }
         }
+        // The other JARs and directories on the Bundle-ClassPath of a WAB are web resources like those in WEB-INF
+        if (bundleClassPath != null) {
+            for (String entry : bundleClassPath) {
+                if (entry.equals(".") || entry.equals(WEB_INF_CLASSES) || entry.startsWith(WEB_INF_LIB + "/")) {
+                    continue;
+                }
+                final VirtualFile file = deploymentRoot.getChild(entry);
+                if (!file.exists()) {
+                    continue;
+                }
+                try {
+                    final ResourceRoot root;
+                    if (file.isFile()) {
+                        Closeable closable = VFS.mountZip(file.getPhysicalFile(), file, TempFileProviderService.provider());
+                        root = new ResourceRoot(file.getName(), file, MountHandle.create(closable));
+                    } else {
+                        root = new ResourceRoot(BUNDLE_CLASS_PATH_DIRECTORY_PREFIX + entry, file, null);
+                    }
+                    ModuleRootMarker.mark(root);
+                    entries.add(root);
+                } catch (IOException e) {
+                    throw new DeploymentUnitProcessingException(UndertowLogger.ROOT_LOGGER.failToProcessWebInfLib(file), e);
+                }
+            }
+        }
         return entries;
+    }
+
+    /**
+     * The entries of the Bundle-ClassPath of an OSGi web application, null for other deployments
+     */
+    private static Set<String> getBundleClassPath(final DeploymentUnit deploymentUnit) {
+        final Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
+        if (manifest == null) {
+            return null;
+        }
+        final Set<String> result = new LinkedHashSet<String>();
+        final String header = manifest.getMainAttributes().getValue("Bundle-ClassPath");
+        if (header == null || header.trim().isEmpty()) {
+            result.add(".");
+            return result;
+        }
+        for (String element : header.split(",")) {
+            String path = element.split(";")[0].trim();
+            while (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            while (path.endsWith("/")) {
+                path = path.substring(0, path.length() - 1);
+            }
+            result.add(path.isEmpty() ? "." : path);
+        }
+        return result;
     }
 }

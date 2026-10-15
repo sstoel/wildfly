@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.jar.Manifest;
 
 import static org.jboss.as.jpa.messages.JpaLogger.ROOT_LOGGER;
 
@@ -62,6 +63,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
 
     private static final String WEB_PERSISTENCE_XML = "WEB-INF/classes/META-INF/persistence.xml";
     private static final String META_INF_PERSISTENCE_XML = "META-INF/persistence.xml";
+    private static final String META_PERSISTENCE = "Meta-Persistence";
     private static final String JAR_FILE_EXTENSION = ".jar";
     private static final String LIB_FOLDER = "lib";
     private static final PersistenceUnitMetadataHolder emptyholder = new PersistenceUnitMetadataHolder(Collections.emptyList());
@@ -106,6 +108,11 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
 
             VirtualFile persistence_xml = deploymentRoot.getRoot().getChild(META_INF_PERSISTENCE_XML);
             parse(persistence_xml, listPUHolders, deploymentUnit);
+            // An OSGi persistence bundle names further descriptors in its Meta-Persistence header, their persistence
+            // units have the bundle as root (OSGi Enterprise 127.4.4)
+            for (VirtualFile descriptor : getMetaPersistenceDescriptors(deploymentUnit, deploymentRoot.getRoot())) {
+                parse(descriptor, deploymentRoot.getRoot(), listPUHolders, deploymentUnit);
+            }
             PersistenceUnitMetadataHolder holder = normalize(listPUHolders);
             // save the persistent unit definitions
             deploymentRoot.putAttachment(PersistenceUnitMetadataHolder.PERSISTENCE_UNITS, holder);
@@ -197,8 +204,49 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
         }
     }
 
+    /**
+     * The persistence descriptors named in the Meta-Persistence header of an OSGi bundle, other than
+     * META-INF/persistence.xml, which is always parsed
+     */
+    private static List<VirtualFile> getMetaPersistenceDescriptors(DeploymentUnit deploymentUnit, VirtualFile root) {
+        Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
+        String header = manifest != null ? manifest.getMainAttributes().getValue(META_PERSISTENCE) : null;
+        if (header == null) {
+            return Collections.emptyList();
+        }
+        List<VirtualFile> result = new ArrayList<>();
+        for (String entry : header.split(",")) {
+            String path = entry.trim();
+            while (path.startsWith("/")) {
+                path = path.substring(1);
+            }
+            if (path.isEmpty() || path.equals(META_INF_PERSISTENCE_XML)) {
+                continue;
+            }
+            // A descriptor inside a JAR of the bundle (jar!/path) is not supported
+            if (path.contains("!/")) {
+                ROOT_LOGGER.debugf("Meta-Persistence entry %s of %s is not supported", path, deploymentUnit.getName());
+                continue;
+            }
+            result.add(root.getChild(path));
+        }
+        return result;
+    }
+
     private void parse(
             final VirtualFile persistence_xml,
+            final List<PersistenceUnitMetadataHolder> listPUHolders,
+            final DeploymentUnit deploymentUnit)
+        throws DeploymentUnitProcessingException {
+        parse(persistence_xml, null, listPUHolders, deploymentUnit);
+    }
+
+    /**
+     * @param unitRoot the root of the persistence units of the descriptor, null for the parent of its META-INF directory
+     */
+    private void parse(
+            final VirtualFile persistence_xml,
+            final VirtualFile unitRoot,
             final List<PersistenceUnitMetadataHolder> listPUHolders,
             final DeploymentUnit deploymentUnit)
         throws DeploymentUnitProcessingException {
@@ -213,7 +261,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
                 XMLStreamReader xmlReader = inputFactory.createXMLStreamReader(is);
                 PersistenceUnitMetadataHolder puHolder = PersistenceUnitXmlParser.parse(xmlReader, SpecDescriptorPropertyReplacement.propertyReplacer(deploymentUnit));
 
-                postParseSteps(persistence_xml, puHolder, deploymentUnit);
+                postParseSteps(persistence_xml, unitRoot, puHolder, deploymentUnit);
                 listPUHolders.add(puHolder);
             } catch (Exception e) {
                 throw new DeploymentUnitProcessingException(JpaLogger.ROOT_LOGGER.failedToParse(persistence_xml), e);
@@ -237,6 +285,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
      */
     private void postParseSteps(
         final VirtualFile persistence_xml,
+        final VirtualFile unitRoot,
         final PersistenceUnitMetadataHolder puHolder,
         final DeploymentUnit deploymentUnit ) {
 
@@ -249,7 +298,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
                 }
             }
             pu.setJarFileUrls(jarfilesUrls);
-            URL url = getPersistenceUnitURL(persistence_xml);
+            URL url = getPersistenceUnitURL(persistence_xml, unitRoot);
             pu.setPersistenceUnitRootUrl(url);
             String scopedPersistenceUnitName;
 
@@ -298,8 +347,11 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
         }
     }
 
-    private URL getPersistenceUnitURL(VirtualFile persistence_xml) {
+    private URL getPersistenceUnitURL(VirtualFile persistence_xml, VirtualFile unitRoot) {
         try {
+            if (unitRoot != null) {
+                return unitRoot.toURL();
+            }
             VirtualFile metaData = persistence_xml;// di.getMetaDataFile("persistence.xml");
             return metaData.getParent().getParent().toURL();
         } catch (Exception e) {
