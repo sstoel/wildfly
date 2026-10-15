@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -266,6 +267,13 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
 
         final ServiceName legacyDeploymentServiceName = UndertowService.deploymentServiceName(serverInstanceName, hostName, pathName);
         final ServiceName deploymentServiceName = UndertowService.deploymentServiceName(deploymentUnit.getServiceName());
+        // An OSGi web application (WAB) whose context path is used by another one is installed without the names of
+        // that host and context path. Its web context is started when the path becomes free (OSGi Enterprise 128.3.2)
+        final boolean contextPathTaken = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)
+                && phaseContext.getServiceRegistry().getService(legacyDeploymentServiceName) != null;
+        if (contextPathTaken) {
+            UndertowLogger.ROOT_LOGGER.debugf("Context path %s of host %s is used, %s is installed without its legacy service names", pathName, hostName, deploymentUnit.getName());
+        }
 
         StartupCountdown countDown = deploymentUnit.getAttachment(STARTUP_COUNTDOWN);
         if (countDown != null) {
@@ -278,7 +286,7 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
         final ServiceName deploymentInfoServiceName = deploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
         final ServiceName legacyDeploymentInfoServiceName = legacyDeploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
         final RequirementServiceBuilder<?> builder = serviceTarget.addService();
-        final Consumer<DeploymentInfo> deploymentInfo = builder.provides(deploymentInfoServiceName, legacyDeploymentInfoServiceName);
+        final Consumer<DeploymentInfo> deploymentInfo = contextPathTaken ? builder.provides(deploymentInfoServiceName) : builder.provides(deploymentInfoServiceName, legacyDeploymentInfoServiceName);
         final Supplier<UndertowService> undertowService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_UNDERTOW));
         final Supplier<ServletContainerService> servletContainerService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_SERVLET_CONTAINER, servletContainerName));
         final Supplier<ComponentRegistry> componentRegistryDependency = componentRegistryExists ? builder.requires(ComponentRegistry.serviceName(deploymentUnit)) : Functions.constantSupplier(componentRegistry);
@@ -412,7 +420,7 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
         }
 
         final ServiceBuilder<?> udsBuilder = serviceTarget.addService(deploymentServiceName);
-        final Consumer<UndertowDeploymentService> sConsumer = udsBuilder.provides(deploymentServiceName, legacyDeploymentServiceName);
+        final Consumer<UndertowDeploymentService> sConsumer = contextPathTaken ? udsBuilder.provides(deploymentServiceName) : udsBuilder.provides(deploymentServiceName, legacyDeploymentServiceName);
         final Supplier<ServletContainerService> cSupplier = udsBuilder.requires(UndertowService.SERVLET_CONTAINER.append(defaultContainer));
         final Supplier<ExecutorService> seSupplier = Services.requireServerExecutor(udsBuilder);
         final Supplier<Host> hSupplier = udsBuilder.requires(capabilitySupport.getCapabilityServiceName(Host.SERVICE_DESCRIPTOR, serverInstanceName, hostName));
@@ -569,6 +577,13 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
                     jarPath = jarPath.substring(1);
                 }
                 relativeLocation = relativeLocation.substring(0, pos);
+            }
+        } else if (relativeLocation != null) {
+            // A JAR on the Bundle-ClassPath of an OSGi web application need not be in WEB-INF/lib
+            int pos = relativeLocation.toLowerCase(Locale.ENGLISH).indexOf(".jar/");
+            if (pos > 0) {
+                jarPath = relativeLocation.substring(pos + ".jar/".length());
+                relativeLocation = relativeLocation.substring(0, pos + ".jar".length());
             }
         }
 

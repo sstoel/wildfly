@@ -33,11 +33,12 @@ import org.jboss.as.server.deployment.ManifestHelper;
  */
 public class WebApplicationBundleUtils {
     public static boolean isWebApplicationBundle(DeploymentUnit depUnit) {
-        // JAR deployments may contain OSGi metadata with a "Web-ContextPath" header
-        // This qualifies them as OSGi Web Application Bundle (WAB)
+        // Deployments may contain OSGi metadata with a "Web-ContextPath" header
+        // This qualifies them as OSGi Web Application Bundle (WAB), whatever the name: the deployment name of a
+        // bundle that is installed through the BundleContext is its location
         String deploymentName = depUnit.getName().toLowerCase(Locale.ENGLISH);
         Manifest manifest = depUnit.getAttachment(Attachments.OSGI_MANIFEST);
-        if (manifest != null && deploymentName.endsWith(".jar")) {
+        if (manifest != null && !isOtherArchiveType(deploymentName)) {
             if (ManifestHelper.hasMainAttributeValue(manifest, "Web-ContextPath")) {
                 return true;
             }
@@ -46,6 +47,15 @@ public class WebApplicationBundleUtils {
         // transformed into an OSGi Web Application Bundle (WAB)
         if (deploymentName.startsWith("webbundle:")) {
             return true;
+        }
+        return false;
+    }
+
+    // A web archive by name, or an archive type of another deployer
+    private static boolean isOtherArchiveType(String deploymentName) {
+        for (String suffix : new String[] { ".war", ".wab", ".ear", ".rar", ".sar", ".xml" }) {
+            if (deploymentName.endsWith(suffix))
+                return true;
         }
         return false;
     }

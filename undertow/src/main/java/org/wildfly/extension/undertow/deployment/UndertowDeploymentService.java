@@ -83,6 +83,10 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
     public void startContext() throws ServletException {
         final ClassLoader old = Thread.currentThread().getContextClassLoader();
         DeploymentInfo deploymentInfo = this.deploymentInfo.get();
+        // An OSGi web application is started again with the same DeploymentInfo, the JSP container needs its work directory
+        if (deploymentInfo.getTempDir() != null) {
+            deploymentInfo.getTempDir().mkdirs();
+        }
         Thread.currentThread().setContextClassLoader(deploymentInfo.getClassLoader());
         try {
             StartupContext.setInjectionContainer(webInjectionContainer);
@@ -120,7 +124,7 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
             @Override
             public void run() {
                 try {
-                    stopContext();
+                    stopContext(true);
                 } finally {
                     stopContext.complete();
                 }
@@ -130,6 +134,14 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
     }
 
     public void stopContext() {
+        stopContext(true);
+    }
+
+    /**
+     * @param deleteTempDir false when an OSGi web application is stopped and may be started again: the compiled JSPs
+     *        in its work directory stay valid for the same deployment
+     */
+    void stopContext(boolean deleteTempDir) {
         if (autostart) {
             serviceConsumer.accept(null);
         }
@@ -148,7 +160,9 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
                 deploymentManager.undeploy();
                 container.get().getServletContainer().removeDeployment(deploymentInfo);
             }
-            recursiveDelete(deploymentInfo.getTempDir());
+            if (deleteTempDir) {
+                recursiveDelete(deploymentInfo.getTempDir());
+            }
         } finally {
             Thread.currentThread().setContextClassLoader(old);
         }
@@ -203,7 +217,7 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
         @Override
         public synchronized boolean stopContext() {
             UndertowDeploymentService service = controller.getValue();
-            service.stopContext();
+            service.stopContext(false);
             return true;
         }
         @Override

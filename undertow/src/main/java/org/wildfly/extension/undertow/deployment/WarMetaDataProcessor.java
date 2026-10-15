@@ -244,6 +244,20 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
             }
             WebCommonMetaDataMerger.augment(specMetaData, annotatedMetaData, null, true);
         }
+        // Augment with meta data from annotations in the other directories on the Bundle-ClassPath of an OSGi web application
+        for (Map.Entry<String, WebMetaData> entry : annotationsMetaData.entrySet()) {
+            WebMetaData directoryMetaData = entry.getValue();
+            if (entry.getKey().startsWith(WarStructureDeploymentProcessor.BUNDLE_CLASS_PATH_DIRECTORY_PREFIX) && directoryMetaData != null) {
+                if (isComplete) {
+                    directoryMetaData.setFilters(null);
+                    directoryMetaData.setFilterMappings(null);
+                    directoryMetaData.setListeners(null);
+                    directoryMetaData.setServlets(null);
+                    directoryMetaData.setServletMappings(null);
+                }
+                WebCommonMetaDataMerger.augment(specMetaData, directoryMetaData, null, true);
+            }
+        }
         // Augment with meta data from fragments and annotations from the corresponding JAR
         for (String jar : order) {
             WebFragmentMetaData webFragmentMetaData = webFragments.get(jar);
