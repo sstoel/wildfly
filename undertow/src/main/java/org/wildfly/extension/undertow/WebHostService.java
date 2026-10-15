@@ -5,6 +5,7 @@
 package org.wildfly.extension.undertow;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
@@ -13,6 +14,7 @@ import jakarta.servlet.Servlet;
 
 import io.undertow.server.HttpHandler;
 import io.undertow.server.handlers.resource.PathResourceManager;
+import io.undertow.servlet.api.Deployment;
 import io.undertow.servlet.api.DeploymentInfo;
 import io.undertow.servlet.api.DeploymentManager;
 import io.undertow.servlet.api.ServletContainer;
@@ -79,16 +81,25 @@ final class WebHostService implements Service<WebHost>, WebHost {
             d.addServlet(s);
         }
 
-        return new WebDeploymentControllerImpl(decorator.apply(d));
+        // The servlets get the paths below WEB-INF and META-INF too. The handler is the innermost initial handler, the
+        // initial handlers of the control point run before it
+        AtomicReference<Deployment> deployment = new AtomicReference<>();
+        if (webDeploymentBuilder.isProtectedPathsServed()) {
+            d.addInitialHandlerChainWrapper(next -> new ProtectedPathDispatchHandler(next, deployment::get));
+        }
+
+        return new WebDeploymentControllerImpl(decorator.apply(d), deployment);
     }
 
     private class WebDeploymentControllerImpl implements WebDeploymentController {
 
         private final DeploymentInfo deploymentInfo;
+        private final AtomicReference<Deployment> deployment;
         private volatile DeploymentManager manager;
 
-        private WebDeploymentControllerImpl(final DeploymentInfo deploymentInfo) {
+        private WebDeploymentControllerImpl(final DeploymentInfo deploymentInfo, final AtomicReference<Deployment> deployment) {
             this.deploymentInfo = deploymentInfo;
+            this.deployment = deployment;
         }
 
         @Override
@@ -96,6 +107,7 @@ final class WebHostService implements Service<WebHost>, WebHost {
             ServletContainer container = server.get().getServletContainer().getServletContainer();
             manager = container.addDeployment(deploymentInfo);
             manager.deploy();
+            deployment.set(manager.getDeployment());
         }
 
         @Override
@@ -113,6 +125,7 @@ final class WebHostService implements Service<WebHost>, WebHost {
         @Override
         public void destroy() throws Exception {
             manager.undeploy();
+            deployment.set(null);
             ServletContainer container = server.get().getServletContainer().getServletContainer();
             container.removeDeployment(deploymentInfo);
         }
