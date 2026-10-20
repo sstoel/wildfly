@@ -276,6 +276,13 @@ public class Host implements Service<Host>, FilterLocation, SuspendableActivity 
     public void registerDeployment(final Deployment deployment, HttpHandler handler) {
         DeploymentInfo deploymentInfo = deployment.getDeploymentInfo();
         String path = getDeployedContextPath(deploymentInfo);
+        // An OSGi web application is installed while another web application uses its context path, it starts when the
+        // path is free: the handler of a deployment that serves the path must not be replaced
+        for (Deployment other : deployments) {
+            if (other != deployment && path.equals(getDeployedContextPath(other.getDeploymentInfo()))) {
+                throw UndertowLogger.ROOT_LOGGER.contextPathInUse(path, getName(), other.getDeploymentInfo().getDeploymentName());
+            }
+        }
         registerHandler(path, handler);
         deployments.add(deployment);
         UndertowLogger.ROOT_LOGGER.registerWebapp(path, getServer().getName());
