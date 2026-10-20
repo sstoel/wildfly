@@ -255,6 +255,10 @@ public interface UndertowLogger extends BasicLogger {
     @Message(id = 58, value = "Cannot activate context: %s")
     IllegalStateException cannotActivateContext(@Cause Throwable th, ServiceName service);
 
+    // OSGi integration, outside of the range of the upstream messages
+    @Message(id = 900, value = "Context path %s of host %s is used by %s")
+    IllegalStateException contextPathInUse(String path, String host, String deployment);
+
 //    @Message(id = 59, value = "Could not construct handler for class: %s. with parameters %s")
 //    RuntimeException cannotCreateHttpHandler(Class<?> handlerClass, ModelNode parameters, @Cause Throwable cause);
 
