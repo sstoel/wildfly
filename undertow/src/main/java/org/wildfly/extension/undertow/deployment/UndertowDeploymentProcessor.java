@@ -24,8 +24,10 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -123,6 +125,14 @@ import org.wildfly.security.http.HttpServerAuthenticationMechanismFactory;
  * @author <a href="mailto:ropalka@redhat.com">Richard Opalka</a>
  */
 public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
+
+    // The locks of the context paths of OSGi web applications, by the legacy service name of host and path
+    private static final Map<ServiceName, ReentrantLock> CONTEXT_PATH_LOCKS = new ConcurrentHashMap<>();
+
+    private static ReentrantLock getContextPathLock(ServiceName legacyDeploymentServiceName) {
+        return CONTEXT_PATH_LOCKS.computeIfAbsent(legacyDeploymentServiceName, name -> new ReentrantLock());
+    }
+
 
     public static final String OLD_URI_PREFIX = "http://java.sun.com";
     public static final String NEW_URI_PREFIX = "http://xmlns.jcp.org";
@@ -267,180 +277,192 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
 
         final ServiceName legacyDeploymentServiceName = UndertowService.deploymentServiceName(serverInstanceName, hostName, pathName);
         final ServiceName deploymentServiceName = UndertowService.deploymentServiceName(deploymentUnit.getServiceName());
-        // An OSGi web application (WAB) whose context path is used by another one is installed without the names of
-        // that host and context path. Its web context is started when the path becomes free (OSGi Enterprise 128.3.2)
-        final boolean contextPathTaken = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)
-                && phaseContext.getServiceRegistry().getService(legacyDeploymentServiceName) != null;
-        if (contextPathTaken) {
-            UndertowLogger.ROOT_LOGGER.debugf("Context path %s of host %s is used, %s is installed without its legacy service names", pathName, hostName, deploymentUnit.getName());
+        // The check of the context path and the install of the services with its names are one step for the WABs of
+        // a host: two WABs with the same context path that are deployed at the same time do not both take it (wildfly/16)
+        final ReentrantLock contextPathLock = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST) ? getContextPathLock(legacyDeploymentServiceName) : null;
+        if (contextPathLock != null) {
+            contextPathLock.lock();
         }
-
-        StartupCountdown countDown = deploymentUnit.getAttachment(STARTUP_COUNTDOWN);
-        if (countDown != null) {
-            deploymentUnit.addToAttachmentList(UndertowAttachments.UNDERTOW_INITIAL_HANDLER_CHAIN_WRAPPERS,
-                    handler->new ComponentStartupCountdownHandler(handler, countDown));
-        }
-
-        String securityDomainName = deploymentUnit.getAttachment(UndertowAttachments.RESOLVED_SECURITY_DOMAIN);
-        TldsMetaData tldsMetaData = deploymentUnit.getAttachment(TldsMetaData.ATTACHMENT_KEY);
-        final ServiceName deploymentInfoServiceName = deploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
-        final ServiceName legacyDeploymentInfoServiceName = legacyDeploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
-        final RequirementServiceBuilder<?> builder = serviceTarget.addService();
-        final Consumer<DeploymentInfo> deploymentInfo = contextPathTaken ? builder.provides(deploymentInfoServiceName) : builder.provides(deploymentInfoServiceName, legacyDeploymentInfoServiceName);
-        final Supplier<UndertowService> undertowService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_UNDERTOW));
-        final Supplier<ServletContainerService> servletContainerService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_SERVLET_CONTAINER, servletContainerName));
-        final Supplier<ComponentRegistry> componentRegistryDependency = componentRegistryExists ? builder.requires(ComponentRegistry.serviceName(deploymentUnit)) : Functions.constantSupplier(componentRegistry);
-        final Supplier<Host> host = builder.requires(Host.SERVICE_DESCRIPTOR, serverInstanceName, hostName);
-        final Supplier<SuspendController> suspendController = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.REF_SUSPEND_CONTROLLER));
-        final Supplier<ServerEnvironment> serverEnvironment = builder.requires(ServerEnvironment.SERVICE_DESCRIPTOR);
-        Supplier<SecurityDomain> securityDomain = null;
-        Supplier<HttpServerAuthenticationMechanismFactory> mechanismFactorySupplier = null;
-        Supplier<BiFunction<DeploymentInfo, Function<String, RunAsIdentityMetaData>, Registration>> applySecurityFunction = null;
-
-        for (final ServiceName additionalDependency : additionalDependencies) {
-            builder.requires(additionalDependency);
-        }
-
-        final SecurityMetaData securityMetaData = deploymentUnit.getAttachment(ATTACHMENT_KEY);
-        if (securityDomainName != null) {
-            if (mappedSecurityDomain.test(securityDomainName)) {
-                applySecurityFunction = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_APPLICATION_SECURITY_DOMAIN, securityDomainName));
-            } else {
-                throw ROOT_LOGGER.deploymentConfiguredForLegacySecurity();
-            }
-        }
-        else if (isVirtualDomainRequired(deploymentUnit) || isVirtualMechanismFactoryRequired(deploymentUnit)) {
-            securityDomain = builder.requires(securityMetaData.getSecurityDomain());
-
-            if (isVirtualMechanismFactoryRequired(deploymentUnit)) {
-                if (securityMetaData instanceof AdvancedSecurityMetaData) {
-                    mechanismFactorySupplier = builder.requires(((AdvancedSecurityMetaData) securityMetaData).getHttpServerAuthenticationMechanismFactory());
-                }
-            }
-        }
-
-        ROOT_LOGGER.debugf("Security domain applied is \"%s\"", securityDomainName);
-
-        Supplier<ControlPoint> controlPoint = RequestControllerActivationMarker.isRequestControllerEnabled(deploymentUnit) ? builder.requires(ControlPointService.serviceName(Optional.ofNullable(parentDeploymentUnit).orElse(deploymentUnit).getName(), UndertowExtension.SUBSYSTEM_NAME)) : null;
-
-        SharedSessionManagerConfig sharedSessionManagerConfig = parentDeploymentUnit != null ? parentDeploymentUnit.getAttachment(SharedSessionManagerConfig.ATTACHMENT_KEY) : null;
-        DeploymentUnit sessionDeploymentUnit = (sharedSessionManagerConfig != null) ? parentDeploymentUnit : deploymentUnit;
-
-        ServletContainerService servletContainer = deploymentUnit.getAttachment(UndertowAttachments.SERVLET_CONTAINER_SERVICE);
-        Supplier<SessionManagerFactory> sessionManagerFactory = (servletContainer != null) ? builder.requires(WebDeploymentServiceDescriptor.SESSION_MANAGER_FACTORY.resolve(sessionDeploymentUnit)) : null;
-        Supplier<SessionAffinityProvider> sessionAffinityProvider = (servletContainer != null) ? builder.requires(WebDeploymentServiceDescriptor.SESSION_AFFINITY_PROVIDER.resolve(sessionDeploymentUnit)) : null;
-
-        if ((servletContainer != null) && (sharedSessionManagerConfig == null)) {
-            Integer maxActiveSessions = (metaData.getMaxActiveSessions() != null) ? metaData.getMaxActiveSessions() : servletContainer.getMaxSessions();
-            SessionConfigMetaData sessionConfig = metaData.getSessionConfig();
-            int defaultSessionTimeout = ((sessionConfig != null) && sessionConfig.getSessionTimeoutSet()) ? sessionConfig.getSessionTimeout() : servletContainer.getDefaultSessionTimeout();
-
-            WebDeploymentServiceInstallerProvider provider = (metaData.getDistributable() != null) ? this.distributableServiceInstallerProvider.orElseGet(this.nonDistributableServiceInstallerProvider) : this.nonDistributableServiceInstallerProvider;
-            SessionManagerFactoryConfiguration configuration = new SessionManagerFactoryConfiguration() {
-                @Override
-                public String getServerName() {
-                    return serverInstanceName;
-                }
-
-                @Override
-                public String getDeploymentName() {
-                    return deploymentName;
-                }
-
-                @Override
-                public DeploymentUnit getDeploymentUnit() {
-                    return deploymentUnit;
-                }
-
-                @Override
-                public OptionalInt getMaxActiveSessions() {
-                    // Value must be positive
-                    return (maxActiveSessions != null) && (maxActiveSessions > 0) ? OptionalInt.of(maxActiveSessions) : OptionalInt.empty();
-                }
-
-                @Override
-                public Duration getDefaultSessionTimeout() {
-                    return Duration.ofMinutes(defaultSessionTimeout);
-                }
-            };
-            provider.getSessionManagerFactoryServiceInstaller(configuration).install(phaseContext);
-            provider.getSessionAffinityProviderServiceInstaller(configuration).install(phaseContext);
-        }
-
-        UndertowDeploymentInfoService undertowDeploymentInfoService = UndertowDeploymentInfoService.builder()
-                .setAttributes(deploymentUnit.getAttachmentList(ServletContextAttribute.ATTACHMENT_KEY))
-                .setContextPath(pathName)
-                .setDeploymentName(deploymentName) //todo: is this deployment name concept really applicable?
-                .setDeploymentRoot(deploymentRoot)
-                .setMergedMetaData(warMetaData.getMergedJBossWebMetaData())
-                .setModule(module)
-                .setScisMetaData(scisMetaData)
-                .setJaccContextId(jaccContextId)
-                .setSecurityDomain(securityDomainName)
-                .setTldInfo(createTldsInfo(tldsMetaData, tldsMetaData == null ? null : tldsMetaData.getSharedTlds(deploymentUnit)))
-                .setSetupActions(setupActions)
-                .setSharedSessionManagerConfig(sharedSessionManagerConfig)
-                .setOverlays(warMetaData.getOverlays())
-                .setExpressionFactoryWrappers(deploymentUnit.getAttachmentList(ExpressionFactoryWrapper.ATTACHMENT_KEY))
-                .setPredicatedHandlers(deploymentUnit.getAttachment(UndertowHandlersDeploymentProcessor.PREDICATED_HANDLERS))
-                .setInitialHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_INITIAL_HANDLER_CHAIN_WRAPPERS))
-                .setInnerHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_INNER_HANDLER_CHAIN_WRAPPERS))
-                .setOuterHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_OUTER_HANDLER_CHAIN_WRAPPERS))
-                .setThreadSetupActions(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_THREAD_SETUP_ACTIONS))
-                .setServletExtensions(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_SERVLET_EXTENSIONS))
-                .setExplodedDeployment(ExplodedDeploymentMarker.isExplodedDeployment(deploymentUnit))
-                .setWebSocketDeploymentInfo(deploymentUnit.getAttachment(UndertowAttachments.WEB_SOCKET_DEPLOYMENT_INFO))
-                .setTempDir(warMetaData.getTempDir())
-                .setExternalResources(deploymentUnit.getAttachmentList(UndertowAttachments.EXTERNAL_RESOURCES))
-                .setAllowSuspendedRequests(deploymentUnit.getAttachmentList(UndertowAttachments.ALLOW_REQUEST_WHEN_SUSPENDED))
-                .createUndertowDeploymentInfoService(deploymentInfo, undertowService, sessionManagerFactory, sessionAffinityProvider,
-                        servletContainerService, componentRegistryDependency, host, controlPoint, suspendController, serverEnvironment, securityDomain, mechanismFactorySupplier, applySecurityFunction);
-        builder.setInstance(undertowDeploymentInfoService);
-
-        final Set<String> seenExecutors = new HashSet<String>();
-        if (metaData.getExecutorName() != null) {
-            final Supplier<Executor> executor = builder.requires(IOServices.WORKER.append(metaData.getExecutorName()));
-            undertowDeploymentInfoService.addInjectedExecutor(metaData.getExecutorName(), executor);
-            seenExecutors.add(metaData.getExecutorName());
-        }
-        if (metaData.getServlets() != null) {
-            for (JBossServletMetaData servlet : metaData.getServlets()) {
-                if (servlet.getExecutorName() != null && !seenExecutors.contains(servlet.getExecutorName())) {
-                    final Supplier<Executor> executor = builder.requires(IOServices.WORKER.append(servlet.getExecutorName()));
-                    undertowDeploymentInfoService.addInjectedExecutor(servlet.getExecutorName(), executor);
-                    seenExecutors.add(servlet.getExecutorName());
-                }
-            }
-        }
-
         try {
-            builder.install();
-        } catch (DuplicateServiceException e) {
-            throw UndertowLogger.ROOT_LOGGER.duplicateHostContextDeployments(deploymentInfoServiceName, e.getMessage());
-        }
+            // An OSGi web application (WAB) whose context path is used by another one is installed without the names of
+            // that host and context path. Its web context is started when the path becomes free (OSGi Enterprise 128.3.2)
+            final boolean contextPathTaken = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)
+                    && phaseContext.getServiceRegistry().getService(legacyDeploymentServiceName) != null;
+            if (contextPathTaken) {
+                UndertowLogger.ROOT_LOGGER.debugf("Context path %s of host %s is used, %s is installed without its legacy service names", pathName, hostName, deploymentUnit.getName());
+            }
 
-        final ServiceBuilder<?> udsBuilder = serviceTarget.addService(deploymentServiceName);
-        final Consumer<UndertowDeploymentService> sConsumer = contextPathTaken ? udsBuilder.provides(deploymentServiceName) : udsBuilder.provides(deploymentServiceName, legacyDeploymentServiceName);
-        final Supplier<ServletContainerService> cSupplier = udsBuilder.requires(UndertowService.SERVLET_CONTAINER.append(defaultContainer));
-        final Supplier<ExecutorService> seSupplier = Services.requireServerExecutor(udsBuilder);
-        final Supplier<Host> hSupplier = udsBuilder.requires(capabilitySupport.getCapabilityServiceName(Host.SERVICE_DESCRIPTOR, serverInstanceName, hostName));
-        final Supplier<DeploymentInfo> diSupplier = udsBuilder.requires(deploymentInfoServiceName);
-        for (final ServiceName webDependency : deploymentUnit.getAttachmentList(Attachments.WEB_DEPENDENCIES)) {
-            udsBuilder.requires(webDependency);
-        }
-        for (final ServiceName dependentComponent : dependentComponents) {
-            udsBuilder.requires(dependentComponent);
-        }
-        final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
-        udsBuilder.setInstance(new UndertowDeploymentService(sConsumer, cSupplier, seSupplier, hSupplier, diSupplier, injectionContainer, !isWebappBundle));
+            StartupCountdown countDown = deploymentUnit.getAttachment(STARTUP_COUNTDOWN);
+            if (countDown != null) {
+                deploymentUnit.addToAttachmentList(UndertowAttachments.UNDERTOW_INITIAL_HANDLER_CHAIN_WRAPPERS,
+                        handler->new ComponentStartupCountdownHandler(handler, countDown));
+            }
 
-        // OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
-        if (isWebappBundle) {
-            UndertowDeploymentService.ContextActivatorImpl activator = new UndertowDeploymentService.ContextActivatorImpl(udsBuilder.install());
-            deploymentUnit.putAttachment(ContextActivator.ATTACHMENT_KEY, activator);
-            deploymentUnit.addToAttachmentList(Attachments.BUNDLE_ACTIVE_DEPENDENCIES, deploymentServiceName);
-        } else {
-            udsBuilder.install();
+            String securityDomainName = deploymentUnit.getAttachment(UndertowAttachments.RESOLVED_SECURITY_DOMAIN);
+            TldsMetaData tldsMetaData = deploymentUnit.getAttachment(TldsMetaData.ATTACHMENT_KEY);
+            final ServiceName deploymentInfoServiceName = deploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
+            final ServiceName legacyDeploymentInfoServiceName = legacyDeploymentServiceName.append(UndertowDeploymentInfoService.SERVICE_NAME);
+            final RequirementServiceBuilder<?> builder = serviceTarget.addService();
+            final Consumer<DeploymentInfo> deploymentInfo = contextPathTaken ? builder.provides(deploymentInfoServiceName) : builder.provides(deploymentInfoServiceName, legacyDeploymentInfoServiceName);
+            final Supplier<UndertowService> undertowService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_UNDERTOW));
+            final Supplier<ServletContainerService> servletContainerService = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_SERVLET_CONTAINER, servletContainerName));
+            final Supplier<ComponentRegistry> componentRegistryDependency = componentRegistryExists ? builder.requires(ComponentRegistry.serviceName(deploymentUnit)) : Functions.constantSupplier(componentRegistry);
+            final Supplier<Host> host = builder.requires(Host.SERVICE_DESCRIPTOR, serverInstanceName, hostName);
+            final Supplier<SuspendController> suspendController = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.REF_SUSPEND_CONTROLLER));
+            final Supplier<ServerEnvironment> serverEnvironment = builder.requires(ServerEnvironment.SERVICE_DESCRIPTOR);
+            Supplier<SecurityDomain> securityDomain = null;
+            Supplier<HttpServerAuthenticationMechanismFactory> mechanismFactorySupplier = null;
+            Supplier<BiFunction<DeploymentInfo, Function<String, RunAsIdentityMetaData>, Registration>> applySecurityFunction = null;
+
+            for (final ServiceName additionalDependency : additionalDependencies) {
+                builder.requires(additionalDependency);
+            }
+
+            final SecurityMetaData securityMetaData = deploymentUnit.getAttachment(ATTACHMENT_KEY);
+            if (securityDomainName != null) {
+                if (mappedSecurityDomain.test(securityDomainName)) {
+                    applySecurityFunction = builder.requires(capabilitySupport.getCapabilityServiceName(Capabilities.CAPABILITY_APPLICATION_SECURITY_DOMAIN, securityDomainName));
+                } else {
+                    throw ROOT_LOGGER.deploymentConfiguredForLegacySecurity();
+                }
+            }
+            else if (isVirtualDomainRequired(deploymentUnit) || isVirtualMechanismFactoryRequired(deploymentUnit)) {
+                securityDomain = builder.requires(securityMetaData.getSecurityDomain());
+
+                if (isVirtualMechanismFactoryRequired(deploymentUnit)) {
+                    if (securityMetaData instanceof AdvancedSecurityMetaData) {
+                        mechanismFactorySupplier = builder.requires(((AdvancedSecurityMetaData) securityMetaData).getHttpServerAuthenticationMechanismFactory());
+                    }
+                }
+            }
+
+            ROOT_LOGGER.debugf("Security domain applied is \"%s\"", securityDomainName);
+
+            Supplier<ControlPoint> controlPoint = RequestControllerActivationMarker.isRequestControllerEnabled(deploymentUnit) ? builder.requires(ControlPointService.serviceName(Optional.ofNullable(parentDeploymentUnit).orElse(deploymentUnit).getName(), UndertowExtension.SUBSYSTEM_NAME)) : null;
+
+            SharedSessionManagerConfig sharedSessionManagerConfig = parentDeploymentUnit != null ? parentDeploymentUnit.getAttachment(SharedSessionManagerConfig.ATTACHMENT_KEY) : null;
+            DeploymentUnit sessionDeploymentUnit = (sharedSessionManagerConfig != null) ? parentDeploymentUnit : deploymentUnit;
+
+            ServletContainerService servletContainer = deploymentUnit.getAttachment(UndertowAttachments.SERVLET_CONTAINER_SERVICE);
+            Supplier<SessionManagerFactory> sessionManagerFactory = (servletContainer != null) ? builder.requires(WebDeploymentServiceDescriptor.SESSION_MANAGER_FACTORY.resolve(sessionDeploymentUnit)) : null;
+            Supplier<SessionAffinityProvider> sessionAffinityProvider = (servletContainer != null) ? builder.requires(WebDeploymentServiceDescriptor.SESSION_AFFINITY_PROVIDER.resolve(sessionDeploymentUnit)) : null;
+
+            if ((servletContainer != null) && (sharedSessionManagerConfig == null)) {
+                Integer maxActiveSessions = (metaData.getMaxActiveSessions() != null) ? metaData.getMaxActiveSessions() : servletContainer.getMaxSessions();
+                SessionConfigMetaData sessionConfig = metaData.getSessionConfig();
+                int defaultSessionTimeout = ((sessionConfig != null) && sessionConfig.getSessionTimeoutSet()) ? sessionConfig.getSessionTimeout() : servletContainer.getDefaultSessionTimeout();
+
+                WebDeploymentServiceInstallerProvider provider = (metaData.getDistributable() != null) ? this.distributableServiceInstallerProvider.orElseGet(this.nonDistributableServiceInstallerProvider) : this.nonDistributableServiceInstallerProvider;
+                SessionManagerFactoryConfiguration configuration = new SessionManagerFactoryConfiguration() {
+                    @Override
+                    public String getServerName() {
+                        return serverInstanceName;
+                    }
+
+                    @Override
+                    public String getDeploymentName() {
+                        return deploymentName;
+                    }
+
+                    @Override
+                    public DeploymentUnit getDeploymentUnit() {
+                        return deploymentUnit;
+                    }
+
+                    @Override
+                    public OptionalInt getMaxActiveSessions() {
+                        // Value must be positive
+                        return (maxActiveSessions != null) && (maxActiveSessions > 0) ? OptionalInt.of(maxActiveSessions) : OptionalInt.empty();
+                    }
+
+                    @Override
+                    public Duration getDefaultSessionTimeout() {
+                        return Duration.ofMinutes(defaultSessionTimeout);
+                    }
+                };
+                provider.getSessionManagerFactoryServiceInstaller(configuration).install(phaseContext);
+                provider.getSessionAffinityProviderServiceInstaller(configuration).install(phaseContext);
+            }
+
+            UndertowDeploymentInfoService undertowDeploymentInfoService = UndertowDeploymentInfoService.builder()
+                    .setAttributes(deploymentUnit.getAttachmentList(ServletContextAttribute.ATTACHMENT_KEY))
+                    .setContextPath(pathName)
+                    .setDeploymentName(deploymentName) //todo: is this deployment name concept really applicable?
+                    .setDeploymentRoot(deploymentRoot)
+                    .setMergedMetaData(warMetaData.getMergedJBossWebMetaData())
+                    .setModule(module)
+                    .setScisMetaData(scisMetaData)
+                    .setJaccContextId(jaccContextId)
+                    .setSecurityDomain(securityDomainName)
+                    .setTldInfo(createTldsInfo(tldsMetaData, tldsMetaData == null ? null : tldsMetaData.getSharedTlds(deploymentUnit)))
+                    .setSetupActions(setupActions)
+                    .setSharedSessionManagerConfig(sharedSessionManagerConfig)
+                    .setOverlays(warMetaData.getOverlays())
+                    .setExpressionFactoryWrappers(deploymentUnit.getAttachmentList(ExpressionFactoryWrapper.ATTACHMENT_KEY))
+                    .setPredicatedHandlers(deploymentUnit.getAttachment(UndertowHandlersDeploymentProcessor.PREDICATED_HANDLERS))
+                    .setInitialHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_INITIAL_HANDLER_CHAIN_WRAPPERS))
+                    .setInnerHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_INNER_HANDLER_CHAIN_WRAPPERS))
+                    .setOuterHandlerChainWrappers(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_OUTER_HANDLER_CHAIN_WRAPPERS))
+                    .setThreadSetupActions(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_THREAD_SETUP_ACTIONS))
+                    .setServletExtensions(deploymentUnit.getAttachmentList(UndertowAttachments.UNDERTOW_SERVLET_EXTENSIONS))
+                    .setExplodedDeployment(ExplodedDeploymentMarker.isExplodedDeployment(deploymentUnit))
+                    .setWebSocketDeploymentInfo(deploymentUnit.getAttachment(UndertowAttachments.WEB_SOCKET_DEPLOYMENT_INFO))
+                    .setTempDir(warMetaData.getTempDir())
+                    .setExternalResources(deploymentUnit.getAttachmentList(UndertowAttachments.EXTERNAL_RESOURCES))
+                    .setAllowSuspendedRequests(deploymentUnit.getAttachmentList(UndertowAttachments.ALLOW_REQUEST_WHEN_SUSPENDED))
+                    .createUndertowDeploymentInfoService(deploymentInfo, undertowService, sessionManagerFactory, sessionAffinityProvider,
+                            servletContainerService, componentRegistryDependency, host, controlPoint, suspendController, serverEnvironment, securityDomain, mechanismFactorySupplier, applySecurityFunction);
+            builder.setInstance(undertowDeploymentInfoService);
+
+            final Set<String> seenExecutors = new HashSet<String>();
+            if (metaData.getExecutorName() != null) {
+                final Supplier<Executor> executor = builder.requires(IOServices.WORKER.append(metaData.getExecutorName()));
+                undertowDeploymentInfoService.addInjectedExecutor(metaData.getExecutorName(), executor);
+                seenExecutors.add(metaData.getExecutorName());
+            }
+            if (metaData.getServlets() != null) {
+                for (JBossServletMetaData servlet : metaData.getServlets()) {
+                    if (servlet.getExecutorName() != null && !seenExecutors.contains(servlet.getExecutorName())) {
+                        final Supplier<Executor> executor = builder.requires(IOServices.WORKER.append(servlet.getExecutorName()));
+                        undertowDeploymentInfoService.addInjectedExecutor(servlet.getExecutorName(), executor);
+                        seenExecutors.add(servlet.getExecutorName());
+                    }
+                }
+            }
+
+            try {
+                builder.install();
+            } catch (DuplicateServiceException e) {
+                throw UndertowLogger.ROOT_LOGGER.duplicateHostContextDeployments(deploymentInfoServiceName, e.getMessage());
+            }
+
+            final ServiceBuilder<?> udsBuilder = serviceTarget.addService(deploymentServiceName);
+            final Consumer<UndertowDeploymentService> sConsumer = contextPathTaken ? udsBuilder.provides(deploymentServiceName) : udsBuilder.provides(deploymentServiceName, legacyDeploymentServiceName);
+            final Supplier<ServletContainerService> cSupplier = udsBuilder.requires(UndertowService.SERVLET_CONTAINER.append(defaultContainer));
+            final Supplier<ExecutorService> seSupplier = Services.requireServerExecutor(udsBuilder);
+            final Supplier<Host> hSupplier = udsBuilder.requires(capabilitySupport.getCapabilityServiceName(Host.SERVICE_DESCRIPTOR, serverInstanceName, hostName));
+            final Supplier<DeploymentInfo> diSupplier = udsBuilder.requires(deploymentInfoServiceName);
+            for (final ServiceName webDependency : deploymentUnit.getAttachmentList(Attachments.WEB_DEPENDENCIES)) {
+                udsBuilder.requires(webDependency);
+            }
+            for (final ServiceName dependentComponent : dependentComponents) {
+                udsBuilder.requires(dependentComponent);
+            }
+            final boolean isWebappBundle = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST);
+            udsBuilder.setInstance(new UndertowDeploymentService(sConsumer, cSupplier, seSupplier, hSupplier, diSupplier, injectionContainer, !isWebappBundle));
+
+            // OSGi web applications are activated in {@link WebContextActivationProcessor} according to bundle lifecycle changes
+            if (isWebappBundle) {
+                UndertowDeploymentService.ContextActivatorImpl activator = new UndertowDeploymentService.ContextActivatorImpl(udsBuilder.install());
+                deploymentUnit.putAttachment(ContextActivator.ATTACHMENT_KEY, activator);
+                deploymentUnit.addToAttachmentList(Attachments.BUNDLE_ACTIVE_DEPENDENCIES, deploymentServiceName);
+            } else {
+                udsBuilder.install();
+            }
+        } finally {
+            if (contextPathLock != null) {
+                contextPathLock.unlock();
+            }
         }
 
         deploymentUnit.addToAttachmentList(Attachments.DEPLOYMENT_COMPLETE_SERVICES, deploymentServiceName);

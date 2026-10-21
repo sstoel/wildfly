@@ -15,6 +15,8 @@ import org.jboss.as.jpa.config.PersistenceUnitsInApplication;
 import org.jboss.as.jpa.messages.JpaLogger;
 import org.jboss.as.jpa.puparser.PersistenceUnitXmlParser;
 import org.jboss.as.jpa.util.JPAServiceNames;
+import org.jboss.as.server.deployment.AttachmentKey;
+import org.jboss.as.server.deployment.AttachmentList;
 import org.jboss.as.server.deployment.Attachments;
 import org.jboss.as.server.deployment.DeploymentPhaseContext;
 import org.jboss.as.server.deployment.DeploymentUnit;
@@ -24,12 +26,16 @@ import org.jboss.as.server.deployment.DeploymentUtils;
 import org.jboss.as.server.deployment.JPADeploymentMarker;
 import org.jboss.as.server.deployment.SubDeploymentMarker;
 import org.jboss.as.server.deployment.module.ResourceRoot;
+import org.jboss.as.server.deployment.module.TempFileProviderService;
 import org.jboss.metadata.parser.util.NoopXMLResolver;
+import org.jboss.vfs.VFS;
+import org.jboss.vfs.VFSUtils;
 import org.jboss.vfs.VirtualFile;
 import org.jipijapa.plugin.spi.PersistenceUnitMetadata;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamReader;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -64,6 +70,7 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
     private static final String WEB_PERSISTENCE_XML = "WEB-INF/classes/META-INF/persistence.xml";
     private static final String META_INF_PERSISTENCE_XML = "META-INF/persistence.xml";
     private static final String META_PERSISTENCE = "Meta-Persistence";
+    private static final AttachmentKey<AttachmentList<Closeable>> META_PERSISTENCE_MOUNTS = AttachmentKey.createList(Closeable.class);
     private static final String JAR_FILE_EXTENSION = ".jar";
     private static final String LIB_FOLDER = "lib";
     private static final PersistenceUnitMetadataHolder emptyholder = new PersistenceUnitMetadataHolder(Collections.emptyList());
@@ -110,10 +117,11 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
             parse(persistence_xml, listPUHolders, deploymentUnit);
             // An OSGi persistence bundle names further descriptors in its Meta-Persistence header, their persistence
             // units have the bundle as root (OSGi Enterprise 127.4.4)
-            for (VirtualFile descriptor : getMetaPersistenceDescriptors(deploymentUnit, deploymentRoot.getRoot())) {
-                parse(descriptor, deploymentRoot.getRoot(), listPUHolders, deploymentUnit);
+            for (VirtualFile[] descriptor : getMetaPersistenceDescriptors(deploymentUnit, deploymentRoot.getRoot())) {
+                parse(descriptor[0], descriptor[1], listPUHolders, deploymentUnit);
             }
             PersistenceUnitMetadataHolder holder = normalize(listPUHolders);
+            warnIfNoMetaPersistenceUnit(deploymentUnit, holder);
             // save the persistent unit definitions
             deploymentRoot.putAttachment(PersistenceUnitMetadataHolder.PERSISTENCE_UNITS, holder);
             markDU(holder, deploymentUnit);
@@ -137,7 +145,16 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
 
             VirtualFile persistence_xml = deploymentRoot.getRoot().getChild(WEB_PERSISTENCE_XML);
             parse(persistence_xml, listPUHolders, deploymentUnit);
+            // A WAB that is a persistence bundle too has the descriptors of its Meta-Persistence header, with the bundle
+            // as root of their persistence units (OSGi Enterprise 127.4.2, wildfly/20)
+            if (hasMetaPersistence(deploymentUnit)) {
+                parse(deploymentRoot.getRoot().getChild(META_INF_PERSISTENCE_XML), deploymentRoot.getRoot(), listPUHolders, deploymentUnit);
+                for (VirtualFile[] descriptor : getMetaPersistenceDescriptors(deploymentUnit, deploymentRoot.getRoot())) {
+                    parse(descriptor[0], descriptor[1], listPUHolders, deploymentUnit);
+                }
+            }
             PersistenceUnitMetadataHolder holder = normalize(listPUHolders);
+            warnIfNoMetaPersistenceUnit(deploymentUnit, holder);
             deploymentRoot.putAttachment(PersistenceUnitMetadataHolder.PERSISTENCE_UNITS, holder);
             addApplicationDependenciesOnProvider( deploymentUnit, holder);
             markDU(holder, deploymentUnit);
@@ -204,17 +221,30 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
         }
     }
 
+    private static boolean hasMetaPersistence(DeploymentUnit deploymentUnit) {
+        Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
+        return manifest != null && manifest.getMainAttributes().getValue(META_PERSISTENCE) != null;
+    }
+
+    // A persistence bundle has at least one persistence unit (OSGi Enterprise 127.4.4)
+    private static void warnIfNoMetaPersistenceUnit(DeploymentUnit deploymentUnit, PersistenceUnitMetadataHolder holder) {
+        if (hasMetaPersistence(deploymentUnit) && holder.getPersistenceUnits().isEmpty()) {
+            ROOT_LOGGER.warnf("The persistence bundle %s has no persistence unit in the descriptors of its Meta-Persistence header", deploymentUnit.getName());
+        }
+    }
+
     /**
      * The persistence descriptors named in the Meta-Persistence header of an OSGi bundle, other than
-     * META-INF/persistence.xml, which is always parsed
+     * META-INF/persistence.xml, which is always parsed, each with the root of its persistence units: the bundle, or the
+     * JAR in the bundle of a {@code jar!/path} entry
      */
-    private static List<VirtualFile> getMetaPersistenceDescriptors(DeploymentUnit deploymentUnit, VirtualFile root) {
+    private static List<VirtualFile[]> getMetaPersistenceDescriptors(DeploymentUnit deploymentUnit, VirtualFile root) {
         Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
         String header = manifest != null ? manifest.getMainAttributes().getValue(META_PERSISTENCE) : null;
         if (header == null) {
             return Collections.emptyList();
         }
-        List<VirtualFile> result = new ArrayList<>();
+        List<VirtualFile[]> result = new ArrayList<>();
         for (String entry : header.split(",")) {
             String path = entry.trim();
             while (path.startsWith("/")) {
@@ -223,14 +253,39 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
             if (path.isEmpty() || path.equals(META_INF_PERSISTENCE_XML)) {
                 continue;
             }
-            // A descriptor inside a JAR of the bundle (jar!/path) is not supported
-            if (path.contains("!/")) {
-                ROOT_LOGGER.debugf("Meta-Persistence entry %s of %s is not supported", path, deploymentUnit.getName());
+            int index = path.indexOf("!/");
+            if (index < 0) {
+                result.add(new VirtualFile[] { root.getChild(path), root });
                 continue;
             }
-            result.add(root.getChild(path));
+            // A descriptor inside a JAR of the bundle, whose persistence units have that JAR as root
+            VirtualFile jar = root.getChild(path.substring(0, index));
+            String descriptor = path.substring(index + 2);
+            if (!jar.exists()) {
+                ROOT_LOGGER.warnf("The JAR of Meta-Persistence entry %s of %s does not exist", path, deploymentUnit.getName());
+                continue;
+            }
+            if (jar.isFile()) {
+                try {
+                    Closeable mount = VFS.mountZip(jar.getPhysicalFile(), jar, TempFileProviderService.provider());
+                    deploymentUnit.addToAttachmentList(META_PERSISTENCE_MOUNTS, mount);
+                } catch (IOException ex) {
+                    ROOT_LOGGER.warnf(ex, "Cannot open the JAR of Meta-Persistence entry %s of %s", path, deploymentUnit.getName());
+                    continue;
+                }
+            }
+            result.add(new VirtualFile[] { jar.getChild(descriptor), jar });
         }
         return result;
+    }
+
+    @Override
+    public void undeploy(DeploymentUnit deploymentUnit) {
+        // The JARs of Meta-Persistence entries that were mounted for their persistence units
+        for (Closeable mount : deploymentUnit.getAttachmentList(META_PERSISTENCE_MOUNTS)) {
+            VFSUtils.safeClose(mount);
+        }
+        deploymentUnit.removeAttachment(META_PERSISTENCE_MOUNTS);
     }
 
     private void parse(
