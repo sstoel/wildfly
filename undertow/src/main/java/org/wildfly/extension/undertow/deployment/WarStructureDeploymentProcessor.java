@@ -95,8 +95,23 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
         // other sub deployments should not have access to classes in the war module
         PrivateSubDeploymentMarker.mark(deploymentUnit);
 
-        // OSGi WebApp deployments (WAB) may use the deployment root if they don't use WEB-INF/classes already
-        if (!deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST) || deploymentRoot.getChild(WEB_INF_CLASSES).exists()) {
+        // OSGi WebApp deployments (WAB) use the deployment root when it is on their Bundle-ClassPath, also with
+        // WEB-INF/classes (ee/05). Without the header they use it if they don't use WEB-INF/classes already
+        final Set<String> wabClassPath = getDeclaredBundleClassPath(deploymentUnit);
+        final boolean wabRoot = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)
+                && (wabClassPath != null ? wabClassPath.contains(".") : !deploymentRoot.getChild(WEB_INF_CLASSES).exists());
+        if (wabRoot) {
+            // The index of the root has the classes of the root only: WEB-INF and the other entries of the Bundle-ClassPath
+            // are resource roots of their own, or not part of the web application
+            deploymentResourceRoot.addToAttachmentList(Attachments.INDEX_IGNORE_PATHS, "WEB-INF");
+            if (wabClassPath != null) {
+                for (String entry : wabClassPath) {
+                    if (!entry.equals(".")) {
+                        deploymentResourceRoot.addToAttachmentList(Attachments.INDEX_IGNORE_PATHS, entry);
+                    }
+                }
+            }
+        } else {
             // we do not want to index the resource root, only WEB-INF/classes and WEB-INF/lib
             deploymentResourceRoot.putAttachment(Attachments.INDEX_RESOURCE_ROOT, false);
 
@@ -187,9 +202,10 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
         final List<ResourceRoot> entries = new ArrayList<ResourceRoot>();
         // The web resources of an OSGi web application (WAB) are those on its Bundle-ClassPath (OSGi Enterprise 128.3.7)
         final Set<String> bundleClassPath = getBundleClassPath(deploymentUnit);
-        // WEB-INF classes
+        // WEB-INF classes, of a WAB that declares its Bundle-ClassPath only when it is on it (ee/05)
+        final Set<String> declaredClassPath = getDeclaredBundleClassPath(deploymentUnit);
         final VirtualFile webinfClasses = deploymentRoot.getChild(WEB_INF_CLASSES);
-        if (webinfClasses.exists()) {
+        if (webinfClasses.exists() && (declaredClassPath == null || declaredClassPath.contains(WEB_INF_CLASSES))) {
             final ResourceRoot webInfClassesRoot = new ResourceRoot(webinfClasses.getName(), webinfClasses, null);
             ModuleRootMarker.mark(webInfClassesRoot);
             entries.add(webInfClassesRoot);
@@ -255,6 +271,13 @@ public class WarStructureDeploymentProcessor implements DeploymentUnitProcessor 
     /**
      * The entries of the Bundle-ClassPath of an OSGi web application, null for other deployments
      */
+    // The Bundle-ClassPath of a WAB that has the header, null otherwise
+    private static Set<String> getDeclaredBundleClassPath(final DeploymentUnit deploymentUnit) {
+        final Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
+        final String header = manifest != null ? manifest.getMainAttributes().getValue("Bundle-ClassPath") : null;
+        return header == null || header.trim().isEmpty() ? null : getBundleClassPath(deploymentUnit);
+    }
+
     private static Set<String> getBundleClassPath(final DeploymentUnit deploymentUnit) {
         final Manifest manifest = deploymentUnit.getAttachment(Attachments.OSGI_MANIFEST);
         if (manifest == null) {
