@@ -15,7 +15,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>41.0.0.Beta1-SNAPSHOT</version>
+        <version>43.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../../../pom.xml</relativePath>
     </parent>
 
@@ -24,8 +24,7 @@
 
     <properties>
         <!-- Don't try to deploy the testsuite modules because they don't build jars -->
-        <maven.deploy.skip>true</maven.deploy.skip>
-        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+        <skipPublishing>true</skipPublishing>
     </properties>
 
     <build>
@@ -75,11 +74,6 @@
                 </plugin>
 
                 <!-- Don't deploy -->
-                <plugin>
-                    <groupId>org.sonatype.plugins</groupId>
-                    <artifactId>nxrm3-maven-plugin</artifactId>
-                    <configuration><skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo></configuration>
-                </plugin>
                 <plugin>
                     <groupId>org.sonatype.central</groupId>
                     <artifactId>central-publishing-maven-plugin</artifactId>

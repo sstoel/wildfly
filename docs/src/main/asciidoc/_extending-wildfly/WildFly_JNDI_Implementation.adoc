@@ -17,7 +17,7 @@ new/updated APIs for WildFly subsystem and EE deployment processors
 developers to bind new resources easier.
 
 To support discussion in the community, the content includes a big focus
-on comparing WildFly {wildflyVersion} JNDI implementation with the new proposal, and
+on comparing WildFly JNDI implementation with the new proposal, and
 should later evolve to the prime guide for WildFly developers needing to
 interact with JNDI at subsystem level.
 
@@ -192,9 +192,9 @@ public class ModuleNameBindingProcessor implements DeploymentUnitProcessor {
 
 When adding the binding configuration use:
 
-* addDeploymentBinding() for a binding that may not be overriden, such
+* addDeploymentBinding() for a binding that may not be overridden, such
 as the ones found in xml descriptors
-* addPlatformBinding() for a binding which may be overriden by a
+* addPlatformBinding() for a binding which may be overridden by a
 deployment descriptor bind or annotation, for instance
 java:comp/DefaultDatasource
 

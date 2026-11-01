@@ -8,6 +8,7 @@ package org.wildfly.extension.undertow.deployment;
 import java.io.IOException;
 import java.io.InputStream;
 
+import javax.xml.XMLConstants;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -74,6 +75,8 @@ public class WebParsingDeploymentProcessor implements DeploymentUnitProcessor {
 
                     MetaDataElementParser.DTDInfo dtdInfo = new MetaDataElementParser.DTDInfo();
                     inputFactory.setXMLResolver(dtdInfo);
+                    setIfSupported(inputFactory, XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                    setIfSupported(inputFactory, XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
                     final XMLStreamReader xmlReader = inputFactory.createXMLStreamReader(is);
 
                     WebMetaData webMetaData = WebMetaDataParser.parse(xmlReader, dtdInfo, SpecDescriptorPropertyReplacement.propertyReplacer(deploymentUnit));
@@ -135,6 +138,12 @@ public class WebParsingDeploymentProcessor implements DeploymentUnitProcessor {
             }
         } finally {
             WildFlySecurityManager.setCurrentContextClassLoaderPrivileged(old);
+        }
+    }
+
+    private static void setIfSupported(final XMLInputFactory inputFactory, final String property, final Object value) {
+        if (inputFactory.isPropertySupported(property)) {
+            inputFactory.setProperty(property, value);
         }
     }
 }

@@ -224,7 +224,7 @@ Please note that the operation "read-config-as-xml" that used to return the XML 
 {
     "outcome" => "success",
     "result" => {
-        "domain-results" => {"step-1" => {"name" => "JBOSS_HOME/domain/configuration/domain_xml_history/snapshot/20110908-165222603domain.xml"}},
+        "domain-results" => {"step-1" => {"name" => "$JBOSS_HOME/domain/configuration/domain_xml_history/snapshot/20110908-165222603domain.xml"}},
         "server-operations" => undefined
     }
 }
@@ -242,7 +242,7 @@ Assume you have a host that is called "primary"
 {
     "outcome" => "success",
     "result" => {
-        "domain-results" => {"step-1" => {"name" => "JBOSS_HOME/domain/configuration/host_xml_history/snapshot/20110908-165640215host.xml"}},
+        "domain-results" => {"step-1" => {"name" => "$JBOSS_HOME/domain/configuration/host_xml_history/snapshot/20110908-165640215host.xml"}},
         "server-operations" => undefined
     }
 }
@@ -329,7 +329,7 @@ script (e.g. 'bin/jboss-admin.bat --connect command=:shutdown').
 
 To avoid "Press any key to continue ..." message you need to specify
 NOPAUSE variable. Call 'set NOPAUSE=true' in command line before running
-any WildFly {wildflyVersion} .bat script or include it in your custom script before
+any WildFly .bat script or include it in your custom script before
 invoking scripts from WildFly.
 
 [[statistics]]
@@ -672,7 +672,7 @@ for a complete description of the command.
 [[mp-cli-script]]
 == Evolving standard configurations with support for MicroProfile
 
-The CLI script _JBOSS_HOME/docs/examples/enable-microprofile.cli_ can be applied to a default standalone configuration
+The CLI script _$JBOSS_HOME/docs/examples/enable-microprofile.cli_ can be applied to a default standalone configuration
 to add support for MicroProfile.
 
 Impact on updated configuration:

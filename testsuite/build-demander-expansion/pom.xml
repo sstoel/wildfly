@@ -29,7 +29,7 @@
         Maintain separation between the artifact id and the version to help prevent
         merge conflicts between commits changing the GA and those changing the V.
         -->
-        <version>41.0.0.Beta1-SNAPSHOT</version>
+        <version>43.0.0.Beta1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -52,9 +52,7 @@
         <testsuite.default.full.build.version>${full.maven.version}</testsuite.default.full.build.version>
 
         <!-- Don't try to deploy the module -->
-        <maven.deploy.skip>true</maven.deploy.skip>
-        <skipNexusStagingDeployMojo>true</skipNexusStagingDeployMojo>
-        <skipPublishing>${maven.deploy.skip}</skipPublishing>
+        <skipPublishing>true</skipPublishing>
     </properties>
 
     <dependencies>

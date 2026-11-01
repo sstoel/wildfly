@@ -60,7 +60,7 @@ public class DefaultCacheContainerAdmin implements EmbeddedCacheManagerAdmin {
 
     @Override
     public synchronized <K, V> Cache<K, V> getOrCreateCache(String name, Configuration configuration) {
-        return (this.manager.getCacheConfiguration(name) != null) ? this.createCache(name, configuration) : this.manager.getCache(name);
+        return (this.manager.getCacheConfiguration(name) != null) ? this.manager.getCache(name) : this.createCache(name, configuration);
     }
 
     @Override
@@ -89,5 +89,9 @@ public class DefaultCacheContainerAdmin implements EmbeddedCacheManagerAdmin {
 
     @Override
     public void updateConfigurationAttribute(String cacheName, String attribute, String value) {
+    }
+
+    @Override
+    public void updateGlobalConfigurationAttribute(String attribute, String value) {
     }
 }
