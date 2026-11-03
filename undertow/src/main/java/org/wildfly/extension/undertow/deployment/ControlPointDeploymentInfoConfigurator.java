@@ -9,7 +9,6 @@ import java.security.PrivilegedAction;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.UnaryOperator;
 
 import io.undertow.predicate.Predicate;
@@ -344,14 +343,10 @@ public class ControlPointDeploymentInfoConfigurator implements UnaryOperator<Dep
     static class CompletableSession implements Session {
         private final SessionManager manager;
         private final Session session;
-        // TODO Remove following Undertow 2.4 upgrade
-        private final AtomicBoolean valid = new AtomicBoolean(true);
-        private volatile int maxInactiveInterval;
 
         CompletableSession(SessionManager manager, Session session) {
             this.manager = manager;
             this.session = session;
-            this.maxInactiveInterval = session.getMaxInactiveInterval();
         }
 
         @Override
@@ -384,7 +379,6 @@ public class ControlPointDeploymentInfoConfigurator implements UnaryOperator<Dep
         @Override
         public void setMaxInactiveInterval(int interval) {
             this.session.setMaxInactiveInterval(interval);
-            this.maxInactiveInterval = interval;
         }
 
         @Override
@@ -414,7 +408,6 @@ public class ControlPointDeploymentInfoConfigurator implements UnaryOperator<Dep
 
         @Override
         public void invalidate(HttpServerExchange exchange) {
-            this.valid.set(false);
             this.session.invalidate(exchange);
             // UNDERTOW-2764 workaround
             ServletRequestContext context = (exchange != null) ? exchange.getAttachment(ServletRequestContext.ATTACHMENT_KEY) : null;

@@ -918,7 +918,9 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                 }
 
                 webSocketDeploymentInfo.addListener(wsc -> {
-                    serverActivity.set(new ServerActivity() {
+                    // An OSGi web application starts its context again with the same DeploymentInfo: the activity of its
+                    // previous start, which holds the web socket container of that start, is replaced
+                    ServerActivity previous = serverActivity.getAndSet(new ServerActivity() {
                         @Override
                         public void preSuspend(ServerActivityCallback listener) {
                             listener.done();
@@ -948,6 +950,9 @@ public class UndertowDeploymentInfoService implements Service<DeploymentInfo> {
                             wsc.resume();
                         }
                     });
+                    if (previous != null) {
+                        suspendController.get().unRegisterActivity(previous);
+                    }
                     suspendController.get().registerActivity(serverActivity.get());
                 });
 

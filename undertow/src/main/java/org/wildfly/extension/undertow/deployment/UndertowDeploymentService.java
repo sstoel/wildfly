@@ -90,18 +90,33 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
         Thread.currentThread().setContextClassLoader(deploymentInfo.getClassLoader());
         try {
             StartupContext.setInjectionContainer(webInjectionContainer);
+            DeploymentManager manager = null;
             try {
-                deploymentManager = container.get().getServletContainer().addDeployment(deploymentInfo);
-                deploymentManager.deploy();
-                HttpHandler handler = deploymentManager.start();
-                Deployment deployment = deploymentManager.getDeployment();
+                // A web application whose context path is served by another deployment fails before its listeners and
+                // servlets are initialized. The host checks the path again when it registers the deployment
+                host.get().checkContextPathFree(deploymentInfo);
+                manager = container.get().getServletContainer().addDeployment(deploymentInfo);
+                deploymentManager = manager;
+                manager.deploy();
+                HttpHandler handler = manager.start();
+                Deployment deployment = manager.getDeployment();
                 host.get().registerDeployment(deployment, handler);
             } catch (Throwable originalException) {
-                try {
-                    deploymentManager.undeploy();
-                    container.get().getServletContainer().removeDeployment(deploymentInfo);
-                } catch(Throwable e) {
-                    originalException.addSuppressed(e);
+                deploymentManager = null;
+                if (manager != null) {
+                    try {
+                        // stop() destroys the servlets and filters that start() initialized, and stops the session
+                        // manager; undeploy() notifies the listeners
+                        if (manager.getDeployment() != null) {
+                            manager.stop();
+                        }
+                        if (manager.getDeployment() != null) {
+                            manager.undeploy();
+                        }
+                        container.get().getServletContainer().removeDeployment(deploymentInfo);
+                    } catch(Throwable e) {
+                        originalException.addSuppressed(e);
+                    }
                 }
                 throw originalException;
             } finally {
@@ -149,16 +164,23 @@ public class UndertowDeploymentService implements Service<UndertowDeploymentServ
         DeploymentInfo deploymentInfo = this.deploymentInfo.get();
         Thread.currentThread().setContextClassLoader(deploymentInfo.getClassLoader());
         try {
-            if (deploymentManager != null) {
-                Deployment deployment = deploymentManager.getDeployment();
+            // The manager of a web application that was stopped before, or that failed to start, is gone: an OSGi web
+            // application is stopped by its bundle and then by its deployment
+            final DeploymentManager manager = deploymentManager;
+            deploymentManager = null;
+            if (manager != null && manager.getDeployment() != null) {
                 try {
-                    host.get().unregisterDeployment(deployment);
-                    deploymentManager.stop();
-                } catch (ServletException e) {
-                    throw new RuntimeException(e);
+                    host.get().unregisterDeployment(manager.getDeployment());
+                } finally {
+                    try {
+                        manager.stop();
+                    } catch (ServletException e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        manager.undeploy();
+                        container.get().getServletContainer().removeDeployment(deploymentInfo);
+                    }
                 }
-                deploymentManager.undeploy();
-                container.get().getServletContainer().removeDeployment(deploymentInfo);
             }
             if (deleteTempDir) {
                 recursiveDelete(deploymentInfo.getTempDir());

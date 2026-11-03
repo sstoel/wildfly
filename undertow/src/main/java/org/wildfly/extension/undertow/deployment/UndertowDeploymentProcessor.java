@@ -394,7 +394,7 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
                     .setScisMetaData(scisMetaData)
                     .setJaccContextId(jaccContextId)
                     .setSecurityDomain(securityDomainName)
-                    .setTldInfo(createTldsInfo(tldsMetaData, tldsMetaData == null ? null : tldsMetaData.getSharedTlds(deploymentUnit)))
+                    .setTldInfo(createTldsInfo(tldsMetaData, tldsMetaData == null ? null : tldsMetaData.getSharedTlds(deploymentUnit), deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)))
                     .setSetupActions(setupActions)
                     .setSharedSessionManagerConfig(sharedSessionManagerConfig)
                     .setOverlays(warMetaData.getOverlays())
@@ -558,19 +558,22 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
         deploymentUnit.removeAttachment(ServletContextAttribute.ATTACHMENT_KEY);
     }
 
-    private static HashMap<String, TagLibraryInfo> createTldsInfo(final TldsMetaData tldsMetaData, List<TldMetaData> sharedTlds) {
+    /**
+     * @param webappBundle true for an OSGi web application, whose Bundle-ClassPath can have JARs outside WEB-INF/lib
+     */
+    private static HashMap<String, TagLibraryInfo> createTldsInfo(final TldsMetaData tldsMetaData, List<TldMetaData> sharedTlds, final boolean webappBundle) {
 
         final HashMap<String, TagLibraryInfo> ret = new HashMap<>();
         if (tldsMetaData != null) {
             if (tldsMetaData.getTlds() != null) {
                 for (Map.Entry<String, TldMetaData> tld : tldsMetaData.getTlds().entrySet()) {
-                    createTldInfo(tld.getKey(), tld.getValue(), ret);
+                    createTldInfo(tld.getKey(), tld.getValue(), ret, webappBundle);
                 }
             }
             if (sharedTlds != null) {
                 for (TldMetaData metaData : sharedTlds) {
 
-                    createTldInfo(null, metaData, ret);
+                    createTldInfo(null, metaData, ret, webappBundle);
                 }
             }
         }
@@ -588,7 +591,7 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
 
 
 
-    private static TagLibraryInfo createTldInfo(final String location, final TldMetaData tldMetaData, final HashMap<String, TagLibraryInfo> ret) {
+    private static TagLibraryInfo createTldInfo(final String location, final TldMetaData tldMetaData, final HashMap<String, TagLibraryInfo> ret, final boolean webappBundle) {
         String relativeLocation = location;
         String jarPath = null;
         if (relativeLocation != null && relativeLocation.startsWith("/WEB-INF/lib/")) {
@@ -600,8 +603,9 @@ public class UndertowDeploymentProcessor implements DeploymentUnitProcessor {
                 }
                 relativeLocation = relativeLocation.substring(0, pos);
             }
-        } else if (relativeLocation != null) {
-            // A JAR on the Bundle-ClassPath of an OSGi web application need not be in WEB-INF/lib
+        } else if (relativeLocation != null && webappBundle) {
+            // A JAR on the Bundle-ClassPath of an OSGi web application need not be in WEB-INF/lib. Other web
+            // applications keep the stock location, also for a directory whose name ends with .jar
             int pos = relativeLocation.toLowerCase(Locale.ENGLISH).indexOf(".jar/");
             if (pos > 0) {
                 jarPath = relativeLocation.substring(pos + ".jar/".length());

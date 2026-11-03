@@ -230,19 +230,21 @@ public class WarMetaDataProcessor implements DeploymentUnitProcessor {
         }
         // Augment with meta data from annotations in /WEB-INF/classes
         WebMetaData annotatedMetaData = annotationsMetaData.get("classes");
-        if (annotatedMetaData == null && deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST)) {
-            annotatedMetaData = annotationsMetaData.get(deploymentUnit.getName());
-        }
-        if (annotatedMetaData != null) {
-            if (isComplete) {
-                // Discard @WebFilter, @WebListener and @WebServlet
-                annotatedMetaData.setFilters(null);
-                annotatedMetaData.setFilterMappings(null);
-                annotatedMetaData.setListeners(null);
-                annotatedMetaData.setServlets(null);
-                annotatedMetaData.setServletMappings(null);
+        // and in the root of an OSGi web application that has it on its Bundle-ClassPath, alone or together with
+        // WEB-INF/classes (ee/05)
+        WebMetaData rootAnnotatedMetaData = deploymentUnit.hasAttachment(Attachments.OSGI_MANIFEST) ? annotationsMetaData.get(deploymentUnit.getName()) : null;
+        for (WebMetaData directoryMetaData : new WebMetaData[] { annotatedMetaData, rootAnnotatedMetaData != annotatedMetaData ? rootAnnotatedMetaData : null }) {
+            if (directoryMetaData != null) {
+                if (isComplete) {
+                    // Discard @WebFilter, @WebListener and @WebServlet
+                    directoryMetaData.setFilters(null);
+                    directoryMetaData.setFilterMappings(null);
+                    directoryMetaData.setListeners(null);
+                    directoryMetaData.setServlets(null);
+                    directoryMetaData.setServletMappings(null);
+                }
+                WebCommonMetaDataMerger.augment(specMetaData, directoryMetaData, null, true);
             }
-            WebCommonMetaDataMerger.augment(specMetaData, annotatedMetaData, null, true);
         }
         // Augment with meta data from annotations in the other directories on the Bundle-ClassPath of an OSGi web application
         for (Map.Entry<String, WebMetaData> entry : annotationsMetaData.entrySet()) {

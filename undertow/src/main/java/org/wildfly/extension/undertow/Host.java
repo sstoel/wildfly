@@ -316,25 +316,54 @@ public class Host implements Service<Host>, FilterLocation, SuspendableActivity 
     public void registerDeployment(final Deployment deployment, HttpHandler handler) {
         DeploymentInfo deploymentInfo = deployment.getDeploymentInfo();
         String path = getDeployedContextPath(deploymentInfo);
-        // An OSGi web application is installed while another web application uses its context path, it starts when the
-        // path is free: the handler of a deployment that serves the path must not be replaced
+        // The check of the context path and the registration are one step: of two deployments with the same path that
+        // start at the same time, e.g. a WAR and a programmatic deployment, only one takes it
+        synchronized (deployments) {
+            checkContextPathFree(deployment, path);
+            registerHandler(path, handler);
+            deployments.add(deployment);
+        }
+        UndertowLogger.ROOT_LOGGER.registerWebapp(path, getServer().getName());
+        server.get().getUndertowService().fireEvent(listener -> listener.onDeploymentStart(deployment, Host.this));
+    }
+
+    /**
+     * Fails with {@link UndertowLogger#contextPathInUse} when a deployment serves the context path of the given one.
+     * An OSGi web application is installed while another web application uses its context path, it starts when the
+     * path is free: the handler of a deployment that serves the path must not be replaced. {@link #registerDeployment}
+     * checks it again, atomically; a check before the start of a web application spares it the start and stop of its
+     * listeners and servlets.
+     */
+    public void checkContextPathFree(final DeploymentInfo deploymentInfo) {
+        checkContextPathFree(null, getDeployedContextPath(deploymentInfo));
+    }
+
+    private void checkContextPathFree(final Deployment deployment, final String path) {
         for (Deployment other : deployments) {
             if (other != deployment && path.equals(getDeployedContextPath(other.getDeploymentInfo()))) {
                 throw UndertowLogger.ROOT_LOGGER.contextPathInUse(path, getName(), other.getDeploymentInfo().getDeploymentName());
             }
         }
-        registerHandler(path, handler);
-        deployments.add(deployment);
-        UndertowLogger.ROOT_LOGGER.registerWebapp(path, getServer().getName());
-        server.get().getUndertowService().fireEvent(listener -> listener.onDeploymentStart(deployment, Host.this));
     }
 
     public void unregisterDeployment(final Deployment deployment) {
+        // A deployment that did not take its path, or that is unregistered already, has no handler here: the path may be
+        // served by another deployment
+        if (deployment == null || !deployments.contains(deployment)) {
+            return;
+        }
         DeploymentInfo deploymentInfo = deployment.getDeploymentInfo();
         String path = getDeployedContextPath(deploymentInfo);
-        server.get().getUndertowService().fireEvent(listener -> listener.onDeploymentStop(deployment, Host.this));
-        unregisterHandler(path);
-        deployments.remove(deployment);
+        try {
+            server.get().getUndertowService().fireEvent(listener -> listener.onDeploymentStop(deployment, Host.this));
+        } finally {
+            // A listener that fails must not leave the path to a deployment that stops
+            synchronized (deployments) {
+                if (deployments.remove(deployment)) {
+                    unregisterHandler(path);
+                }
+            }
+        }
         UndertowLogger.ROOT_LOGGER.unregisterWebapp(path, getServer().getName());
     }
 

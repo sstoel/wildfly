@@ -44,10 +44,12 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.jar.Manifest;
 
 import static org.jboss.as.jpa.messages.JpaLogger.ROOT_LOGGER;
@@ -148,10 +150,12 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
             parse(persistence_xml, listPUHolders, deploymentUnit);
             // A WAB that is a persistence bundle too has the descriptors of its Meta-Persistence header, with the bundle
             // as root of their persistence units (OSGi Enterprise 127.4.2, wildfly/20)
+            final Set<String> metaPersistenceDescriptors = new HashSet<>();
             if (hasMetaPersistence(deploymentUnit)) {
                 parse(deploymentRoot.getRoot().getChild(META_INF_PERSISTENCE_XML), deploymentRoot.getRoot(), listPUHolders, deploymentUnit);
                 for (VirtualFile[] descriptor : getMetaPersistenceDescriptors(deploymentUnit, deploymentRoot.getRoot())) {
                     parse(descriptor[0], descriptor[1], listPUHolders, deploymentUnit);
+                    metaPersistenceDescriptors.add(descriptor[0].getPathName());
                 }
             }
             PersistenceUnitMetadataHolder holder = normalize(listPUHolders);
@@ -168,6 +172,12 @@ public class PersistenceUnitParseProcessor implements DeploymentUnitProcessor {
                 if (resourceRoot.getRoot().getName().toLowerCase(Locale.ENGLISH).endsWith(JAR_FILE_EXTENSION)) {
                     listPUHolders = new ArrayList<PersistenceUnitMetadataHolder>(1);
                     persistence_xml = resourceRoot.getRoot().getChild(META_INF_PERSISTENCE_XML);
+                    // A JAR on the Bundle-ClassPath of a WAB whose descriptor is named in the Meta-Persistence header too
+                    // has its persistence units from the header already, with the same JAR as root
+                    if (metaPersistenceDescriptors.contains(persistence_xml.getPathName())) {
+                        resourceRoot.putAttachment(PersistenceUnitMetadataHolder.PERSISTENCE_UNITS, emptyholder);
+                        continue;
+                    }
                     parse(persistence_xml, listPUHolders, deploymentUnit);
                     holder = normalize(listPUHolders);
                     resourceRoot.putAttachment(PersistenceUnitMetadataHolder.PERSISTENCE_UNITS, holder);
